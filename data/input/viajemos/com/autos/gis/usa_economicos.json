@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "tema": "USA - Autos Económicos",
+    "descripcion": "",
+    "idioma": "Español"
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Alquiler de autos económicos en Estados Unidos",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "Buscamos y comparamos tarifas en USA para que ahorres hasta el 35% en renta de autos baratos. ¡Solo con Viajemos! "
+      }
+    },
+    {
+      "fleet": {
+        "h2": "Renta de autos baratos en Estados Unidos, ¡tenemos la mejor oferta!",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "¡Nuestras opciones de alquiler de autos baratos en EE. UU. te ofrecen eficiencia, estilo y ahorro! Ingresa a Viajemos y accede a una variedad diversa con descuentos hasta del 35% en todas nuestras tarifas. Reserva el vehículo que quieras y obtén Seguro de Viaje gratis (válido para turistas extranjeros), Asistencia Básica en Carretera, Kilómetros Ilimitados y más beneficios que te garantizan recorridos tranquilos. ¡Viaja más, paga menos! Haz realidad tu travesía por Estados Unidos rentando un vehículo económico.",
+        "ip_usa": "¡Nuestras opciones de alquiler de autos baratos en EE. UU. te ofrecen eficiencia, estilo y ahorro! Ingresa a Viajemos y accede a una variedad diversa con descuentos hasta del 35% en todas nuestras tarifas. Reserva el vehículo que quieras y obtén Asistencia Básica en Carretera, Kilómetros Ilimitados, Tarifas Preferenciales y más beneficios que te garantizan recorridos tranquilos. ¡Viaja más, paga menos! Haz realidad tu travesía por Estados Unidos rentando un vehículo económico.",
+        "ip_bra": "¡Nuestras opciones de alquiler de autos baratos en EE. UU. te ofrecen eficiencia, estilo y ahorro! Ingresa a Viajemos y accede a una variedad diversa con descuentos hasta del 35% en todas nuestras tarifas. Reserva el vehículo que quieras y obtén Seguro de Viaje gratis (válido para turistas extranjeros), Asistencia Básica en Carretera, Beneficio Cobertura del IOF y más beneficios que te garantizan recorridos tranquilos. ¡Viaja más, paga menos! Haz realidad tu travesía por Estados Unidos rentando un vehículo económico."
+      }
+    },
+    {
+      "agencies": {
+        "h2": "Conoce las mejores agencias de alquiler de autos baratos en USA",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "En Viajemos, fusionamos el ahorro con el prestigio de las principales compañías de renta de autos económicos en USA. Reserva con Avis, Budget, Alamo y otras más, para destacar en las carreteras norteamericanas. Nuestra colaboración con los gigantes del mercado de alquiler no solo te brinda la variedad más completa, también te asegura precios irresistibles, ¡reserva hoy y ahorra hasta el 35% OFF! ",
+        "vol_h3": "20 a 35 palabras",
+        "h3_desc": "¡Tu viaje es nuestra prioridad! Trabajamos con las mejores agencias de alquiler de autos para ofrecerte precios irresistibles. Reserva hoy y ahorra hasta un 35% OFF. ¡Viajemos a tu manera! "
+      }
+    },
+    {
+      "faqs": {
+        "h2": "Información importante sobre renta de autos baratos en EE. UU",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "Datos que marcan la diferencia: develamos información importante sobre alquiler de carros económicos en Estados Unidos. Entérate sobre las tarifas más bajas y los requisitos necesarios para rentar el auto perfecto que te brindará recorridos tranquilos, estables y amigables con tu bolsillo. ¡No existe rival para nuestros precios bajos! Compruébalo reservando hoy mismo. ",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta alquilar un auto económico en Estados Unidos?",
+          "h3_faq_2": "¿Cuáles agencias tienen las tarifas más bajas para alquilar autos en Estados Unidos?",
+          "h3_faq_3": "¿Cuál es el auto más barato para alquilar en Estados Unidos?",
+          "h3_faq_4": "¿Qué se necesita para rentar un auto barato en Estados Unidos?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "El precio para rentar un carro barato en USA comienza desde los USD $8/día.",
+          "faq_2": "Las compañías de alquiler con los precios más baratos en USA son:\n**\nBudget desde USD $8/día.\n- Alamo desde USD $9/día.\n- Dollar desde USD $10/día.\n**\nEn nuestro portal web, puedes comparar entre estas y muchas más agencias de renta para que disfrutes de sus tarifas y beneficios exclusivos. ",
+          "faq_3": "Los carros con los precios más bajos para rentar en Estados Unidos son:\n**\n- Económico (Chevrolet Spark o similar)\n- Intermedio (Hyundai Elantra o similar)\n- Compacto (Ford Focus o similar)\n**\nEncuentra estos y más modelos desde los USD $8/día. Recuerda que el precio de alquiler podría variar de acuerdo a la temporada, los servicios adicionales, el itinerario y más aspectos de la reserva. ",
+          "faq_4": "Los requisitos para rentar un carro económico en USA son los siguientes:\n**\n- Ser mayor de 25 años*.\n- Licencia de conducción de tu país de origen vigente, con antigüedad mayor a un año y fecha de vencimiento impresa.\n- Tarjeta de crédito a nombre del titular de la reserva con cupo disponible para cubrir el depósito de alquiler.\n- Depósito de Garantía.\n- Pasaporte vigente.\n- Tiquetes aéreos o de crucero (ida y vuelta).\n- Voucher impreso para comprobar que la reserva fue prepagada, en caso de que seas extranjero.\n**\n*Algunas agencias permiten que el titular de la reserva tenga entre 21 y 24 años, por un pequeño precio adicional.\nEs necesario que los documentos se presenten en formato físico al momento de retirar el coche de la agencia. Además, ten presente que los requisitos pueden cambiar de acuerdo a tu país de origen, te invitamos a consultar todos los detalles con Lucy, nuestro Chatbot."
+        }
+      }
+    },
+    {
+      "fav_city": {
+        "h2": "Renta autos económicos en ciudades de Estados Unidos",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Explora a lo grande, gasta poco! Alquila un carro barato y conquista las ciudades de Estados Unidos: Miami, Orlando, New York, Las Vegas y muchas más, ¿cuál metrópoli vas a visitar este año? Ingresa a Viajemos, selecciona tu auto favorito, disfruta de beneficios exclusivos y un ahorro notable en todas tus reservas. ¡Conoce toda una nación mientras ahorras! ",
+        "h3": {
+          "h3_fav_1": "Renta de autos en Miami",
+          "h3_fav_2": "Renta de autos en Orlando",
+          "h3_fav_3": "Renta de autos en CBX",
+          "h3_fav_4": "Renta de autos en Las Vegas",
+          "h3_fav_5": "Renta de autos en New York",
+          "h3_fav_6": "Renta de autos en Los Ángeles",
+          "h3_fav_7": "Renta de autos en Houston",
+          "h3_fav_8": "Renta de autos en Chicago",
+          "h3_fav_9": "Renta de autos en Lauderdale",
+          "h3_fav_10": "Renta de autos en San Diego",
+          "h3_fav_11": "Renta de autos en Dallas",
+          "h3_fav_12": "Renta de autos en Phoenix",
+          "h3_fav_13": "Renta de autos en Tampa",
+          "h3_fav_14": "Renta de autos en San Francisco",
+          "h3_fav_15": "Renta de autos en Atlanta",
+          "h3_fav_16": "Renta de autos en denver"
+        },
+        "vol_h3": "25 a 30 palabras",
+        "h3_desc": {
+          "fav_desc_1": "Coches baratos de alquiler en Miami La mejor forma de disfrutar Miami sin gastar de más es con nuestro servicio de alquiler de autos a precios imbatibles.",
+          "fav_desc_2": "Renta de autos en Orlando Tu viaje comienza con una reserva rápida y segura. Descubre la facilidad de planificar con nuestro servicio de alquiler de carros.",
+          "fav_desc_3": "Vehiculos baratos de renta en CBX Vive la experiencia completa en CBX sin preocuparte por los costos. Alquilar un auto y disfrutar al máximo no tiene por qué ser caro.",
+          "fav_desc_4": "Renta de autos en Las Vegas La mejor forma de disfrutar Las Vegas sin gastar de más es con nuestro servicio de alquiler de autos a precios imbatibles.",
+          "fav_desc_5": "Renta de autos en New York Explora New York con total libertad. Nuestros autos de alquiler te llevan a donde quieras, sin restricciones.",
+          "fav_desc_6": "Disfruta de autos económicos en Los Ángeles Reserva en segundos y viaja con confianza. ¡Tu aventura comienza hoy!",
+          "fav_desc_7": "Renta de autos en Houston Descubre la ciudad a tu ritmo. Alquila un auto y crea tus propias historias en Houston.",
+          "fav_desc_8": "Autos de renta en Chicago ¿Quieres ahorrar en transporte? Con nuestros precios bajos, ¡disfrutas más sin gastar de más!",
+          "fav_desc_9": "Renta de autos Economicos en Lauderdale Nuestro servicio de alquiler de autos es el pase directo a tu diversión. ¡Aprovecha las ofertas hoy!",
+          "fav_desc_10": "Renta de carros en San Diego Nuestro proceso de reserva es un atajo hacia la diversión. ¡Rápido, seguro y sin complicaciones!",
+          "fav_desc_11": "Autos baratos de alquiler en Dallas Tu aventura comienza con un clic. Descubre la facilidad de planificar con nuestro servicio de alquiler de carros.",
+          "fav_desc_12": "Carros baratos de alquiler en Phoenix Aprovecha ahora y viaja a precios bajos. Nuestro servicio de alquiler de autos te ofrece ofertas que no puedes dejar pasar.",
+          "fav_desc_13": "Renta de vehículos baratos en Tampa Vive la experiencia completa en Tampa sin preocuparte por los costos. Alquilar un auto y disfrutar al máximo es más fácil de lo que imaginas.",
+          "fav_desc_14": "Renta de autos en San Francisco La mejor forma de explorar San Francisco sin romper el presupuesto es con nuestro servicio de alquiler de autos a precios imbatibles.",
+          "fav_desc_15": "Renta de autos en Atlanta ¡Libertad sobre ruedas! Autos de alquiler te llevan a donde quieras, sin restricciones ni límites.",
+          "fav_desc_16": "Renta de autos en Denver Reserva en segundos y viaja con la confianza de estar en buenas manos. Tu aventura comienza con nosotros."
+        }
+      }
+    },
+    {
+      "car_rental": {
+        "h2": "Alquiler de autos económicos y otros vehículos para movilizarte ",
+        "h2_desc": "Aquí encuentras renta de carros baratos, SUVs, vans, minivans, eléctricos y más. ¡Diversidad a tu alcance! Nuestra variedad de autos en Estados Unidos es tan variada como tus destinos. Recorre con libertad las autopistas de USA en el vehículo que cumpla con tus necesidades de movilidad, asegura trayectos cómodos al mejor precio. ¡Disfruta hasta el 35% OFF en todas nuestras tarifas! ",
+        "h3": {
+          "h3_1": "Alquiler de Vehículos Económicos",
+          "h3_2": "Renta de SUVs",
+          "h3_3": "Alquiler de Vans",
+          "h3_4": "Renta de Convertibles",
+          "h3_5": "Renta de Autos Eléctricos"
+        },
+        "h3_desc": {
+          "h3_desc_1": "¡Explora sin preocuparte por el costo! Renta un auto barato con Viajemos y conduce por Estados Unidos mientras ahorras.  ",
+          "h3_desc_2": "¿Quieres experimentar un viaje todoterreno? Alquila una camioneta y reta los caminos de USA con comodidad, potencia y mucho estilo. ",
+          "h3_desc_3": "¡Viaja en equipo y asegura la diversión! Renta una van en USA y vive una travesía con tus amigos.  ",
+          "h3_desc_4": "¡Alquila un descapotable para tu escapada perfecta por EE. UU.! Resérvalo con anterioridad en Viajemos y disfruta nuestros grandes beneficios.  ",
+          "h3_desc_5": "Sin emisiones, pero con emociones: así es nuestro alquiler de carros eléctricos en USA, elige conducir sin dejar huella ambiental. "
+        }
+      }
+    }
+  ]
+}

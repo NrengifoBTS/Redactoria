@@ -1,0 +1,14 @@
+export const ADMIN_USER_IDS = [
+  'b43f1d04-f339-4cf9-8e4e-4f127f12af5a',
+  'f49cda9b-2138-435e-a497-fda85be87e63',
+  'c7c17838-074d-44fa-9248-8dc87c15edd5'
+];
+
+export const EDITOR_USER_IDS = [
+  '093f0e21-abcb-4726-9d65-a3e0bf973934',
+  'a1116359-0fd7-43b4-b4eb-231bc2a14a21',
+  '4e7a5222-8bd5-45c5-bdcd-e4dc1dbfe27d'
+];
+
+export const isAdminUser = (userId) => ADMIN_USER_IDS.includes(userId);
+export const isEditorUser = (userId) => EDITOR_USER_IDS.includes(userId); 

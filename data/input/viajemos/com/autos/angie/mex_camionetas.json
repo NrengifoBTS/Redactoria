@@ -1,0 +1,86 @@
+{
+  "metadata": {
+    "tema": "alquiler de camionetas en México",
+    "descripcion": "alquiler de camionetas en México",
+    "idioma": "Español"
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Alquiler de camionetas en México",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "¡Descubre, compara y elige con Viajemos! Te garantizamos las tarifas más bajas del mercado en renta de SUVs en México."
+      }
+    },
+    {
+      "fleet": {
+        "h2": "Ofertas de renta de camionetas en México",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "¡Órale, compa! ¿Ya te enteraste de los ofertones que tenemos en renta de SUVs en México? En Viajemos, te ofrecemos hasta el 35% OFF en todas las tarifas para que aproveches y reserves la SUV que más te guste. Disfruta de comodidad, potencia y versatilidad en todos tus recorridos por el país azteca. Además, desbloquea beneficios exclusivos como Seguro de Viaje GRATIS para turistas extranjeros, Kilómetros Ilimitados, Asistencia Básica en Carretera y mucho más. ¡Somos amigos del ahorro y la calidad!",
+        "ip_usa": "¡Órale, compa! ¿Ya te enteraste de los ofertones que tenemos en renta de SUVs en México? En Viajemos, te ofrecemos hasta el 35% OFF en todas las tarifas para que aproveches y reserves la SUV que más te guste. Disfruta de comodidad, potencia y versatilidad en todos tus recorridos por el país azteca. Además, desbloquea beneficios exclusivos como Kilómetros Ilimitados, Modificaciones Flexibles, Asistencia Básica en Carretera durante las 24 horas y mucho más. ¡Somos amigos del ahorro y la calidad!",
+        "ip_bra": "¡Órale, compa! ¿Ya te enteraste de los ofertones que tenemos en renta de SUVs en México? En Viajemos, te ofrecemos hasta el 35% OFF en todas las tarifas para que aproveches y reserves la SUV que más te guste. Disfruta de comodidad, potencia y versatilidad en todos tus recorridos por el país azteca. Además, desbloquea beneficios exclusivos como Seguro de Viaje GRATIS para turistas extranjeros, descuento en Cobertura del IOF, Kilómetros Ilimitados y mucho más. ¡Somos amigos del ahorro y la calidad!"
+      }
+    },
+    {
+      "agencies": {
+        "h2": "Trabajamos con las mejores agencias de alquiler de Camionetas en México",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "En Viajemos, somos partners preferenciales de las agencias más prestigiosas en el mercado de renta de camionetas en México: Avis, Budget, Hertz, Dollar y muchas otras. Todas, al alcance de tu presupuesto. Compara, elige, reserva y asegura hoy mismo tu próxima rodada por tierras mexicanas. ¡Décadas de experiencia que marcan la diferencia!",
+        "vol_h3": "20 a 35 palabras",
+        "h3_desc": "¡Arriba el país de los mariachis! Alquila una SUV en México y disfruta de Kilómetros Ilimitados para recorrer sus calles como un auténtico aventurero."
+      }
+    },
+    {
+      "faqs": {
+        "h2": "Preguntas frecuentes sobre renta de SUV en México",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Compadre, que la certeza sea tu copiloto! Enseguida, respondemos las preguntas más frecuentes sobre alquiler de camionetas en México, para que reserves con total confianza y seguridad. Checa todo acerca de tarifas, agencias, requisitos y más detalles importantes que te ayudarán a tomar una decisión informada. Así que, relájate, ponte cómodo y déjanos guiarte en el proceso. ¡A rodar sin dudas!",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta alquilar una camioneta en México?",
+          "h3_faq_2": "¿Cuáles agencias tienen las tarifas más bajas para alquilar SUV en México?",
+          "h3_faq_3": "¿Cuál es la camioneta más barata para alquilar en México? ",
+          "h3_faq_4": "¿Qué se necesita para rentar una SUV en México?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "El precio para alquilar una camioneta en México comienza en USD 9/día.\nTen presente que este valor puede cambiar de acuerdo con la temporada de viaje, la agencia elegida o los servicios adicionales que agregues a la reserva.",
+          "faq_2": "Las compañías con los precios más bajos en renta de SUVs en México son:\n- Mex Rent a Car\n- Avis\n- Dollar\nAquí puedes comparar entre estas y otras destacadas empresas, elegir tu favorita y rentar el vehículo de tu preferencia para recorrer el país. Ten presente que las tarifas pueden variar según la temporada, los servicios incluidos en tu reserva, el tipo de auto y otros factores.",
+          "faq_3": "Las camionetas más económicas para rentar en México son:\n- Kia Soul o similiar (Económico)\n- Nissan Kicks o similar (Compacto)\n- Nissan X - Trail o similar (Estándar)\nCon nosotros puedes comparar entre estas y otras categorías para elegir el vehículo más adecuado para tus recorridos.",
+          "faq_4": "Los requisitos para rentar una SUV en México son:\n**\n- Tener mínimo 25 años.*\n- Licencia de conducción de tu país de origen vigente, con antigüedad mayor a un año y fecha de vencimiento impresa.\n- Tarjeta de crédito a nombre del titular de la reserva, con fondos suficientes para cubrir el depósito de alquiler.\n- Depósito de garantía.\n- Pasaporte vigente.\n- Voucher impreso para comprobar que la reserva fue prepagada, en caso de que seas extranjero.\n- Tiquetes de avión o crucero de ida y vuelta.\n**\n*Algunas compañías de alquiler aceptan que el titular de la reserva sea menor de 25 años (21 a 24) pagando un recargo adicional en el mostrador.\nNo olvides que es necesario presentar todos los documentos en formato físico al momento de recoger el auto en la agencia. Es posible que algunos requisitos cambien según tu país de origen, por eso te invitamos a consultar todos los detalles en nuestro Chatbot."
+        }
+      }
+    },
+    {
+      "fav_city": {
+        "h2": "Renta de SUV en México",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Que sepan que llegaste con todo! Renta una SUV en Viajemos y conoce los destinos más emblemáticos de México, como Cancún, Guadalajara, Monterrey, Tijuana y muchos más. ¿Por cuál ciudad vas a iniciar? Elige tu SUV ideal y disfruta de ventajas exclusivas y ahorros significativos en tu reserva. ¡Explora todo un país mientras cuidas tu bolsillo!",
+        "h3": {},
+        "vol_h3": "25 a 30 palabras",
+        "h3_desc": {}
+      }
+    },
+    {
+      "car_rental": {
+        "h2": "Si buscaste alquiler de SUVs, también te interesarán más opciones de movilidad",
+        "h2_desc": "Te ofrecemos alquiler de camionetas y más opciones para recorrer México. Accede a una amplia y versátil selección de vehículos de renta para que encuentres tu compañero de viaje ideal y completes tu reserva al mejor precio. Compara y elige entre prácticos carros compactos, espaciosas minivans, atractivos convertibles o elegantes autos de lujo. ¡On the Road, a la mexicana!",
+        "h3": {
+          "h3_1": "Alquiler de Vehículos Económicos",
+          "h3_2": "Alquiler de Vans",
+          "h3_3": "Alquiler de Convertibles",
+          "h3_4": "Alquiler de Autos de Lujo",
+          "h3_5": "",
+          "h3_6": ""
+        },
+        "h3_desc": {
+          "h3_desc_1": "Alquila un auto barato en México y recorre el país sin preocuparte por tu presupuesto.",
+          "h3_desc_2": "Renta una van en México y lleva a bordo todo tu grupo para una aventura inolvidable por territorio maya.",
+          "h3_desc_3": "¡Ponle un toque picante a tu aventura! Renta un descapotable en México y acelera a toda máquina por el País Azteca.",
+          "h3_desc_4": "Alquila un carro de lujo en México y conduce con estilo por sus mejores destinos. ¡Confort y elegancia en cada viaje!",
+          "h3_desc_5": "",
+          "h3_desc_6": ""
+        }
+      }
+    }
+  ]
+}

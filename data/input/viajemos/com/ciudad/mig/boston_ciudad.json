@@ -1,0 +1,86 @@
+{
+  "metadata": {
+    "tema": "Ciudad de Boston",
+    "descripcion": "landing page de la ciudad de Boston",
+    "idioma": "Español"
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Alquiler de autos en Boston, Massachusetts - Mejor Tarifa",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "Te ofrecemos las mejores tarifas en renta de autos en Boston. ¡Con Viajemos obtienes precios bajos y aventuras inolvidables!  "
+      }
+    },
+    {
+      "fleet": {
+        "h2": "variedad de autos baratos en Boston, MA",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "¡Descubre la variedad de autos baratos para alquilar en Boston que tenemos para ti y Viajemos hacia nuevas experiencias juntos! Explora la 'Beantown' a tu ritmo con un carro de renta y ahorra en cada kilómetro con nuestros descuentos hasta del 35% en el valor final de tu tarifa, ¡pero eso no es todo: tenemos Seguro de Viaje Gratis para ti y hasta 4 acompañantes más! Conduce tu travesía por Massachusetts hacia el más alto nivel y disfruta MÁS.",
+        "ip_usa": "¡Descubre la variedad de autos baratos para alquilar en Boston que tenemos para ti y Viajemos hacia nuevas experiencias juntos! Explora la 'Beantown' a tu ritmo con un carro de renta y ahorra en cada kilómetro con nuestros descuentos hasta del 35% en el valor final de tu tarifa, ¡pero eso no es todo: te ofrecemos Kilómetros Ilimitados y Modificaciones Flexibles! Conduce tu travesía por Massachusetts hacia el más alto nivel y disfruta MÁS.",
+        "ip_bra": "¡Descubre la variedad de autos baratos para alquilar en Boston que tenemos para ti y Viajemos hacia nuevas experiencias juntos! Explora la 'Beantown' a tu ritmo con un carro de renta y ahorra en cada kilómetro con nuestros descuentos hasta del 35% en el valor final de tu tarifa, ¡pero eso no es todo: tenemos Seguro de Viaje Gratis para ti y cobertura del impuesto IOF! Conduce tu travesía por Massachusetts hacia el más alto nivel y disfruta MÁS."
+      }
+    },
+    {
+      "agencies": {
+        "h2": "Empresas de Renta de autos en Boston",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Viajemos te conecta con los mejores! Descubre nuestras empresas asociadas de renta de autos en Boston y toma la mejor decisión al momento de solucionar tu movilidad por la ciudad de los Celtics. Elige tu coche ideal entre compañías prestigiosas como Avis, Alamo, Budget, Hertz, y muchas más. No arriesgues tu experiencia de viaje, ¡reserva ahora, la excelencia te espera!",
+        "vol_h3": "20 a 35 palabras",
+        "h3_desc": "¡Con nuestros Kilómetros Ilimitados podrás visitar los lugares más icónicos de Boston! ¿Por dónde vas a empezar? ¿La Universidad de Harvard, el TD Garden o la casa de los Medias Rojas? ¡Planea tu ruta sin límites!"
+      }
+    },
+    {
+      "faqs": {
+        "h2": "Preguntas frecuentes sobre Renta de carros en Boston, MA",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Conduce con certezas y viaja tranquilo! Enseguida, te mostraremos las respuestas a las dudas más comunes sobre la renta de vehículos en Boston que puedan surgir durante el alquiler del auto. Infórmate acerca de precios, agencias, localidades, requisitos, ¡y más! Aventúrate por Nueva Inglaterra enterado de los aspectos más cruciales y vive la mejor experiencia viajera. ",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta alquilar un auto en Boston?",
+          "h3_faq_2": "¿Cuál es la mejor compañía de alquiler de carros en Boston?",
+          "h3_faq_3": "¿Cuánto cuesta el alquiler de un auto en el Aeropuerto de Boston?",
+          "h3_faq_4": "¿Qué se necesita para rentar un carro en Boston?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "El precio para rentar un carro en Boston va desde los USD $8 al día.\nTen presente que este precio puede variar de acuerdo a la temporada del viaje, la empresa de alquiler elegida, el tipo de auto y los servicios adicionales añadidos a tu reserva.",
+          "faq_2": "Algunas de las mejores compañías de alquiler de autos en Boston, Massachusetts son Avis, Budget, Alamo, Hertz.\nRecuerda que en nuestro website podrás comparar entre estas y otras prestigiosas compañías de renta, para que selecciones la de tu preferencia.",
+          "faq_3": "Rentar un auto en el Aeropuerto Internacional Logan de Boston costará desde los USD $8 al día.\nRecuerda que esta tarifa puede variar de acuerdo a la temporada del viaje, la empresa de alquiler elegida, el tipo de auto y los servicios adicionales añadidos a tu reserva.",
+          "faq_4": "Los requisitos para alquilar un auto en Boston son:  \n\n- Licencia de conducción física de tu país de origen, con fecha de expedición mayor a 1 año. \n-  Tener mínimo 25 años de edad. \n-  Tarjeta de crédito del titular de la reserva con su nombre impreso y cupo suficiente para el depósito de alquiler. \n-  Depósito de garantía. \n-  Pasaporte vigente. \n- Tiquetes aéreos o de crucero (ida y regreso). \n\nAlgunas compañías de alquiler aceptan que el titular de la reserva sea menor de 25 años (21 a 24) pagando un recargo adicional en el mostrador."
+        }
+      }
+    },
+    {
+      "car_rental": {
+        "h2": "Tipos de autos de alquiler en Boston",
+        "h2_desc": "¡Escoger te da ventajas y nosotros te las ofrecemos! Encuentra el auto perfecto para tu viaje y toma una decisión acertada: te brindamos diferentes tipos de autos de alquiler en Boston, donde encontrarás carros compactos, descapotables, coches de lujo, SUV's, minivans o vehículos eléctricos. Cada aventura requiere un tipo de carro diferente y aquí los encuentras todos. ¡Reserva ahora!",
+        "h3": {
+          "h3_1": "Alquiler de Vehículos Económicos",
+          "h3_2": "Alquiler de Camionetas",
+          "h3_3": "Alquiler de Minivan",
+          "h3_4": "Alquiler de Convertibles",
+          "h3_5": "Alquiler de Autos de Lujo",
+          "h3_6": "Alquiler de Autos Eléctricos"
+        },
+        "h3_desc": {
+          "h3_desc_1": "¡Ahorra mientras conduces! Con nuestra renta de coches compactos en Boston sigues la ruta de tu itinerario por Massachusetts al mejor precio. ",
+          "h3_desc_2": "Renta una camioneta en Boston desde 16 dólares al día Y desafía cualquier camino. ¡Potencia y comodidad al mejor precio!",
+          "h3_desc_3": "¿Viaje grupal a Boston? ¡Alquila una minivan y divide el valor de la renta hasta en 15 pasajeros!",
+          "h3_desc_4": "Renta un convertible en verano y recorre Boston con el más alto estilo. ¡Nueva Inglaterra te espera! ",
+          "h3_desc_5": "Un auto de lujo de alquiler será tu mejor aliado para recorrer Boston con la mayor elegancia posible. ¡Réntalo ahora!",
+          "h3_desc_6": "¡Conduce hacia un futuro más sostenible! Alquila un carro eléctrico en Boston y marca una huella saludable en el planeta."
+        }
+      }
+    },
+    {
+      "fav_city": {
+        "h2": "Renta de autos en otras ciudades emblemáticas de EE.UU.",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "Además de Boston, te ofrecemos alquiler de autos en otras ciudades de Estados Unidos, para que viajes siempre junto a tu mejor compañero de cuatro ruedas. Descubre metrópolis icónicas como New York, Los Ángeles, Las Vegas, Miami, Chicago, ¡y muchas más! Si quieres descubrir USA, Viajemos es la respuesta: reserva aquí y ahorra hasta un 35% en el valor total de tu tarifa. ",
+        "h3": {},
+        "vol_h3": "25 a 30 palabras",
+        "h3_desc": {}
+      }
+    }
+  ]
+}

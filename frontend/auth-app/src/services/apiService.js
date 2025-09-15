@@ -1,0 +1,719 @@
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.1.11:8000';
+
+class ApiService {
+  constructor() {
+    this.baseURL = API_BASE_URL;
+  }
+
+  // Configurar headers comunes
+  getHeaders() {
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    const currentToken = localStorage.getItem('token');
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+    }
+    
+    return headers;
+  }
+
+  // Verificar si el usuario está autenticado
+  isAuthenticated() {
+    const token = localStorage.getItem('token');
+    return !!token;
+  }
+
+  // Limpiar autenticación y redirigir silenciosamente
+  handleAuthError() {
+    localStorage.removeItem('token');
+    // Redirigir sin usar navigate para evitar errores de contexto
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+  }
+
+  // Método para hacer requests HTTP
+  async makeRequest(url, options = {}) {
+    // Verificar autenticación antes de hacer la petición
+    if (!this.isAuthenticated() && !url.includes('/auth/')) {
+      this.handleAuthError();
+      throw new Error('NOT_AUTHENTICATED');
+    }
+
+    const config = {
+      headers: this.getHeaders(),
+      ...options,
+    };
+
+    try {
+      const response = await fetch(`${this.baseURL}${url}`, config);
+      
+      if (!response.ok) {
+        // Manejo silencioso de errores de autenticación
+        if (response.status === 401 || response.status === 403) {
+          this.handleAuthError();
+          throw new Error('NOT_AUTHENTICATED');
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        
+        if (response.status === 422) {
+          console.error('Full error response:', errorData);
+          
+          if (errorData.detail && Array.isArray(errorData.detail)) {
+            const errorMessages = errorData.detail.map(err => {
+              const field = err.loc ? err.loc.join('.') : 'unknown';
+              const message = err.msg || 'validation error';
+              const input = err.input ? ` (received: ${JSON.stringify(err.input)})` : '';
+              return `${field}: ${message}${input}`;
+            }).join('\n');
+            
+            throw new Error(`Validation errors:\n${errorMessages}`);
+          }
+        }
+        
+        // Manejo de otros errores
+        let errorMessage;
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else {
+          errorMessage = JSON.stringify(errorData) || `HTTP ${response.status}: ${response.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      if (response.status === 204) {
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      // No mostrar errores de autenticación en consola
+      if (error.message === 'NOT_AUTHENTICATED') {
+        throw error;
+      }
+      
+      // Solo loggear errores reales de la API
+      console.error(`API Error [${options.method || 'GET'}] ${url}:`, error);
+      throw error;
+    }
+  }
+
+  // Setear token de autenticación
+  setAuthToken(token) {
+    this.token = token;
+    if (token) {
+      localStorage.setItem('token', token);
+    } else {
+      localStorage.removeItem('token');
+    }
+  }
+
+  // ENDPOINTS DE PROYECTOS
+
+  // Crear nuevo proyecto
+  async createProyecto(proyectoData) {
+    try {
+      const backendData = this.mapFrontendToBackend(proyectoData);
+      const response = await this.makeRequest('/proyectos/', {
+        method: 'POST',
+        body: JSON.stringify(backendData),
+      });
+      
+      return this.mapBackendToFrontend(response);
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Obtener proyectos con filtros
+  async getProyectos(filters = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+    
+      // Mapear filtros del frontend al backend
+      if (filters.estado) {
+        queryParams.append('estado', this.mapStatusToBackend(filters.estado));
+      }
+      if (filters.prioridad) {
+        queryParams.append('prioridad', this.mapPriorityToBackend(filters.prioridad));
+      }
+      if (filters.assigned_to) {
+        queryParams.append('assigned_to', filters.assigned_to);
+      }
+      
+      const queryString = queryParams.toString();
+      const url = `/proyectos/${queryString ? `?${queryString}` : ''}`;
+      const response = await this.makeRequest(url);
+      const mappedResponse = response.map(proyecto => {
+        const mapped = this.mapBackendToFrontend(proyecto);
+        return mapped;
+      });
+      return mappedResponse;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return []; // Retornar array vacío en lugar de error
+      }
+      throw error;
+    }
+  }
+
+  // Obtener proyecto por ID
+  async getProyectoById(proyectoId) {
+    try {
+      const response = await this.makeRequest(`/proyectos/${proyectoId}`);
+      return this.mapBackendToFrontend(response);
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Actualizar proyecto
+  async updateProyecto(proyectoId, updates) {
+    try {
+      const backendUpdates = this.mapFrontendToBackend(updates, true);
+      const response = await this.makeRequest(`/proyectos/${proyectoId}`, {
+        method: 'PUT',
+        body: JSON.stringify(backendUpdates),
+      });
+      return this.mapBackendToFrontend(response);
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Eliminar proyecto
+  async deleteProyecto(proyectoId) {
+    try {
+      await this.makeRequest(`/proyectos/${proyectoId}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  // Asignar proyecto a usuario
+  async assignProyecto(proyectoId, userId) {
+    try {
+      const response = await this.makeRequest(`/proyectos/${proyectoId}/assign`, {
+        method: 'POST',
+        body: JSON.stringify({ assigned_to: userId }),
+      });
+      return this.mapBackendToFrontend(response);
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Cambiar estado del proyecto
+  async updateEstadoProyecto(proyectoId, estado) {
+    try {
+      const backendEstado = this.mapStatusToBackend(estado);
+      const response = await this.makeRequest(`/proyectos/${proyectoId}/estado`, {
+        method: 'POST',
+        body: JSON.stringify({ estado: backendEstado }),
+      });
+      return this.mapBackendToFrontend(response);
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Obtener proyectos creados por el usuario actual
+  async getMyCreatedProyectos() {
+    try {
+      const response = await this.makeRequest('/proyectos/created-by/me');
+      return response.map(proyecto => this.mapBackendToFrontend(proyecto));
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // Obtener proyectos asignados al usuario actual
+  async getMyAssignedProyectos() {
+    try {
+      const response = await this.makeRequest('/proyectos/assigned-to/me');
+      return response.map(proyecto => this.mapBackendToFrontend(proyecto));
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // Obtener proyectos de un usuario específico (solo admin)
+  async getProyectosByUser(userId) {
+    try {
+      const response = await this.makeRequest(`/proyectos/user/${userId}`);
+      return response.map(proyecto => this.mapBackendToFrontend(proyecto));
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // Generar contenido con IA
+  async generateIAContent(params) {
+    try {
+      const { lpId, blockNumber, blockTitle, tema, cellKey, faqQuestions = [], favCityQuestions = [], blockType, carTypes = [], templateInfo  } = params;
+      const payload = {
+        cellKey,
+        currentContent: "",
+        blockNumber,
+        blockType,
+        tit: blockTitle,
+        tema,
+        lpId
+      };
+
+      // Agregar info del template si existe
+      if (templateInfo) {
+        payload.template_proyecto = templateInfo.proyecto;
+        payload.template_dominio = templateInfo.dominio;
+        payload.template_categoria = templateInfo.categoria;
+      } else {
+        console.warn('No hay templateInfo');
+      }
+      
+      if (faqQuestions && Array.isArray(faqQuestions) && faqQuestions.length > 0) {
+        payload.faq_questions = faqQuestions;
+      }
+
+      if (favCityQuestions && Array.isArray(favCityQuestions) && favCityQuestions.length > 0) {
+          payload.fav_city_questions = favCityQuestions;
+        }
+
+      if (faqQuestions && faqQuestions.length > 0) {
+        payload.faq_questions = faqQuestions;
+      }
+
+      if (carTypes && Array.isArray(carTypes) && carTypes.length > 0) {
+          payload.car_types = carTypes;
+      }
+
+      const response = await fetch(`${this.baseURL}/ia/${lpId}/block-${blockNumber}`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      console.log('🔥 API SERVICE - Payload que se envía:', JSON.stringify(payload, null, 2));
+      
+      if (!response.ok) {
+        // Manejo de errores de autenticación
+        if (response.status === 401 || response.status === 403) {
+          this.handleAuthError();
+          throw new Error('NOT_AUTHENTICATED');
+        }
+
+        const errorText = await response.text();
+        console.error('Error Response Status:', response.status);
+        console.error('Error Response Text:', errorText);
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          console.error('Error Data:', errorData);
+          throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
+        } catch (e) {
+          throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+      }
+      
+      const data = await response.json();
+      return data.generatedContent;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      console.error('Error completo generating IA content:', error);
+      throw error;
+    }
+  }
+
+  // Traducir contenido
+  async translateContent(lpId, sourceContent, targetLanguage, cellKey, blockTitle, tema) {
+    try {
+      const response = await fetch(`${this.baseURL}/ia/${lpId}/translate`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          sourceContent: sourceContent,
+          targetLanguage: targetLanguage,
+          cellKey: cellKey,
+          lpId: lpId,
+          blockTitle: blockTitle,
+          tema: tema
+        })
+      });
+
+      if (!response.ok) {
+        // Manejo de errores de autenticación
+        if (response.status === 401 || response.status === 403) {
+          this.handleAuthError();
+          throw new Error('NOT_AUTHENTICATED');
+        }
+
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.translatedContent;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      console.error('Error translating content:', error);
+      throw error;
+    }
+  }
+
+  // MAPEO DE DATOS ENTRE FRONTEND Y BACKEND
+  async getTemplateById(templateId) {
+    try {
+      const response = await this.makeRequest(`/templates/${templateId}`, {
+        method: 'GET'
+      });
+      return response;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Mapear datos del frontend al backend
+  mapFrontendToBackend(frontendData, isUpdate = false) {
+    const backendData = {};
+
+    // Mapear campos básicos
+    if (frontendData.name !== undefined) backendData.name = frontendData.name;
+    if (frontendData.description !== undefined) backendData.description = frontendData.description;
+    backendData.estado = this.mapStatusToBackend(frontendData.status || 'draft');
+    if (frontendData.status !== undefined) {
+      backendData.estado = this.mapStatusToBackend(frontendData.status);
+    } 
+    if (frontendData.priority !== undefined) {
+      backendData.prioridad = this.mapPriorityToBackend(frontendData.priority);
+    }
+    
+    // Mapear asignación
+    if (frontendData.assignedTo !== undefined) {
+      backendData.assigned_to = frontendData.assignedTo;
+    }
+    
+    // Mapear template
+    if (frontendData.template_id) {
+      backendData.template_id = frontendData.template_id;
+    }
+
+    return backendData;
+  }
+
+  // Mapear datos del backend al frontend
+  mapBackendToFrontend(backendData) {
+    return {
+      id: backendData.id,
+      name: backendData.name,
+      description: backendData.description,
+      status: this.mapStatusToFrontend(backendData.estado),
+      priority: this.mapPriorityToFrontend(backendData.prioridad),
+      assignedTo: backendData.assigned_to,
+      templateId: backendData.template_id,
+      createdBy: backendData.created_by,
+      createdDate: backendData.created_at ? backendData.created_at.split('T')[0] : null,
+      lastModified: backendData.last_modified ? backendData.last_modified.split('T')[0] : null,
+      updatedAt: backendData.updated_at,
+      
+      // Campos calculados para el frontend
+      progress: this.calculateProgress(backendData.estado),
+      category: 'proyecto', // Valor por defecto
+    };
+  }
+
+  // Mapear estado del frontend al backend (según tus enums)
+  mapStatusToBackend(frontendStatus) {
+    const mapping = {
+      'draft': 'draft',          
+      'in_progress': 'in_progress',   
+      'review': 'review',         
+      'completed': 'published',   
+      'published': 'published',
+      'pen_review': 'pen_review',
+      'pen_ajuste': 'pen_ajuste', 
+      'approved': 'approved',
+      'rev_kws': 'rev_kws',
+      'cargue': 'cargue',
+      'test': 'test'
+    };
+    return mapping[frontendStatus] || 'draft';
+  }
+
+  mapStatusToFrontend(backendStatus) {
+    const mapping = {
+      'draft': 'draft',
+      'in_progress': 'in_progress',
+      'review': 'review',
+      'published': 'completed',
+      'pen_review': 'pen_review',
+      'pen_ajuste': 'pen_ajuste',
+      'approved': 'approved', 
+      'rev_kws': 'rev_kws',
+      'cargue': 'cargue',
+      'test': 'test'
+    };
+    return mapping[backendStatus] || 'draft';
+  }
+
+  // Mapear prioridad del frontend al backend
+  mapPriorityToBackend(frontendPriority) {
+    const mapping = {
+      'low': 'low',       
+      'medium': 'medium',
+      'high': 'high'      
+    };
+    return mapping[frontendPriority] || 'medium';
+  }
+
+  // Mapear prioridad del backend al frontend
+  mapPriorityToFrontend(backendPriority) {
+    const mapping = {
+      'low': 'low',
+      'medium': 'medium', 
+      'high': 'high'
+    };
+    return mapping[backendPriority] || 'medium';
+  }
+
+  // Calcular progreso basado en el estado
+  calculateProgress(estado) {
+    const progressMapping = {
+      'DRAFT': 0,
+      'IN_PROGRESS': 50,
+      'REVIEW': 80,
+      'PUBLISHED': 100
+    };
+    return progressMapping[estado] || 0;
+  }
+
+  // ENDPOINTS DE AUTENTICACIÓN
+  
+  async login(email, password) {
+    const formData = new URLSearchParams();
+    formData.append('username', email); 
+    formData.append('password', password);
+    
+    const response = await this.makeRequest('/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData,
+    });
+    
+    if (response.access_token) {
+      this.setAuthToken(response.access_token);
+    }
+    
+    return response;
+  }
+
+  async logout() {
+    try {
+      await this.makeRequest('/auth/logout', {
+        method: 'POST',
+      });
+    } catch (error) {
+      // No mostrar errores de logout en consola
+      if (error.message !== 'NOT_AUTHENTICATED') {
+        console.error('Logout request failed:', error);
+      }
+    } finally {
+      this.setAuthToken(null);
+    }
+  }
+
+  // Obtener usuario actual
+  async getCurrentUser() {
+    try {
+      const response = await this.makeRequest('/users/me');
+      return {
+        id: response.id,
+        name: `${response.first_name || ''} ${response.last_name || ''}`.trim() || response.email || 'Usuario',
+        email: response.email,
+        role: response.role || 'user',
+        avatar: `${response.first_name?.[0] || ''}${response.last_name?.[0] || ''}`.toUpperCase() || (response.email?.[0] || 'U')
+      };
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      console.error('Error getting current user:', error);
+      throw error;
+    }
+  }
+
+  // ENDPOINTS DE USUARIOS 
+  
+  async getUsers() {
+    try {
+      const response = await this.makeRequest('/users/');
+      
+      return response.map(user => ({
+        id: user.id,
+        name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Usuario',
+        email: user.email,
+        role: user.role || 'user',
+        avatar: `${user.first_name?.charAt(0) || ''}${user.last_name?.charAt(0) || ''}` || user.email?.charAt(0) || 'U'
+      }));
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      console.error('Error getting users:', error);
+      return [];
+    }
+  }
+
+  // ENDPOINTS ADICIONALES 
+  
+  // Todos
+  async getTodos() {
+    try {
+      const response = await this.makeRequest('/todos/');
+      return response;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // Templates
+  async getTemplates() {
+    try {
+      const response = await this.makeRequest('/templates/');
+      return response;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // Landing Pages
+  async getLandingPages() {
+    try {
+      const response = await this.makeRequest('/landing-pages/');
+      return response;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // Obtener landing page por proyecto ID
+  async getLandingPageByProyecto(proyectoId) {
+    try {
+      const response = await this.makeRequest(`/landing-pages/by-proyecto/${proyectoId}`);
+      return response;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Crear landing page 
+  async createLandingPage(landingPageData) {
+    try {
+      const response = await this.makeRequest('/landing-pages/', {
+        method: 'POST',
+        body: JSON.stringify(landingPageData),
+      });
+      return response;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Secciones LP
+  async getSeccionesLP() {
+    try {
+      const response = await this.makeRequest('/secciones-lp/');
+      return response;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // Anotaciones
+  async getAnotaciones() {
+    try {
+      const response = await this.makeRequest('/anotaciones/');
+      return response;
+    } catch (error) {
+      if (error.message === 'NOT_AUTHENTICATED') {
+        return [];
+      }
+      throw error;
+    }
+  }
+}
+
+// Crear instancia singleton
+const apiService = new ApiService();
+
+export default apiService;
+
+// Exportar funciones de mapeo para uso directo si es necesario
+export const { 
+  mapBackendToFrontend, 
+  mapFrontendToBackend, 
+  mapStatusToBackend, 
+  mapStatusToFrontend,
+  mapPriorityToBackend,
+  mapPriorityToFrontend,
+  generateIAContent,
+  translateContent
+} = apiService;

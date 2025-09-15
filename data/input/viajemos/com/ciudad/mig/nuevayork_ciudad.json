@@ -1,0 +1,86 @@
+{
+  "metadata": {
+    "tema": "Ciudad de New York",
+    "descripcion": "landing page de la ciudad de New York",
+    "idioma": "Español"
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Alquiler de autos en Nueva York- Mejor Tarifa",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "Buscamos y comparamos entre miles de opciones para mostrarte la tarifa más baja en alquiler de autos en Nueva York."
+      }
+    },
+    {
+      "fleet": {
+        "h2": "variedad de autos baratos en Nueva York, NY",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "Durante tu visita a New York, ¡ve a la fija con un auto de alquiler! En Viajemos, te ofrecemos una enorme variedad de carros baratos, para que compares y elijas el que más se ajuste a tus propósitos de viaje. Además, te ofrecemos beneficios exclusivos, como Seguro de Viaje Gratis, Seguro del Auto, Modificaciones sin cargos administrativos y descuentos hasta del 35%.\nComprueba que moverte tranquilo por New York y sus alrededores no cuesta más. Confía en nuestra experiencia y obtén la libertad que se pierde en el transporte público.",
+        "ip_usa": "Durante tu visita a New York, ¡ve a la fija con un auto de alquiler! En Viajemos, te ofrecemos una enorme variedad de carros baratos, para que compares y elijas el que más se ajuste a tus propósitos de viaje. Además, te ofrecemos beneficios exclusivos, como Asistencia Básica por Carretera, Kilómetros Imilitados, Modificaciones sin cargos administrativos y descuentos hasta del 35%.\nComprueba que moverte tranquilo por New York y sus alrededores no cuesta más. Confía en nuestra experiencia y obtén la libertad que se pierde en el transporte público.",
+        "ip_bra": ""
+      }
+    },
+    {
+      "agencies": {
+        "h2": "Empresas de Alquiler de autos en Nueva York",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Encuentra la confianza que necesitas: alquila un auto en Nueva York con nuestras agencias asociadas y obtén un servicio excelente! Somos aliados estratégicos de las compañías de renta de carros más importantes, prestigiosas y laureadas del planeta. No arriesgues la tranquilidad de tu viaje a la Capital del Mundo con empresas de dudosa reputación; con Viajemos, elegir a las mejores no cuesta más. Agrégale a tu travesía la autonomía de definir tu próximo destino y desplázate seguro por las autopistas de Estados Unidos. ¡Compruébalo AHORA!",
+        "vol_h3": "20 a 35 palabras",
+        "h3_desc": "Viajemos + New York = momentos inolvidables. Te damos kilómetros ilimitados para que recorras la Capital del Mundo. La Gran Manzana está llena de rincones icónicos, ¡visítalos todos con un auto de alquiler!"
+      }
+    },
+    {
+      "faqs": {
+        "h2": "Preguntas frecuentes sobre Renta de coches en Nueva York, NY",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Resuelve tus dudas y transpórtate tranquilo por Nueva York con un auto de alquiler! A continuación, te responderemos las preguntas más frecuentes sobre la renta de coches en Nueva York, para que la incertidumbre no te acompañe durante tu viaje. Entérate sobre requisitos, tarifas agencias, y más. Viaja informado y seguro de estar tomando la mejor decisión para tu movilidad.",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta rentar un auto en Nueva York?",
+          "h3_faq_2": "¿Cuál es la mejor compañía de alquiler de carros en Nueva York?",
+          "h3_faq_3": "¿Cuánto cuesta el alquiler de un auto en los Aeropuertos de Nueva York?",
+          "h3_faq_4": "¿Qué se necesita para rentar un carro en Nueva York?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "El precio para rentar un carro en Nueva York va desde los USD $8 al día, o más.\nTen presente que este precio puede variar de acuerdo a la temporada del viaje, la empresa de alquiler elegida, el tipo de auto y los servicios adicionales añadidos a tu reserva.",
+          "faq_2": "Algunas de las mejores compañías de alquiler de autos en Nueva York son Avis, Budget, Alamo, Hertz, Dollar o Thrifty.\nRecuerda que en Viajemos podrás comparar entre estas y otras prestigiosas compañías de renta, para que selecciones la de tu preferencia.",
+          "faq_3": "Alquilar un auto en el Aeropuerto Internacional John F. Kennedy o el Aeropuerto Internacional LaGuardia costará desde los USD $8 al día o más.\nRecuerda que esta tarifa puede variar de acuerdo a la temporada del viaje, la empresa de alquiler elegida, el tipo de auto y los servicios adicionales añadidos a tu reserva.",
+          "faq_4": "Los requisitos para alquilar un auto en Nueva York con viajemos son:  \n\n- Licencia de conducción física de tu país de origen, con fecha de expedición mayor a 1 año. \n-  Tener mínimo 25 años de edad*. \n-  Tarjeta de crédito del titular de la reserva con su nombre impreso para el depósito de garantía. \n-  Depósito de garantía. \n-  Pasaporte vigente. \n- Tiquetes aéreos o de crucero (ida y regreso). \nAlgunas compañías de alquiler aceptan que el titular de la reserva sea menor de 25 años (21 a 24) pagando un recargo adicional en el mostrador"
+        }
+      }
+    },
+    {
+      "car_rental": {
+        "h2": "Tipos de autos de alquiler en Nueva York",
+        "h2_desc": "Te ofrecemos diferentes tipos de autos de alquiler en Nueva York: En Viajemos, podrás comparar y elegir entre carros compactos, camionetas, vans, convertibles, coches de lujo o vehículos eléctricos. ¡Tenemos una opción para cada tipo de viaje! Encuentra el coche de renta perfecto desde USD $9/día, recorre Nueva York y colecciona recuerdos inolvidables en tu visita a la Gran Manzana.",
+        "h3": {
+          "h3_1": "Alquiler de Vehículos Económicos",
+          "h3_2": "Alquiler de Camionetas",
+          "h3_3": "Alquiler de Vans",
+          "h3_4": "Alquiler de Convertibles",
+          "h3_5": "Alquiler de Autos de Lujo",
+          "h3_6": "Alquiler de Autos Eléctricos"
+        },
+        "h3_desc": {
+          "h3_desc_1": "Con un auto de renta económico ahorras a cada kilómetro. ¡Alquila uno en New York y recorre la ciudad al mejor precio! ",
+          "h3_desc_2": "¡Una camioneta de renta en New York significa mayor comodidad y potencia! Alquila una SUV ahora y muévete con autonomía. ",
+          "h3_desc_3": "Renta una van en New York y muévete con tus acompañantes de viaje de manera cómoda y económica.",
+          "h3_desc_4": "Alquila un auto convertible en New York y transita con el más alto estilo por la Capital del Mundo. ",
+          "h3_desc_5": "Renta un auto de lujo en New York y movilízate con elegancia y clase. ¡Siéntete como una estrella por NY!",
+          "h3_desc_6": "¡Únete a la ola eco friendly! Renta un auto eléctrico en NY y reduce las emisiones de carbono a cero."
+        }
+      }
+    },
+    {
+      "fav_city": {
+        "h2": "Renta de Autos en otras Ciudades de Estados Unidos",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "Además de Nueva York, te ofrecemos los mejores autos de alquiler en los principales destinos de U.S.A. Encuentra la solución ideal para tus desplazamientos en ciudades como Los Ángeles, Miami, Orlando, Denver, Chicago, ¡y más! Acompaña tus viajes con una movilidad autónoma, eficiente y al mejor precio del mercado. ¡Con Viajemos te mueves por Estados Unidos con 35% OFF y la tranquilidad a tope!",
+        "h3": {},
+        "vol_h3": "25 a 30 palabras",
+        "h3_desc": {}
+      }
+    }
+  ]
+}

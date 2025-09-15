@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "tema": "Ciudad de Orlando",
+    "descripcion": "landing page de la ciudad de Orlando",
+    "idioma": "Español, ingles y portugués"
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Alquiler de autos en Orlando, Florida - Mejor Tarifa",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "¡Ve a la fija con Viajemos! Comparamos miles de opciones para mostrarte la mejor tarifa en renta de carros en Orlando"
+      }
+    },
+    {
+      "fleet": {
+        "h2": "variedad de autos baratos en Orlando, FL",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "¡Elige Viajemos y garantiza la experiencia más TOP durante tu viaje a Florida! Conoce nuestra variedad de autos baratos para alquilar en Orlando, selecciona tu carro favorito y movilízate tranquilamente por la ciudad al mejor precio del mercado. Toma una decisión inteligente: un coche de renta te permitirá manejar los tiempos de tus desplazamientos y ahorrar más. Completa tu reserva HOY y accede a beneficios exclusivos como descuentos hasta del 35%, Seguro de Viaje Gratis, ¡y muchos más! ¿Qué estás esperando?",
+        "ip_usa": "¡Elige Viajemos y garantiza la experiencia más TOP durante tu viaje a Florida! Conoce nuestra variedad de autos baratos para alquilar en Orlando, selecciona tu carro favorito y movilízate tranquilamente por la ciudad al mejor precio del mercado. Toma una decisión inteligente: un coche de renta te permitirá manejar los tiempos de tus desplazamientos y ahorrar más. Completa tu reserva HOY y accede a beneficios exclusivos como descuentos hasta del 35%, Kilómetros Ilimitados, ¡y muchos más! ¿Qué estás esperando?",
+        "ip_bra": ""
+      }
+    },
+    {
+      "agencies": {
+        "h2": "Empresas de alquiler de autos en Orlando",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "Encuentra experiencia, respaldo y prestigio en nuestras agencias de alquiler de autos asociadas. En Viajemos, trabajamos con los mejores para ofrecerte excelencia: ¡descúbrelo tú mismo! Alquila un auto en Orlando a través de nuestro website y selecciona entre compañías mundialmente reconocidas como Alamo, Avis, Budget, Hertz y muchas más. ¡Con Viajemos, la calidad está al alcance de tu bolsillo!",
+        "vol_h3": "20 a 35 palabras",
+        "h3_desc": "¿Límites al momento de trasladarte? ¡Nada de eso! Aprovecha los Kilómetros Ilimitados que Viajemos te ofrece y muévete sin preocupaciones por Florida. ¡The Sunshine State espera por ti!"
+      }
+    },
+    {
+      "faqs": {
+        "h2": "Preguntas frecuentes sobre Renta de coches en Orlando, FL",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "Conoce las respuestas a las preguntas frecuentes sobre la renta de autos en Orlando y reserva con la confianza y tranquilidad de no dejar cabos sueltos. Entérate sobre precios, agencias de alquiler, requisitos y más. Un auto rentado será vital para moverte por Orlando y vivir la mejor experiencia de viaje, ¡encuéntralo en Viajemos hasta con 35% OFF! ",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta alquilar un auto en Orlando?",
+          "h3_faq_2": "¿Cuál es la mejor compañía de alquiler de carros en Orlando?",
+          "h3_faq_3": "¿Cuánto cuesta el alquiler de autos en el Aeropuerto de Orlando, Florida?",
+          "h3_faq_4": "¿Qué se necesita para rentar un carro en Orlando?",
+          "h3_faq_5": "¿Cuánto cuesta alquilar un auto cerca al Exploria Stadium?",
+          "h3_faq_6": "¿Es posible alquilar un auto en Orlando y entregarlo en otra ciudad?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "El precio para rentar un carro en Orlando, Florida, es desde USD $8 al día.\nEsta tarifa puede variar de acuerdo a la temporada del viaje, la empresa de alquiler elegida, el tipo de auto y los servicios adicionales añadidos a tu reserva.",
+          "faq_2": "Algunas de las mejores compañías de renta de autos en Orlando Florida son Avis, Budget o Alamo. \nRecuerda que en Viajemos podrás comparar entre estas y otras prestigiosas agencias, para que selecciones la de tu preferencia.",
+          "faq_3": "Alquilar un auto en el Aeropuerto Internacional de Orlando te saldrá desde los USD $8 al día.\nRecuerda que esta tarifa puede variar de acuerdo a la temporada del viaje, la empresa de alquiler elegida, el tipo de auto y los servicios adicionales añadidos a tu reserva.",
+          "faq_4": "Los requisitos para alquilar un auto en Orlando son: \n\n* Licencia de conducción de tu país de origen: debe estar vigente y con antigüedad mayor a un año, también debe tener fecha de vencimiento impresa.\n* Pasaporte vigente\n* Ser mayor de 25 años\n* Voucher impreso que confirma el pago de la reserva\n* Tarjeta de crédito con cupo suficiente para cubrir el depósito de garantía, ten en cuenta que esta tarjeta debe estar a nombre del mismo titular de la reserva.\n* Documentos de viaje de llegada y salida del país, como tickets de vuelo o del crucero.\nAlgunas compañías de alquiler aceptan que el titular de la reserva sea menor de 25 años (21 a 24) pagando un recargo adicional en el mostrador.",
+          "faq_5": "El costo de rentar un coche cerca al Exploria Stadium de Orlando, FL, va desde los USD $8/día. \nTen presente que este valor puede sufrir variaciones de acuerdo a la temporada de viaje, la disponibilidad del auto, la agencia elegida y los servicios adicionales que se añadan a la reserva.",
+          "faq_6": "Sí, es posible. A través de Miles Car Rental puedes rentar un carro en Orlando y devolverlo en otras ciudades de Estados Unidos. Esta opción puede tener un valor adicional y deberá ser notificado al momento de hacer tu reserva en nuestro portal web."
+        }
+      }
+    },
+    {
+      "car_rental": {
+        "h2": "Conoce diferentes tipos de autos de alquiler en Orlando",
+        "h2_desc": "Busca, compara y selecciona el auto de alquiler en Orlando que se asocie a los propósitos de tu viaje. Encuentra carros compactos para viajes ligeros; poderosas camionetas, vans por si viajas en grupo; coches convertibles para el clima cálido, sofisticados autos de lujo o vehículos eléctricos eco friendly. ¡Alquila el vehículo ideal aquí con hasta 35% OFF y controla tus trayectos!",
+        "h3": {
+          "h3_1": "Alquiler de Vehículos Económicos",
+          "h3_2": "Alquiler de Camionetas",
+          "h3_3": "Alquiler de Vans",
+          "h3_4": "Alquiler de Autos de convertibles",
+          "h3_5": "Alquiler de Autos de lujo",
+          "h3_6": "Alquiler de Autos eléctricos"
+        },
+        "h3_desc": {
+          "h3_desc_1": "Renta un carro económico desde los USD$8 al día y descubre toda la magia que Orlando tiene para ti.  ",
+          "h3_desc_2": "Alquila una SUV en Orlando y desafía las autopistas de Florida. Combina poder, espacio y comodidad en un solo vehículo.",
+          "h3_desc_3": "¿Viaje grupal a Orlando? ¡Renta una van de hasta 15 pasajeros y muévete de manera confortable y eficiente! ",
+          "h3_desc_4": "Alquila un descapotable y disfruta del privilegiado clima de Orlando. ¡Deja que la Costa Este te bañe de sol! ",
+          "h3_desc_5": "Renta un coche de lujo en Orlando y deja que la opulencia te distinga. ¡Llévate las miradas de toda una ciudad! ",
+          "h3_desc_6": "Alquila un auto eléctrico en Orlando, el planeta te lo agradecerá. ¡Cada emisión menos hace la diferencia! "
+        }
+      }
+    },
+    {
+      "fav_city": {
+        "h2": "Renta de autos en otras ciudades de Estados Unidos",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Viajemos te acompaña por las principales ciudades de Estados Unidos! Además de Orlando, estamos en diferentes metrópolis de USA para que tengas el auto de alquiler ideal siempre cerca de ti. Encuéntranos en destinos icónicos como New York, Los Ángeles, Miami, Las Vegas, Chicago y muchas más. ¡Un viaje se define por las experiencias y Viajemos te ofrece las mejores!",
+        "h3": {},
+        "vol_h3": "25 a 30 palabras",
+        "h3_desc": {}
+      }
+    }
+  ]
+}

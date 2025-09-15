@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "tema": "Ciudad Las Vegas",
+    "descripcion": "Contenido para lp de alquiler de autos en la ciudad Las Vegas",
+    "idioma": "Español"
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "enta de autos en Las Vegas, Nevada - Mejor Tarifa",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "¡Compara tarifas y ahorra al máximo! Renta los mejores coches de Las Vegas por el precio más bajo del mercado"
+      }
+    },
+    {
+      "fleet": {
+        "h2": "Alquiler de carros en Las Vegas, NV",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "¡Apuéstale al ahorro con Viajemos! Realiza un viaje ganador por Las Vegas con las mejores agencias de renta de autos y aprovecha Descuentos hasta del 35%. Te conectamos con una amplia variedad de vehículos, elige y reserva tu favorito: compactos, SUV's, vans, minivans y más. ¡No pongas tu confort en la ruleta! Somos la solución #1 en transporte y te damos beneficios exclusivos como Seguro de Viajero Gratis para turistas extranjeros, Kilómetros Ilimitados, Modificaciones sin costos administrativos, Tarifas Todo Incluido, entre otros.",
+        "ip_usa": "Texto Alternativo IP USA:\n¡Apuéstale al ahorro con Viajemos! Realiza un viaje ganador por Las Vegas con las mejores agencias de renta de autos y aprovecha Descuentos hasta del 35%. Te conectamos con una amplia variedad de vehículos, elige y reserva tu favorito: compactos, SUV's, vans, minivans y más. ¡No pongas tu confort en la ruleta! Somos la solución #1 en transporte y te damos beneficios exclusivos como Kilómetros Ilimitados, Asistencia Básica en Carretera, Tarifas Preferenciales con pago de la reserva en el destino, entre otros.",
+        "ip_bra": "Texto Alternativo IP Brasil:\n¡Apuéstale al ahorro con Viajemos! Realiza un viaje ganador por Las Vegas con las mejores agencias de renta de autos y aprovecha Descuentos hasta del 35%. Te conectamos con una amplia variedad de vehículos, elige y reserva tu favorito: compactos, SUV's, vans, minivans y más. ¡No pongas tu confort en la ruleta! Somos la solución #1 en transporte y te damos beneficios exclusivos como Seguro de Viajero Gratis para turistas extranjeros, Kilómetros Ilimitados, Descuento de Cobertura del IOF, entre otros."
+      }
+    },
+    {
+      "agencies": {
+        "h2": "Conoce las mejores empresas de renta de carros en Las Vegas",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡No necesitas suerte para recorrer Las Vegas, solo requieres de las compañías de alquiler de autos más famosas del mundo! Encuéntralas aquí. Somos partners preferenciales de compañías destacadas como Alamo, Avis, National, entre otras. Compáralas, elige tu favorita y renta el carro perfecto. Reservar con nosotros es más fácil que lanzar una moneda.",
+        "vol_h3": "20 a 35 palabras",
+        "h3_desc": "Viajemos es el As que necesitas para rentar un carro en Las Vegas. Confía en nuestra calificación de 4.9/5, reserva con nosotros y gana la partida con confort superior y máxima libertad."
+      }
+    },
+    {
+      "faqs": {
+        "h2": "Preguntas frecuentes sobre renta de autos en Las Vegas, NV",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "Sabemos que tienes dudas acerca del alquiler de coches en Las Vegas, por eso te damos respuestas útiles sobre las tarifas, las localidades y los requisitos de renta. Despeja todas tus inquietudes, reserva hoy y explora la Ciudad del Pecado a bordo de un carro rentado, ¡la fortuna, la certeza y la tranquilidad serán tus copilotos!",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta alquilar un auto en Las Vegas?",
+          "h3_faq_2": "¿Cuál es la mejor compañía para rentar un coche en Las Vegas?",
+          "h3_faq_3": "¿Cuánto cuesta alquilar un auto cerca al Q2 Stadium?",
+          "h3_faq_4": "¿Cuánto cuesta la renta de carros en el aeropuerto de Las Vegas?",
+          "h3_faq_5": "¿Qué se necesita para rentar un carro en Las Vegas?",
+          "h3_faq_6": "¿Es posible alquilar un auto en Las Vegas y entregarlo en otra ciudad?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "Rentar un coche en Las Vegas, Nevada, tiene un costo desde USD $8/día>. \nEsta tarifa puede cambiar de acuerdo a la temporada, el tipo de carro que elijas, la agencia de renta y los servicios adicionales que incluyas en la reserva.",
+          "faq_2": "Las mejores agencias de alquiler de vehículos en Las Vegas, Nevada, son: \nAlamo, desde USD $9/día.\nDollar, desde USD $10/día.\nAvis, desde USD $11/día.\nAdemás, con nosotros puedes comparar tarifas de estas y otras prestigiosas empresas para rentar el coche perfecto y recorrer la Capital Mundial del Entretenimiento a tu manera.",
+          "faq_3": "Rentar un carro cerca al Allegiant Stadium de Las Vegas, NV tiene un costo desde los USD $8 al día.\nEsta tarifa puede cambiar de acuerdo a la agencia y el tipo de coche seleccionado, así como la temporada de viaje y los servicios adicionales incluidos.",
+          "faq_4": "Rentar un carro cerca al Allegiant Stadium de Las Vegas, NV tiene un costo desde los USD $8 al día.\nEsta tarifa puede cambiar de acuerdo a la agencia y el tipo de coche seleccionado, así como la temporada de viaje y los servicios adicionales incluidos.",
+          "faq_5": "Los requisitos para rentar un auto en Las Vegas, Nevada, son:\n* Licencia de conducción de tu país de origen, con fecha de expedición mayor a 1 año y fecha de vencimiento impresa.\n* Tener mínimo 25 años de edad.\n* Tarjeta de crédito a nombre del titular de la reserva, con su nombre impreso y con fondos suficientes para cubrir el depósito de garantía.\n* Pasaporte vigente.\n* Tiquetes aéreos o de crucero, de ida y regreso. Requisito exclusivo para extranjeros.\n* Voucher impreso que evidencie el pago de la reserva.\nNo olvides que todos los documentos se deben presentar en formato físico al momento de recoger el vehículo en el mostrador de la agencia. Puedes conocer los otros requisitos de alquiler consultando a nuestro chatbot Lucy.",
+          "faq_6": "Sí, puedes rentar un carro en Las Vegas y devolverlo en una ciudad diferente de los Estados Unidos; sin embargo, debes tener en cuenta que esto tendrá un costo adicional y debes especificar la localidad de devolución al momento de realizar tu reserva."
+        }
+      }
+    },
+    {
+      "car_rental": {
+        "h2": "Tipos de autos de alquiler en Las Vegas",
+        "h2_desc": "¡Recorre Nevada a tu manera! Viajemos te brinda todo un portafolio de soluciones en movilidad. Registra ahora las fechas de tu reserva y elige el tipo de auto que mejor se adapte a tu estilo: autos económicos para ahorrar más, carros eléctricos ECO friendly, vans que invitan a viajar con amigos, SUV's perfectas para la aventura y mucho más.",
+        "vol_h2":"55 a 60 palabras",
+        "h3": {
+          "h3_1": "Renta de Autos Económicos",
+          "h3_2": "Alquiler de SUV",
+          "h3_3": "Renta de Vans",
+          "h3_4": "Alquiler de Convertibles",
+          "h3_5": "Renta de Autos de Lujo",
+          "h3_6": "Alquiler de Carros Eléctricosl"
+          
+        },
+        "h3_desc": {
+          "h3_desc_1": "Tu ahorro empieza ahora, renta un auto barato en Las Vegas y aprovecha nuestros Kilómetros Ilimitados por el menor precio.",
+          "h3_desc_2": "Reserva hoy una SUV en Las Vegas y disfruta de más espacio y tracción para explorar los caminos de Nevada.",
+          "h3_desc_3": "¡Viaja y gana con todos tus amigos! Renta una van de hasta 15 asientos en Las Vegas, NV.",
+          "h3_desc_4": "Alquila un auto convertible en Las Vegas y expresa tu estilo mientras conduces. ¡Guarda el techo y sé la envidia de todos!",
+          "h3_desc_5": "¡Apuéstale a la elegancia por las calles de las Vegas! Renta un carro lujoso con descuentos hasta del 35%.",
+          "h3_desc_6": "Transpórtate con mayor confort por las calles de USA mientras ayudas al planeta: alquila un coche eléctrico en Las Vega"
+
+        },
+        "vol_h3": "15 a 25 palabras"
+      }
+    },
+    {
+      "fav_city": {
+        "h2": "Renta de Autos en otras Ciudades de Estados Unidos",
+        "vol_h2": "60 a 65 palabras",
+        "h2_desc": "No lo sueñes, ¡hazlo realidad! Explora las principales ciudades de Estados Unidos con Viajemos, tu mejor aliado en renta de carros. Encuentra tu coche ideal con nosotros: reserva hoy, recógelo en tu destino favorito como Los Ángeles, Miami, New York o Houston, y disfruta Descuentos hasta del 35% y Kilómetros Ilimitados. No lo pienses más, un roadtrip inolvidable te está esperando."
+      }
+    }
+  ]
+}

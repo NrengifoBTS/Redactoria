@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "tema": "Alquiler de autos Avis",
+    "descripcion": "Alquiler de autos Avis",
+    "idioma": "Español"
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Alquiler de autos Avis",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "Paga menos, ahorra más y transpórtate mejor: Renta un auto Avis aquí, te damos los precios más bajos del mercado"
+      }
+    },
+    {
+      "fleet": {
+        "h2": "Renta de carros Avis",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "¡Consigue la combinación perfecta de ahorro y confort! En Viajemos, te conectamos con la amplia selección de autos de alquiler de Avis Rental Car y con Descuentos hasta del 35% en tu tarifa. Aprovecha esta oportunidad y reserva ahora. Escoge tu vehículo favorito entre veloces carros compactos, potentes SUVs, amplias vans y mucho más. Por si fuera poco, te damos beneficios exclusivos como Seguro de Viaje Gratis para extranjeros, Kilómetros Ilimitados y Tarifas Todo Incluido, entre otros. ¡Renta ya!",
+        "ip_usa": "¡Consigue la combinación perfecta de ahorro y confort! En Viajemos, te conectamos con la amplia selección de autos de alquiler de Avis Rental Car y con Descuentos hasta del 35% en tu tarifa. Aprovecha esta oportunidad y reserva ahora. Escoge tu vehículo favorito entre veloces carros compactos, potentes SUVs, amplias vans y mucho más. Por si fuera poco, te damos beneficios exclusivos como Kilómetros Ilimitados, Asistencia Básica en Carretera y Tarifas Preferenciales, entre otros. ¡Renta ya!",
+        "ip_bra": "¡Consigue la combinación perfecta de ahorro y confort! En Viajemos, te conectamos con la amplia selección de autos de alquiler de Avis Rental Car y con Descuentos hasta del 35% en tu tarifa. Aprovecha esta oportunidad y reserva ahora. Escoge tu vehículo favorito entre veloces carros compactos, potentes SUVs, amplias vans y mucho más. Por si fuera poco, te damos ventajas exclusivas como Seguro de Viaje Gratis para extranjeros, Kilómetros Ilimitados y Beneficio de Cobertura de IOF, entre otros. ¡Renta ya!"
+      }
+    },
+    {
+      "faqs": {
+        "h2": "Preguntas frecuentes sobre renta de autos Avis",
+        "vol_h2": "55 a 130 palabras",
+        "h2_desc": "Te cambiamos las dudas por certezas para que viajes tranquilo y por el menor precio. Aquí encontrarás respuestas claras para tus preguntas más frecuentes acerca del alquiler de carros con Avis y sus diferentes aspectos, como las tarifas, los tipos de vehículos, requisitos y más. Deja a un lado todas las incógnitas, renta ya y experimenta el máximo confort al volante.",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta alquilar un auto en Avis?",
+          "h3_faq_2": "¿Se puede rentar un carro de la agencia Avis por horas?",
+          "h3_faq_3": "¿Cuál es el carro más barato para alquilar con Avis?",
+          "h3_faq_4": "¿Qué se necesita para rentar un carro en Avis?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "Rentar un auto con Avis tiene un costo que va desde los USD $11 al día.\nTen en cuenta que esta tarifa puede variar de acuerdo con factores como el tipo de carro seleccionado, la temporada de viaje, los servicios adicionales incluidos en la reserva, entre otros.",
+          "faq_2": "Sí, puedes alquilar un auto Avis por horas a través de nuestro portal web; sin embargo, recuerda que esto tendrá el mismo costo que rentar el vehículo por un día entero.",
+          "faq_3": "Los vehículos más económicos para rentar con Avis son:\n**\n- Ford Fiesta o similar, de categoría Económico.\n- Kia Soul o similar, de categoría Compacto.\n- Toyota Corolla o similar, de categoría Intermedio.\n**\nEscoge tu favorito y alquila hoy mismo desde USD $11/día a través de nuestro website. También puedes comparar otros tipos de vehículos para elegir el más adecuado según tu plan de viaje. Ten en cuenta que esta tarifa puede variar según el carro, la temporada del año y los servicios adicionales que agregues a tu reserva.",
+          "faq_4": "Los requisitos para alquilar un auto Avis, son los siguientes:\n** \n- Ser mayor de 25 años.\n- Licencia de conducción de tu país de origen en estado vigente, con antigüedad mayor a un año y fecha de vencimiento impresa.\n- Tarjeta de crédito a nombre del titular de la reserva con fondos suficientes para el depósito de garantía.\n- Depósito de Garantía.\n- Pasaporte vigente.\n- Tiquetes aéreos de ida y vuelta. \n- Voucher impreso para comprobar que la reserva fue prepagada (en caso de que seas extranjero).\n**\nEstos documentos deben ser presentados en formato físico al momento de recoger el vehículo del mostrador de la agencia. Asimismo, algunos de los requisitos pueden cambiar de acuerdo con tu país de origen, por eso te invitamos a consultarlos a través de nuestro Chatbot, Lucy."
+        }
+      }
+    },
+    {
+      "car_rental": {
+        "h2": "Tipos de autos de alquiler en Avis",
+        "h2_desc": "Reserva el vehículo perfecto y toma el control de todos tus recorridos. Te damos acceso a diferentes tipos de carros de renta de Avis para que escojas tu preferido. ¿Prefieres los autos lujosos o las vans espaciosas? Aquí te damos eso y más, incluyendo SUV's para todos los terrenos, convertibles con estilo y compactos económicos. ¡Compara, alquila y ponte al volante!",
+        "h3": {
+          "h3_1": "Autos Económicos",
+          "h3_2": "SUV",
+          "h3_3": "Vans",
+          "h3_4": "Convertibles",
+          "h3_5": "Autos de Lujo"
+        },
+        "h3_desc": {
+          "h3_desc_1": "Aventúrate por las carreteras de tus destinos favoritos con el menor precio del mercado, renta un carro barato Avis aquí.",
+          "h3_desc_2": "¡Conquista todos los caminos! Alquila una SUV con Avis y disfruta de la mezcla perfecta de autonomía, espacio y tracción superior.",
+          "h3_desc_3": "¡Más pasajeros, mayor diversión! Renta una van Avis y consigue más asientos para viajar con amigos o familia.",
+          "h3_desc_4": "Alquila un coche descapotable con Avis y presume tu estilo en cada destino. Atrapa todas las miradas mientras conduces.",
+          "h3_desc_5": "¡Demuestra tu elegancia kilómetro a kilómetro! Renta un auto de lujo con Avis y explora cada destino con el mayor prestigio."
+        }
+      }
+    },
+    {
+      "fav_city": {
+        "h2": "Renta de autos Avis alrededor del mundo",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Consigue al mejor aliado para tus recorridos en cada destino! Con Viajemos podrás alquilar un auto Avis en las principales ciudades del Mundo, con cientos de sucursales estratégicamente ubicadas cerca de las atracciones más populares. Reserva hoy, ahorra con nuestros Descuentos hasta del 35% y explora las metrópolis de USA, los sabores de México, las playas de Puerto Rico y mucho más.",
+        "h3": {
+          "h3_1": "",
+          "h3_2": "",
+          "h3_3": ""
+        },
+        "vol_h3": "25 a 30 palabras",
+        "h3_desc": {
+          "h3_desc_1": "",
+          "h3_desc_2": "",
+          "h3_desc_3": ""
+        }
+      }
+    },
+    {
+      "agencies": {
+        "h2": "Si te ha interesado el alquiler de autos Avis, no te pierdas estas agencias: ",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Las mejores aventuras requieren a los aliados más destacados, encuéntralos aquí! Contamos con alianzas estratégicas con las agencias de alquiler de carros más famosas del mundo como Alamo, Budget, National, entre otros. Compara tarifas, escoge tu favorita y renta en cuestión de minutos con nosotros. Somos expertos en darte procesos de reserva fáciles y beneficios exclusivos que solo encuentras en Viajemos.",
+        "vol_h3": "20 a 35 palabras",
+        "h3_desc": "Nuestra calificación de 4.8/5 nos respalda como tu solución ideal en transporte, ¡reserva ya con Viajemos! Los mejores vehículos de alquiler se acaban pronto, no te quedes sin el tuyo."
+      }
+    }
+  ]
+}

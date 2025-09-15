@@ -1,0 +1,14 @@
+{
+    "metadata": {
+        "tema": "dallas_ciudad",
+        "archivo_original": "vegas_ciudad.json"
+    },
+    "secciones": {
+        {
+            "respuesta_quicksearch": {
+                titulo: "",
+                respuesta:""
+            }
+        }
+    }
+}

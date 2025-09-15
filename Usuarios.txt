@@ -1,0 +1,55 @@
+{
+  "email": "jancap@redactoria.com",
+  "first_name": "Jancarlo",
+  "last_name": "Palomino",
+  "password": "JancarloPIA2025"
+}
+
+{
+  "email": "gisellh@redactoria.com",
+  "first_name": "Gisell",
+  "last_name": "Hernandez",
+  "password": "GisellHIA2025"
+}
+
+{
+  "email": "camilac@redactoria.com",
+  "first_name": "Camila",
+  "last_name": "Cardenas",
+  "password": "CamilaCIA2025"
+}
+
+{
+  "email": "mariab@redactoria.com",
+  "first_name": "Maria",
+  "last_name": "Bravo",
+  "password": "MariaBIA2025"
+}
+
+{
+  "email": "felipen@redactoria.com",
+  "first_name": "Felipe",
+  "last_name": "Niño",
+  "password": "FelipeNIA2025"
+}
+
+{
+  "email": "daniels@redactoria.com",
+  "first_name": "Daniel",
+  "last_name": "Sandoval",
+  "password": "DanielSIA2025"
+}
+
+{
+  "email": "angieg@redactoria.com",
+  "first_name": "Angie",
+  "last_name": "Garzon",
+  "password": "AngieGIA2025"
+}
+
+{
+  "email": "aldairf@redactoria.com",
+  "first_name": "Aldair",
+  "last_name": "Franco",
+  "password": "AldairFIA2025"
+}
