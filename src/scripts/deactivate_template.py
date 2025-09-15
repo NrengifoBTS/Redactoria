@@ -5,7 +5,7 @@ def deactivate_template(template_id):
     """Desactivar un template marcándolo como is_active: False"""
     
     # TOKEN - REEMPLAZA CON TU TOKEN
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTM0MDEwNDJ9.zJ62qKxtNoUJ-Ul_mZyl228sT9e_RSbdHe7Leyom-QA"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTc5ODM0ODB9.T4VFL5trpFS8EsC7kyUXzoKRkJBJe2ex8t3k24iMOuU"
     
     # URL de tu API
     base_url = "http://192.168.1.11:8000"
@@ -94,7 +94,7 @@ def deactivate_template(template_id):
 def list_templates():
     """Listar todos los templates para ver cuáles están activos"""
     
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTM0MDEwNDJ9.zJ62qKxtNoUJ-Ul_mZyl228sT9e_RSbdHe7Leyom-QA"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTc5ODM0ODB9.T4VFL5trpFS8EsC7kyUXzoKRkJBJe2ex8t3k24iMOuU"
     base_url = "http://192.168.1.11:8000"
     
     headers = {
@@ -158,7 +158,7 @@ def list_templates():
 def get_template_by_id(template_id):
     """Obtener información detallada de un template específico"""
     
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTM0MDEwNDJ9.zJ62qKxtNoUJ-Ul_mZyl228sT9e_RSbdHe7Leyom-QA"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTc5ODM0ODB9.T4VFL5trpFS8EsC7kyUXzoKRkJBJe2ex8t3k24iMOuU"
     base_url = "http://192.168.1.11:8000"
     
     headers = {
