@@ -14,9 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 def register_routes(app: FastAPI):
     origins = [
         "http://localhost:3000",        
-        "http://192.168.1.11:3000",
-        "http://192.168.1.11:8000",
-        "http://192.168.1.11:1234",
+        "http://192.168.1.129:3000",
+        "http://192.168.1.129:3000",
+        "http://192.168.1.129:8000",
+        "http://192.168.1.129:8000",
+        "http://192.168.1.129:1234",
+        "http://192.168.1.129:1234",
         "http://200.91.205.82:8000",
         "http://200.91.205.82:3000",
     ]

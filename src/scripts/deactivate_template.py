@@ -8,7 +8,7 @@ def deactivate_template(template_id):
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTM0MDEwNDJ9.zJ62qKxtNoUJ-Ul_mZyl228sT9e_RSbdHe7Leyom-QA"
     
     # URL de tu API
-    base_url = "http://192.168.1.11:8000"
+    base_url = "http://192.168.1.129:8000"
     
     # Payload para desactivar - solo cambiar is_active
     payload = {
@@ -95,7 +95,7 @@ def list_templates():
     """Listar todos los templates para ver cuáles están activos"""
     
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTM0MDEwNDJ9.zJ62qKxtNoUJ-Ul_mZyl228sT9e_RSbdHe7Leyom-QA"
-    base_url = "http://192.168.1.11:8000"
+    base_url = "http://192.168.1.129:8000"
     
     headers = {
         "Authorization": f"Bearer {token}"
@@ -159,7 +159,7 @@ def get_template_by_id(template_id):
     """Obtener información detallada de un template específico"""
     
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTM0MDEwNDJ9.zJ62qKxtNoUJ-Ul_mZyl228sT9e_RSbdHe7Leyom-QA"
-    base_url = "http://192.168.1.11:8000"
+    base_url = "http://192.168.1.129:8000"
     
     headers = {
         "Authorization": f"Bearer {token}"

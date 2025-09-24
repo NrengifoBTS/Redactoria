@@ -8,7 +8,7 @@ def create_template():
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjYW1pbGFjQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJiNDNmMWQwNC1mMzM5LTRjZjktOGU0ZS00ZjEyN2YxMmFmNWEiLCJleHAiOjE3NTI4NTk1MDJ9.o9NeRqDJ7p9Aho9cDzzB-E5-RmMpDdfQIfSI5VisJPI"
     
     # URL de tu API
-    base_url = "http://192.168.1.11:8000"  
+    base_url = "http://192.168.1.129:8000"  
     
     # Template data - BLOQUE 1 Y BLOQUE 2
     template_text_data = {

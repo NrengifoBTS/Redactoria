@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.1.11:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.1.129:8000';
 
 class ApiService {
   constructor() {

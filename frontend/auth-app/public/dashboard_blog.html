@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link
+      rel="stylesheet"
+      href="../node_modules/@iconscout/unicons/css/line.css"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="navbar">
+      <h1>Analíticas</h1>
+      <nav>
+        <a href="" class="btn">Volver</a>
+      </nav>
+    </header>
+
+    <main class="container">
+      <!-- Stats -->
+      <section class="stats">
+        <div class="stat-card">
+          <h2>1,245</h2>
+          <p>Visitas Totales</p>
+        </div>
+        <div class="stat-card">
+          <h2>87</h2>
+          <p>Artículos Generados</p>
+        </div>
+        <div class="stat-card">
+          <h2>142</h2>
+          <p>Imágenes Generadas</p>
+        </div>
+      </section>
+
+      <!-- Tabla -->
+      <section class="table-section">
+        <div class="table-controls">
+          <div class="filters">
+            <input type="text" placeholder="Buscar..." />
+            <select>
+              <option>Todos los tipos</option>
+              <option>Artículos</option>
+              <option>Imágenes</option>
+            </select>
+            <select>
+              <option>Últimos 7 días</option>
+              <option>Últimos 30 días</option>
+              <option>Este año</option>
+            </select>
+          </div>
+          <a href="generacion_blog.html" class="btn-create">+ Crear Blog</a>
+        </div>
+        <h3>Últimos Archivos Generados</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Archivo</th>
+              <th>Tipo</th>
+              <th>Palabras</th>
+              <th>Estado</th>
+              <th>Prioridad</th>
+              <th>Ultima modificacion</th>
+              <th>Opciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Guía de Viajes 2025</td>
+              <td>Artículo</td>
+              <td>1200</td>
+              <td>Activo</td>
+              <td>Urgente</td>
+              <td>18/09/2025</td>
+              <td class="acciones">
+                <button class="btn-action edit">Editar</button>
+                <button class="btn-action view">Visualizar</button>
+                <button class="btn-action delete">Eliminar</button>
+                <button class="btn-action download">Descargar</button>
+              </td>
+            </tr>
+            <tr>
+              <td>IA Futurista</td>
+              <td>Artículo</td>
+              <td>850</td>
+              <td>Incativo</td>
+              <td>Neutral</td>
+              <td>17/09/2025</td>
+              <td class="acciones">
+                <button class="btn-action edit">Editar</button>
+                <button class="btn-action view">Visualizar</button>
+                <button class="btn-action delete">Eliminar</button>
+                <button class="btn-action download">Descargar</button>
+              </td>
+            </tr>
+            <tr>
+              <td>Logo Digital</td>
+              <td>Imagen</td>
+              <td>1500</td>
+              <td>Activo</td>
+              <td>Alto</td>
+              <td>15/09/2025</td>
+              <td class="acciones">
+                <button class="btn-action edit">Editar</button>
+                <button class="btn-action view">Visualizar</button>
+                <button class="btn-action delete">Eliminar</button>
+                <button class="btn-action download">Descargar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+
+    <footer class="footer"></footer>
+  </body>
+</html>
