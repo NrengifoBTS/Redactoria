@@ -710,7 +710,7 @@ function ProjectsTable({
       // Abrir redactor con el proyecto_id
       window.open(`/redactor/${proyectoId}`, '_blank');
     } catch (error) {
-      console.error('❌ Error al verificar landing page:', error);
+      console.error(' Error al verificar landing page:', error);
       alert('Error al acceder a la landing page: ' + error.message);
     }
   };

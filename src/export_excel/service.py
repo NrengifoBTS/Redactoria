@@ -470,7 +470,7 @@ def _process_imagenes_by_template(wb, export_request: models.ExportExcelRequest)
     if "imagenes" not in wb.sheetnames:
         logging.info(f"Template '{template_name}' no tiene hoja 'imagenes'")
         return
-    
+      
     ws_imagenes = wb["imagenes"]
     logging.info(f"Procesando hoja 'imagenes' para template: {template_name}")
     
