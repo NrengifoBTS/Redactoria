@@ -6,6 +6,7 @@ import Redactor from "./Redactor";
 import Dashboard from "./Dashboard";
 import { AppProvider } from "./context/AppContext";
 import BlogGeneracion from "./Blog_Generacion";
+import Dashboard_Blog from "./Dashboard_Blog";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/redactor/:lpId" element={<Redactor />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/blog_generacion" element={<BlogGeneracion />} />
+          <Route path="/dashboard_blog" element={<Dashboard_Blog />} />
         </Routes>
       </Router>
     </AppProvider>

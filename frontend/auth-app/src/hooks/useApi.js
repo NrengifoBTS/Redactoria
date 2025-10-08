@@ -1,8 +1,8 @@
 // useApi.js - Hook personalizado para manejar las llamadas a la API
 
-import { useState, useEffect, useCallback } from 'react';
-import apiService from '../services/apiService';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from "react";
+import apiService from "../services/apiService";
+import { useNavigate } from "react-router-dom";
 
 // Hook genérico para cualquier llamada a la API
 export const useApi = (apiFunction, dependencies = [], options = {}) => {
@@ -19,7 +19,7 @@ export const useApi = (apiFunction, dependencies = [], options = {}) => {
       return result;
     } catch (err) {
       setError(err.message);
-      console.error('API call failed:', err);
+      console.error("API call failed:", err);
       throw err;
     } finally {
       setLoading(false);
@@ -53,7 +53,7 @@ export const useProyectos = (filters = {}) => {
       return data;
     } catch (err) {
       setError(err.message);
-      console.error('Error loading proyectos:', err);
+      console.error("Error loading proyectos:", err);
       throw err;
     } finally {
       setLoading(false);
@@ -64,10 +64,10 @@ export const useProyectos = (filters = {}) => {
   const createProyecto = useCallback(async (proyectoData) => {
     try {
       const newProyecto = await apiService.createProyecto(proyectoData);
-      setProyectos(prev => [...prev, newProyecto]);
+      setProyectos((prev) => [...prev, newProyecto]);
       return newProyecto;
     } catch (err) {
-      console.error('Error creating proyecto:', err);
+      console.error("Error creating proyecto:", err);
       throw err;
     }
   }, []);
@@ -76,12 +76,12 @@ export const useProyectos = (filters = {}) => {
   const updateProyecto = useCallback(async (id, updates) => {
     try {
       const updatedProyecto = await apiService.updateProyecto(id, updates);
-      setProyectos(prev => 
-        prev.map(p => p.id === id ? updatedProyecto : p)
+      setProyectos((prev) =>
+        prev.map((p) => (p.id === id ? updatedProyecto : p))
       );
       return updatedProyecto;
     } catch (err) {
-      console.error('Error updating proyecto:', err);
+      console.error("Error updating proyecto:", err);
       throw err;
     }
   }, []);
@@ -90,9 +90,9 @@ export const useProyectos = (filters = {}) => {
   const deleteProyecto = useCallback(async (id) => {
     try {
       await apiService.deleteProyecto(id);
-      setProyectos(prev => prev.filter(p => p.id !== id));
+      setProyectos((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
-      console.error('Error deleting proyecto:', err);
+      console.error("Error deleting proyecto:", err);
       throw err;
     }
   }, []);
@@ -100,13 +100,16 @@ export const useProyectos = (filters = {}) => {
   // Asignar proyecto
   const assignProyecto = useCallback(async (proyectoId, userId) => {
     try {
-      const updatedProyecto = await apiService.assignProyecto(proyectoId, userId);
-      setProyectos(prev => 
-        prev.map(p => p.id === proyectoId ? updatedProyecto : p)
+      const updatedProyecto = await apiService.assignProyecto(
+        proyectoId,
+        userId
+      );
+      setProyectos((prev) =>
+        prev.map((p) => (p.id === proyectoId ? updatedProyecto : p))
       );
       return updatedProyecto;
     } catch (err) {
-      console.error('Error assigning proyecto:', err);
+      console.error("Error assigning proyecto:", err);
       throw err;
     }
   }, []);
@@ -114,13 +117,16 @@ export const useProyectos = (filters = {}) => {
   // Cambiar estado de proyecto
   const updateEstadoProyecto = useCallback(async (proyectoId, estado) => {
     try {
-      const updatedProyecto = await apiService.updateEstadoProyecto(proyectoId, estado);
-      setProyectos(prev => 
-        prev.map(p => p.id === proyectoId ? updatedProyecto : p)
+      const updatedProyecto = await apiService.updateEstadoProyecto(
+        proyectoId,
+        estado
+      );
+      setProyectos((prev) =>
+        prev.map((p) => (p.id === proyectoId ? updatedProyecto : p))
       );
       return updatedProyecto;
     } catch (err) {
-      console.error('Error updating estado:', err);
+      console.error("Error updating estado:", err);
       throw err;
     }
   }, []);
@@ -140,7 +146,7 @@ export const useProyectos = (filters = {}) => {
     deleteProyecto,
     assignProyecto,
     updateEstadoProyecto,
-    setProyectos
+    setProyectos,
   };
 };
 
@@ -160,8 +166,8 @@ export const useCurrentUser = () => {
       return userData;
     } catch (err) {
       setError(err.message);
-      console.error('Error loading user:', err);
-      navigate('/login');
+      console.error("Error loading user:", err);
+      navigate("/login");
       return null;
     } finally {
       setLoading(false);
@@ -175,7 +181,7 @@ export const useCurrentUser = () => {
   // Redirige si hay error y no hay usuario
   useEffect(() => {
     if (error && !user && !loading) {
-      navigate('/login', { replace: true });
+      navigate("/login", { replace: true });
     }
   }, [error, user, loading, navigate]);
 
@@ -198,8 +204,8 @@ export const useUsers = (immediate = true) => {
       return usersData;
     } catch (err) {
       setError(err.message);
-      console.error('Error loading users:', err);
-      navigate('/login');
+      console.error("Error loading users:", err);
+      navigate("/login");
       return null;
     } finally {
       setLoading(false);
@@ -229,7 +235,7 @@ export const useAuth = () => {
       setIsAuthenticated(true);
       return response;
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error("Login failed:", err);
       throw err;
     } finally {
       setLoading(false);
@@ -242,7 +248,7 @@ export const useAuth = () => {
       setUser(null);
       setIsAuthenticated(false);
     } catch (err) {
-      console.error('Logout failed:', err);
+      console.error("Logout failed:", err);
       // Logout local even if API call fails
       setUser(null);
       setIsAuthenticated(false);
@@ -252,14 +258,14 @@ export const useAuth = () => {
   const checkAuth = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
       if (token) {
         const userData = await apiService.getCurrentUser();
         setUser(userData);
         setIsAuthenticated(true);
       }
     } catch (err) {
-      console.error('Auth check failed:', err);
+      console.error("Auth check failed:", err);
       setIsAuthenticated(false);
       setUser(null);
     } finally {
@@ -277,7 +283,7 @@ export const useAuth = () => {
     loading,
     login,
     logout,
-    checkAuth
+    checkAuth,
   };
 };
 
@@ -288,42 +294,48 @@ export const useApiForm = (submitFunction, options = {}) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  const handleChange = useCallback((field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError(null);
-    if (success) setSuccess(false);
-  }, [error, success]);
+  const handleChange = useCallback(
+    (field, value) => {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+      if (error) setError(null);
+      if (success) setSuccess(false);
+    },
+    [error, success]
+  );
 
-  const handleSubmit = useCallback(async (e) => {
-    if (e) e.preventDefault();
-    
-    try {
-      setLoading(true);
-      setError(null);
-      setSuccess(false);
-      
-      const result = await submitFunction(formData);
-      setSuccess(true);
-      
-      if (options.resetOnSuccess) {
-        setFormData(options.initialData || {});
+  const handleSubmit = useCallback(
+    async (e) => {
+      if (e) e.preventDefault();
+
+      try {
+        setLoading(true);
+        setError(null);
+        setSuccess(false);
+
+        const result = await submitFunction(formData);
+        setSuccess(true);
+
+        if (options.resetOnSuccess) {
+          setFormData(options.initialData || {});
+        }
+
+        if (options.onSuccess) {
+          options.onSuccess(result);
+        }
+
+        return result;
+      } catch (err) {
+        setError(err.message);
+        if (options.onError) {
+          options.onError(err);
+        }
+        throw err;
+      } finally {
+        setLoading(false);
       }
-      
-      if (options.onSuccess) {
-        options.onSuccess(result);
-      }
-      
-      return result;
-    } catch (err) {
-      setError(err.message);
-      if (options.onError) {
-        options.onError(err);
-      }
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [formData, submitFunction, options]);
+    },
+    [formData, submitFunction, options]
+  );
 
   const reset = useCallback(() => {
     setFormData(options.initialData || {});
@@ -339,22 +351,25 @@ export const useApiForm = (submitFunction, options = {}) => {
     success,
     handleChange,
     handleSubmit,
-    reset
+    reset,
   };
 };
 
 // Hook para paginación
 export const usePagination = (items, itemsPerPage = 10) => {
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   const totalPages = Math.ceil(items.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = items.slice(startIndex, endIndex);
 
-  const goToPage = useCallback((page) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  }, [totalPages]);
+  const goToPage = useCallback(
+    (page) => {
+      setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    },
+    [totalPages]
+  );
 
   const nextPage = useCallback(() => {
     goToPage(currentPage + 1);
@@ -377,7 +392,7 @@ export const usePagination = (items, itemsPerPage = 10) => {
     nextPage,
     prevPage,
     hasNextPage: currentPage < totalPages,
-    hasPrevPage: currentPage > 1
+    hasPrevPage: currentPage > 1,
   };
 };
 
@@ -387,11 +402,11 @@ export const useFilters = (data, filterFunctions) => {
   const [filteredData, setFilteredData] = useState(data);
 
   const updateFilter = useCallback((key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setFilters((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const clearFilter = useCallback((key) => {
-    setFilters(prev => {
+    setFilters((prev) => {
       const newFilters = { ...prev };
       delete newFilters[key];
       return newFilters;
@@ -404,13 +419,13 @@ export const useFilters = (data, filterFunctions) => {
 
   useEffect(() => {
     let filtered = [...data];
-    
+
     Object.entries(filters).forEach(([key, value]) => {
       if (value && filterFunctions[key]) {
-        filtered = filtered.filter(item => filterFunctions[key](item, value));
+        filtered = filtered.filter((item) => filterFunctions[key](item, value));
       }
     });
-    
+
     setFilteredData(filtered);
   }, [data, filters, filterFunctions]);
 
@@ -419,13 +434,13 @@ export const useFilters = (data, filterFunctions) => {
     filteredData,
     updateFilter,
     clearFilter,
-    clearAllFilters
+    clearAllFilters,
   };
 };
 
 // Hook para búsqueda
 export const useSearch = (data, searchFields) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState(data);
 
   useEffect(() => {
@@ -434,10 +449,13 @@ export const useSearch = (data, searchFields) => {
       return;
     }
 
-    const filtered = data.filter(item => {
-      return searchFields.some(field => {
-        const value = field.split('.').reduce((obj, key) => obj?.[key], item);
-        return value?.toString().toLowerCase().includes(searchTerm.toLowerCase());
+    const filtered = data.filter((item) => {
+      return searchFields.some((field) => {
+        const value = field.split(".").reduce((obj, key) => obj?.[key], item);
+        return value
+          ?.toString()
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
       });
     });
 
@@ -447,7 +465,7 @@ export const useSearch = (data, searchFields) => {
   return {
     searchTerm,
     setSearchTerm,
-    searchResults
+    searchResults,
   };
 };
 
@@ -460,5 +478,5 @@ export default {
   useApiForm,
   usePagination,
   useFilters,
-  useSearch
+  useSearch,
 };

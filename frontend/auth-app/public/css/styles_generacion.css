@@ -199,13 +199,22 @@ body {
 /* Layout principal de los generadores */
 .generadores-container {
   display: flex;
-  gap: 40px;
-  padding: 40px;
+  gap: 20px; /* separación entre columnas */
+  align-items: flex-start;
+  justify-content: space-between; /* fuerza que ocupen todo el ancho */
 }
-.generadores-izquierda,
+
+/* Columna izquierda */
+.generadores-izquierda {
+  flex: 0 0 48%; /* ocupa casi la mitad, dejando 4% de gap */
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* Columna derecha */
 .visual-generator {
-  flex-grow: 1;
-  flex-basis: 0;
+  flex: 0 0 48%;
   display: flex;
   flex-direction: column;
   gap: 40px;

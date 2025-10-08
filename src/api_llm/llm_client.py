@@ -149,7 +149,7 @@ class LLMClient:
                 }
             ],
             "temperature": self.temperature,
-            "max_tokens": -1,
+            "  ": -1,
             "stream": False
         }
 

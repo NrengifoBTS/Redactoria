@@ -27,11 +27,15 @@ import {
 } from "./hooks/useApi.js";
 import apiService from "./services/apiService.js";
 import { isAdminUser, isEditorUser, ADMIN_USER_IDS } from "./utils/roles";
+import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 function Dashboard() {
+  const navigate = useNavigate(); // <-- Para navegación real
   // Estados usando hooks personalizados
   const { user: currentUser, loading: loadingUser } = useCurrentUser();
   const { users } = useUsers(true);
+
   const {
     proyectos,
     loading: loadingProyectos,
@@ -47,6 +51,10 @@ function Dashboard() {
   const [selectedProyecto, setSelectedProyecto] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProyecto, setEditingProyecto] = useState(null);
+
+  const handleGoToBlog = () => {
+    navigate("/dashboard_blog"); // igual que tu App.js
+  };
 
   const getFilteredUsers = () => {
     if (!users || !currentUser) return [];
@@ -465,6 +473,7 @@ function Dashboard() {
           onCreateProject={() => setShowCreateModal(true)}
           canCreateProjects={canCreateProjects}
           isAdminUser={isAdminUser}
+          onGoToBlog={handleGoToBlog}
         />
 
         {/* Tabla de Proyectos */}
@@ -588,6 +597,7 @@ function FilterPanel({
   onCreateProject,
   canCreateProjects,
   isAdminUser,
+  onGoToBlog,
 }) {
   return (
     <div
@@ -770,8 +780,9 @@ function FilterPanel({
           </button>
         )}
 
-        <button
-          onClick={() => (window.location.href = "/dashboard_blog.html")}
+        {/* Botón Blog con navegación real */}
+        <Link
+          to="/dashboard_blog"
           style={{
             display: "flex",
             alignItems: "center",
@@ -784,11 +795,12 @@ function FilterPanel({
             fontSize: "0.875rem",
             fontWeight: "500",
             cursor: "pointer",
+            textDecoration: "none",
           }}
         >
           <FileText size={16} />
           Blog
-        </button>
+        </Link>
       </div>
     </div>
   );
