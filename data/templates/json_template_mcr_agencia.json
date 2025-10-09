@@ -22,20 +22,6 @@
       }
     },
     {
-      "reviews": {
-        "h2": "",
-        "vol_h2": "55 a 60 palabras",
-        "h2_desc": ""
-      }
-    },
-    {
-      "rentcompanies": {
-        "h2": "",
-        "vol_h2": "55 a 60 palabras",
-        "h2_desc": ""
-      }
-    },
-    {
       "questions": {
         "h2": "",
         "vol_h2": "55 a 60 palabras",
@@ -56,6 +42,22 @@
       }
     },
     {
+      "fleetcarrusel": {
+        "h2": "",
+        "h2_desc": "",
+        "h3": {
+          "h3_1": "",
+          "h3_2": "",
+          "h3_3": ""
+        },
+        "h3_desc": {
+          "h3_desc_1": "",
+          "h3_desc_2": "",
+          "h3_desc_3": ""
+        }
+      }
+    },
+    {
       "locationscarrusel": {
         "h2": "",
         "h2_desc": "",
@@ -72,19 +74,17 @@
       }
     },
     {
-      "rentacar": {
+      "bloquehistoria": {
         "h2": "",
-        "vol_h2": "95 a 130 palabras",
-        "h2_desc": "",
-        "h3": {
-          "h3_1": "",
-          "h3_2": ""
-        },
-        "vol_h3": "220 a 250 palabras",
-        "h3_desc": {
-          "h3_desc_1": "",
-          "h3_desc_2": ""
-        }
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": ""
+      }
+    },
+    {
+      "rentcompanies": {
+        "h2": "",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": ""
       }
     }
   ]

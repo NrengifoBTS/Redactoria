@@ -101,6 +101,34 @@ class ContentGenerator:
         ter= self.llm_client.post_generate_dos(sec, regla= vol_h2)
         return ter
     
+    def generate_reviews(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        # Acceder directamente al reviews de la sección        
+        vol_h1 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+        print("----------------")
+        print(vol_h1)
+        
+        #Restricciones por bloque
+        #restric= "Esta es una lista de KW(key words) y expreciones que puedes utilizar: Di adiós a los gastos ocultos, ¡Reserva fácil y en poco tiempo!, ¡Haz el viaje, nosotros los descuentos!, Experimenta la excelencia en la renta de carros, Elige a los mejores, elige a Viajemos, Descuentos Relámpago, ¡Conquista la ciudad con Viajemos!, Encuentra al compañero ideal, Pequeño en precio, grande en aventuras, Excelencia sobre Ruedas, ¡A rodar!, Economía y Lujo en Uno, ¡Descubre el lujo sobre ruedas con Viajemos!, ¡En Viajemos tenemos la solución al alcance de un clic!, ¡Viaja con confianza, viaja con Viajemos!, la fórmula perfecta: calidad, atractivo y precios bajos, ¡Con Viajemos, comodidad y economía van de la mano!, ¡En precios bajos, somos imbatibles!, Nuestros precios bajos son una realidad, no una promesa, ¡Descuentos tan tentadores como tus ganas de viajar!, ¡Personaliza tu aventura sobre ruedas con Viajemos!, ¡Descubre más, gastando menos con Viajemos!, ¡Estamos seguros de que una parte de ti se quiere ir de viaje… y la otra también!, Un viaje se mide mejor en experiencias que en kilómetros, ¡así que Viajemos!, ¡Viajemos te ofrece un mundo de posibilidades mientras ahorras!, ¡En Viajemos tenemos lo que buscas!, ¡Activa tu superpoder al volante!, El auto y tú, ¡serán tal para cual!, ¡Alquila, conduce, impresiona!, Alquila un carro para que descubras (ciudad) en 3D: Dirección, Diversión, y Distinción, (Ciudad) te espera, y nuestros precios también, Ahorros inmediatos, Ahorra sin sacrificar la calidad, Alquila con confianza, ahorra con estilo, ¡Viajes llenos de ahorros!, Viajemos, te acompaña en tus mejores trayectos, ¡Sé un verdadero campeón del ahorro con Viajemos!, ¡Viaja tranquilo, viaja mejor!, Escoger te da ventajas y Viajemos te las ofrece, Tú bajas el techo y nosotros los precios , ¡Viaja más, paga menos!, Dale play a tus recorridos, Aterriza directamente en el ahorro, Tu cita más elegante es un coche de lujo, renta el tuyo en _______, Alquila, disfruta y vuelve pronto."
+
+        # crear ejemplos para el prompt
+        ejemplos_texto= "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('h2', '')}, desc_h2: {ejemplo.get('h2_desc', '')}\n" for i, ejemplo in enumerate(ejemplos)]
+        )
+
+        # Crear el prompt para quicksearch
+        prompt = (
+            #f"{restric}\n"
+            f"{ejemplos_texto}\n\n"
+            f"nuevo tema: {nuevo_tema}, tit:{tit_seo}\n"
+            f"reglas a tener en cuenta para desc_h2: cantidad de palabras{vol_h1} minimo a maximo.\n"
+            f"ahora genera tu la desc_h2, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: {tit_seo}|\n |desc_h2: redaccion|\n"
+        )
+        # Llamar al LLM y obtener respuesta
+        ini= self.llm_client.generate(prompt, self.system_message)
+        sec= self.llm_client.post_generate_uno(ini, regla= vol_h1)
+        ter= self.llm_client.post_generate_dos(sec, regla= vol_h1)
+        return ter
+    
     def generate_agencies(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
         """
         Genera la sección de agencias.
@@ -376,6 +404,12 @@ class ContentGenerator:
         respuesta_fleet = self.generate_fleet(template_data, nuevo_tema, ejemplos_fleet)
         nuevo_contenido["respuestas"].append({
             "respuesta_fleet": respuesta_fleet
+        })
+        
+        ejemplos_reviews = secciones_ejemplos.get("reviews", [])
+        respuesta_reviews = self.generate_reviews(template_data, nuevo_tema, ejemplos_reviews)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_reviews": respuesta_reviews
         })
         
         # 3. Agencies

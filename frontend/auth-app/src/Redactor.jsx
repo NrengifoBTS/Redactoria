@@ -481,21 +481,21 @@ export default function Redactor() {
     const [row, col] = selectedCell.split('-').map(Number);
 
     
-  if (block.type === 'fav_city') {
-    // Recopilar TODAS las ciudades del bloque
-    const favCityQuestions = [];
-    if (block.contentMapping) {
-      Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
-        if (field.startsWith('desc_') && field !== 'desc') {
-          const [respRow] = cellKey.split('-').map(Number);
-          const questionRow = respRow - 1;
-          const questionContent = tableData[`${questionRow}-3`]?.content || '';
-          if (questionContent && questionContent.trim() !== '') {
-            favCityQuestions.push(questionContent.trim());
+    if (block.type === 'fav_city') {
+      // Recopilar TODAS las ciudades del bloque
+      const favCityQuestions = [];
+      if (block.contentMapping) {
+        Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
+          if (field.startsWith('desc_') && field !== 'desc') {
+            const [respRow] = cellKey.split('-').map(Number);
+            const questionRow = respRow - 1;
+            const questionContent = tableData[`${questionRow}-3`]?.content || '';
+            if (questionContent && questionContent.trim() !== '') {
+              favCityQuestions.push(questionContent.trim());
+            }
           }
-        }
-      });
-    }
+        });
+      }
     
     // SIEMPRE usar el título del bloque principal
     const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
@@ -514,25 +514,39 @@ export default function Redactor() {
       carTypes: []
     };
   }
-
-    // Para el Bloque 4 (FAQs), SIEMPRE recopilar todas las preguntas
-    if (block.type === 'faqs') {
-      // Recopilar TODAS las preguntas FAQ del bloque usando contentMapping
+    //
+    if (block.type === 'faqs' || block.type === 'questions') {
+      console.log('🔍 CONTENTMAPPING:', block.contentMapping);
+      
       const faqQuestions = [];
       if (block.contentMapping) {
         Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
-          if (field.startsWith('faq_') && field !== 'desc') {
-            // Encontrar la celda de pregunta correspondiente (fila anterior)
+          console.log(`🔍 Procesando field: ${field}, cellKey: ${cellKey}`);
+          
+          // Buscar tanto faq_ como desc_ (excluyendo desc principal)
+          if ((field.startsWith('faq_') || field.startsWith('desc_')) && field !== 'desc') {
             const [respRow] = cellKey.split('-').map(Number);
             const questionRow = respRow - 1;
             const questionContent = tableData[`${questionRow}-3`]?.content || '';
+            
+            console.log(`🔍 Question field encontrado: ${field}`);
+            console.log(`🔍   respRow: ${respRow}, questionRow: ${questionRow}`);
+            console.log(`🔍   questionContent: "${questionContent}"`);
+            
             if (questionContent && questionContent.trim() !== '') {
               faqQuestions.push(questionContent.trim());
+              console.log(`✅ Pregunta agregada: "${questionContent.trim()}"`);
             }
           }
         });
       }
       
+      console.log('❓ FAQ/QUESTIONS:', {
+        blockType: block.type,
+        preguntasEncontradas: faqQuestions,
+        totalPreguntas: faqQuestions.length
+      });
+  
       
       // Si es la descripción principal del bloque (desc)
       if (row === block.descRow) {
@@ -540,7 +554,9 @@ export default function Redactor() {
         return {
           title: h2Title,
           type: 'h2_description',
-          faqQuestions: faqQuestions 
+          faqQuestions: faqQuestions,
+          favCityQuestions: [], 
+          carTypes: [] 
         };
       }
       
@@ -555,34 +571,41 @@ export default function Redactor() {
           return {
             title: faqQuestion,
             type: 'faq_answer',
-            faqQuestions: faqQuestions
+            faqQuestions: faqQuestions,
+            favCityQuestions: [], 
+            carTypes: [] 
           };
         } else {
           return {
             title: '',
             type: 'faq_answer_empty',
-            faqQuestions: faqQuestions
+            faqQuestions: faqQuestions,
+            favCityQuestions: [], 
+            carTypes: [] 
           };
         }
       }
     }
 
-    if (block.type === 'car_rental') {
-        const carTypes = [];
-        if (block.contentMapping) {
-          Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
-            if (field.startsWith('desc_') && field !== 'desc') {
-              const [respRow] = cellKey.split('-').map(Number);
-              const typeRow = respRow - 1; 
-              const typeContent = tableData[`${typeRow}-3`]?.content || ''; 
-              const fieldType = tableData[`${typeRow}-2`]?.content || ''; 
-              
-              if (typeContent && typeContent.trim() !== '' && fieldType.includes('H3')) {
-                carTypes.push(typeContent.trim());
-              }
+    if (block.type === 'car_rental' || block.type === 'fleetcarrusel') {
+      const carTypes = [];
+      if (block.contentMapping) {
+        Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
+          if (field.startsWith('desc_') && field !== 'desc') {
+            const [respRow] = cellKey.split('-').map(Number);
+            const typeRow = respRow - 1;
+            const typeContent = tableData[`${typeRow}-3`]?.content || '';
+            const fieldType = tableData[`${typeRow}-2`]?.content || '';
+            
+            // Busca H3 o h3 (case-insensitive)
+            if (typeContent && typeContent.trim() !== '' && 
+                (fieldType.includes('H3') || fieldType.includes('h3'))) {
+              carTypes.push(typeContent.trim());
             }
-          });
-        }
+          }
+        });
+      }
+        
         
         // Si es la descripción principal del bloque
         if (row === block.descRow) {
@@ -2139,20 +2162,51 @@ export default function Redactor() {
                   // Actualizar la celda de descripción con el contenido generado
                   const updateTableDataByBlock = (blockNumber, content) => {
                     console.log('🔍 updateTableDataByBlock recibió:', content);
-                    console.log('🔍 structured_content:', content?.structured_content);
+                    console.log('🔍 structured_content KEYS:', Object.keys(content?.structured_content || {}));
+                    
                     setTableData(prev => {
                       const updates = { ...prev };
                       const blockKey = String(blockNumber);
                       const meta = blocksMetadata[blockKey];
-                      console.log('🔍 contentMapping para bloque', blockNumber, ':', meta?.contentMapping);
-    
+                      
+                      console.log('🔍 contentMapping KEYS:', Object.keys(meta?.contentMapping || {}));
+                      
                       if (!meta || !meta.contentMapping) {
-                        console.warn(`No hay metadata o contentMapping para el bloque ${blockNumber}`);
+                        console.warn(`❌ No hay metadata o contentMapping para el bloque ${blockNumber}`);
                         return updates;
                       }
+                      
                       Object.entries(meta.contentMapping).forEach(([field, cellKey]) => {
-                        if (content.structured_content[field] !== undefined) {
-                          updates[cellKey] = { content: content.structured_content[field] };
+                        let contentValue = content.structured_content[field];
+                        
+                        
+                        // Si no encuentra el campo exacto, buscar alternativas
+                        if (contentValue === undefined) {
+                          // Si busca desc_X, probar con faq_X
+                          if (field.startsWith('desc_') ) {
+                            const number = field.replace('desc_', '');
+                            const altField = `faq_${number}`;
+                            contentValue = content.structured_content[altField];
+                            if (contentValue !== undefined) {
+                              console.log(`✅ Campo '${field}' no encontrado, pero sí '${altField}'`);
+                            }
+                          }
+                          // Si busca faq_X, probar con desc_X
+                          else if (field.startsWith('faq_')) {
+                            const number = field.replace('faq_', '');
+                            const altField = `desc_${number}`;
+                            contentValue = content.structured_content[altField];
+                            if (contentValue !== undefined) {
+                              console.log(`✅ Campo '${field}' no encontrado, pero sí '${altField}'`);
+                            }
+                          }
+                        }
+                        
+                        if (contentValue !== undefined) {
+                          console.log(`✅ Actualizando celda ${cellKey} con contenido`);
+                          updates[cellKey] = { content: contentValue };
+                        } else {
+                          console.log(`❌ Campo '${field}' NO encontrado en structured_content`);
                         }
                       });
                       

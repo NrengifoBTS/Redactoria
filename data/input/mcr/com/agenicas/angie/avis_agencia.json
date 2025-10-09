@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "tema": "",
+    "descripcion": "",
+    "idioma": ""
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Renta de autos Avis en México",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "¡Renta tu auto Avis en México hoy! Encuentra variedad de modelos, tarifas especiales y un servicio que supera expectativas."
+      }
+    },
+    {
+      "fleet": {
+        "h2": "Renta de autos baratos Avis en México",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "¡Fácil, rápido y al precio más conveniente! Te ofrecemos el mejor servicio de alquiler de carros Avis en México. Somos partners preferenciales de esta prestigiosa compañía y por ello te brindamos acceso a una amplia selección de vehículos, que incluye compactos, camionetas, minivans, vans y otros modelos sofisticados. ¿La mejor parte? Te damos hasta el 35% de descuento en el valor de tu factura.\nAdemás de garantizarte tarifas competitivas, queremos que tu experiencia sea aún más completa. Por eso, te sumamos beneficios exclusivos en tu reserva: Seguro de Viaje GRATIS para extranjeros, Kilómetros Ilimitados, Asistencia Básica en Carretera y mucho más. Elige un medio de transporte que solucione tus recorridos de manera inmediata y económica por las calles del País Azteca. ¡Excelencia, calidad y confianza en un solo lugar!",
+        "ip_usa": "¡Fácil, rápido y al precio más conveniente! Te ofrecemos el mejor servicio de alquiler de carros Avis en México. Somos partners preferenciales de esta prestigiosa compañía y por ello te brindamos acceso a una amplia selección de vehículos, que incluye compactos, camionetas, minivans, vans y otros modelos sofisticados. ¿La mejor parte? Te damos hasta el 35% de descuento en el valor de tu factura.\nAdemás de garantizarte tarifas competitivas, queremos que tu experiencia sea aún más completa. Por eso, te sumamos beneficios exclusivos en tu reserva: Modificaciones Flexibles, Kilómetros Ilimitados, Asistencia Básica en Carretera y mucho más. Elige un medio de transporte que solucione tus recorridos de manera inmediata y económica por las calles del País Azteca. ¡Excelencia, calidad y confianza en un solo lugar!",
+        "ip_bra": "¡Fácil, rápido y al precio más conveniente! Te ofrecemos el mejor servicio de alquiler de carros Avis en México. Somos partners preferenciales de esta prestigiosa compañía y por ello te brindamos acceso a una amplia selección de vehículos, que incluye compactos, camionetas, minivans, vans y otros modelos sofisticados. ¿La mejor parte? Te damos hasta el 35% de descuento en el valor de tu factura.\nAdemás de garantizarte tarifas competitivas, queremos que tu experiencia sea aún más completa. Por eso, te sumamos ventajas exclusivas en tu reserva: Seguro de Viaje GRATIS para extranjeros, descuento en Cobertura del IOF, Kilómetros Ilimitados, Asistencia Básica en Carretera y mucho más. Elige un medio de transporte que solucione tus recorridos de manera inmediata y económica por las calles del País Azteca. ¡Excelencia, calidad y confianza en un solo lugar!"
+      }
+    },
+    {
+      "questions": {
+        "h2": "Preguntas frecuentes sobre alquiler de autos Avis en México",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "",
+        "h3_faq": {
+          "h3_faq_1": "",
+          "h3_faq_2": "",
+          "h3_faq_3": "",
+          "h3_faq_4": ""
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "",
+          "faq_2": "",
+          "faq_3": "",
+          "faq_4": ""
+        }
+      }
+    },
+    {
+      "fleetcarrusel": {
+        "h2": "",
+        "h2_desc": "",
+        "h3": {
+          "h3_1": "",
+          "h3_2": "",
+          "h3_3": ""
+        },
+        "h3_desc": {
+          "h3_desc_1": "",
+          "h3_desc_2": "",
+          "h3_desc_3": ""
+        }
+      }
+    },
+    {
+      "locationscarrusel": {
+        "h2": "",
+        "h2_desc": "",
+        "h3": {
+          "h3_1": "",
+          "h3_2": "",
+          "h3_3": ""
+        },
+        "h3_desc": {
+          "h3_desc_1": "",
+          "h3_desc_2": "",
+          "h3_desc_3": ""
+        }
+      }
+    },
+    {
+      "bloquehistoria": {
+        "h2": "",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": ""
+      }
+    },
+    {
+      "rentcompanies": {
+        "h2": "",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": ""
+      }
+    }
+  ]
+}

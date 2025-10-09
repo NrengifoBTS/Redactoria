@@ -292,7 +292,8 @@ class ApiService {
         blockType,
         tit: blockTitle,
         tema,
-        lpId
+        lpId,
+        faqQuestions
       };
 
       // Agregar info del template si existe
@@ -320,7 +321,7 @@ class ApiService {
           payload.car_types = carTypes;
       }
 
-      const response = await fetch(`${this.baseURL}/ia/${lpId}/block-${blockNumber}`, {
+      const response = await fetch(`${this.baseURL}/ia/${lpId}/block-2`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(payload)
