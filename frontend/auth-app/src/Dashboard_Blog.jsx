@@ -1,16 +1,17 @@
 import React, { useState } from "react";
 import "@iconscout/unicons/css/line.css";
-// Eliminamos: import { Link } from "react-router-dom"; // Ya no se usa
 
 import "./css/styles.css";
 
+import GeneracionBlog from "./Blog_Generacion";
+
 // -----------------------------------------------------------------------------
-// Componente ModalCreacionBlog
+// Componente ModalCreacionBlog (Mantenido casi igual, llama a onGenerateSubmit)
 // -----------------------------------------------------------------------------
-const ModalCreacionBlog = ({ onClose }) => {
-  // Estado para manejar los inputs del formulario
+const ModalCreacionBlog = ({ onClose, onGenerateSubmit }) => {
   const [formData, setFormData] = useState({
     titulo: "",
+    keywordPrincipal: "",
     categoria: "",
     keywords: "",
     idioma: "es",
@@ -29,11 +30,10 @@ const ModalCreacionBlog = ({ onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Datos para Generar Ideas recopilados:", formData);
 
-    alert("Datos enviados. Redirigiendo para generar ideas...");
-
-    // Cierra el modal después de la acción
+    // Llama a la función del componente principal (App) para pasar los datos
+    // y provocar el cambio de vista.
+    onGenerateSubmit(formData);
     onClose();
   };
 
@@ -48,7 +48,9 @@ const ModalCreacionBlog = ({ onClose }) => {
         </div>
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-group">
-            <label htmlFor="titulo">Título del Blog/Tema Central:</label>
+            <label htmlFor="titulo">
+              Título del Blog/Tema Central (Query):
+            </label>
             <input
               type="text"
               id="titulo"
@@ -58,7 +60,20 @@ const ModalCreacionBlog = ({ onClose }) => {
               required
             />
           </div>
-
+          <div className="form-group">
+            <label htmlFor="keywordPrincipal">
+              **Keyword Principal (Core SEO, Obligatoria):**
+            </label>
+            <input
+              type="text"
+              id="keywordPrincipal"
+              name="keywordPrincipal"
+              value={formData.keywordPrincipal}
+              onChange={handleChange}
+              placeholder="Ej: 'inversion en bienes raices'"
+              required
+            />
+          </div>
           <div className="form-group">
             <label htmlFor="categoria">Categoría del Blog:</label>
             <select
@@ -74,20 +89,19 @@ const ModalCreacionBlog = ({ onClose }) => {
               <option value="guia_legal">Guía Legal</option>
             </select>
           </div>
-
           <div className="form-group">
             <label htmlFor="keywords">
-              Keywords Extras (separadas por coma o desde Excel):
+              Keywords Secundarias (Extras, separadas por coma):
             </label>
             <textarea
               id="keywords"
               name="keywords"
               value={formData.keywords}
               onChange={handleChange}
-              placeholder="Ingresa keywords o pega texto de Excel. Ejemplo: 'inversion, tips legales, contrato alquiler'"
+              rows="3"
+              placeholder="Ej: 'impuestos, contrato alquiler, avalúo'"
             ></textarea>
           </div>
-
           <div className="form-group-inline">
             <div className="form-group">
               <label htmlFor="idioma">Idioma:</label>
@@ -103,7 +117,6 @@ const ModalCreacionBlog = ({ onClose }) => {
                 <option value="pt">Portugués</option>
               </select>
             </div>
-
             <div className="form-group">
               <label htmlFor="tecnica">Técnicas de Redacción:</label>
               <select
@@ -119,7 +132,6 @@ const ModalCreacionBlog = ({ onClose }) => {
               </select>
             </div>
           </div>
-
           <div className="form-group-inline">
             <div className="form-group">
               <label htmlFor="acento">Acento:</label>
@@ -135,7 +147,6 @@ const ModalCreacionBlog = ({ onClose }) => {
                 <option value="co">Colombia</option>
               </select>
             </div>
-
             <div className="form-group">
               <label htmlFor="tono">Tono:</label>
               <select
@@ -151,7 +162,6 @@ const ModalCreacionBlog = ({ onClose }) => {
               </select>
             </div>
           </div>
-
           <button type="submit" className="btn-generate">
             Generar Ideas
           </button>
@@ -162,18 +172,41 @@ const ModalCreacionBlog = ({ onClose }) => {
 };
 
 // -----------------------------------------------------------------------------
-// Componente Principal App
+// Componente Principal App (Ahora actúa como Controlador de Vistas)
 // -----------------------------------------------------------------------------
 const App = () => {
   // Estado para controlar la visibilidad del modal
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // *** ESTADOS CLAVE PARA LA TRANSICIÓN ***
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationParams, setGenerationParams] = useState(null);
+
+  const handleGenerationStart = (formData) => {
+    // 1. Almacena los datos
+    setGenerationParams(formData);
+    // 2. Cierra el modal (ya lo hace el modal, pero por seguridad)
+    setIsModalOpen(false);
+    // 3. Cambia la vista para renderizar Blog_Generacion
+    setIsGenerating(true);
+
+    console.log("Datos de Generación listos para Blog_Generacion:", formData);
+  };
+
+  const handleBackToDashboard = () => {
+    // 1. Vuelve a la vista del Dashboard
+    setIsGenerating(false);
+    // 2. Limpia los parámetros (opcional, pero buena práctica)
+    setGenerationParams(null);
+  };
+
+  // --- Componentes y Datos Internos (Mantenidos igual) ---
   const statsData = [
     { value: "1,245", label: "Visitas Totales" },
     { value: "87", label: "Artículos Generados" },
     { value: "142", label: "Imágenes Generadas" },
   ];
-
+  // ... (tableData)
   const tableData = [
     {
       archivo: "Guía de Viajes 2025",
@@ -201,12 +234,10 @@ const App = () => {
     },
   ];
 
-  // Componentes internos
   const Header = () => (
     <header className="navbar">
       <h1>Analíticas</h1>
       <nav>
-        {/* CORRECCIÓN: Usar un botón para "Volver" o un <a> con href válido */}
         <button className="btn" onClick={() => window.history.back()}>
           Volver
         </button>
@@ -286,7 +317,20 @@ const App = () => {
   );
 
   const Footer = () => <footer className="footer"></footer>;
+  // --- Fin de Componentes y Datos Internos ---
 
+  // *** PUNTO CLAVE: Lógica de Renderizado Condicional ***
+  if (isGenerating && generationParams) {
+    // 1. Si isGenerating es true, renderiza la vista de generación
+    return (
+      <GeneracionBlog
+        initialParams={generationParams}
+        onBackToDashboard={handleBackToDashboard}
+      />
+    );
+  }
+
+  // 2. Por defecto (isGenerating es false), renderiza el Dashboard
   return (
     <div>
       <Header />
@@ -297,7 +341,10 @@ const App = () => {
       <Footer />
       {/* Renderizado condicional del Modal */}
       {isModalOpen && (
-        <ModalCreacionBlog onClose={() => setIsModalOpen(false)} />
+        <ModalCreacionBlog
+          onClose={() => setIsModalOpen(false)}
+          onGenerateSubmit={handleGenerationStart} // Pasamos la función de manejo
+        />
       )}
     </div>
   );

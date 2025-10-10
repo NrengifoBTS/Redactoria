@@ -45,6 +45,21 @@ class AIService:
         except Exception as e:
             return f"[Error: {e}]"
 
+
+    def _parse_json_result(self, json_string: str) -> Dict[str, Any]:
+        """Aísla y parsea un objeto JSON de una respuesta de la IA de manera robusta."""
+        clean_json = re.sub(r'```json\s*|```', '', json_string, flags=re.IGNORECASE).strip()
+        try:
+            return json.loads(clean_json)
+        except json.JSONDecodeError:
+            start_index = clean_json.find('{')
+            end_index = clean_json.rfind('}')
+            if start_index != -1 and end_index != -1:
+                # Intento de parseo forzado
+                return json.loads(clean_json[start_index:end_index + 1])
+            raise
+
+
     # --- Funciones de IA de Fase 3 (Análisis por Bloque) ---
 
     def generate_chunk_summary(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str) -> str:
@@ -61,104 +76,91 @@ class AIService:
         system_msg = "Eres un analista de texto que procesa la estructura completa de un artículo. Devuelve **solo** el resumen conciso."
         return self._llm_generate(prompt, system_msg)
 
-    # --- Funciones de IA de Fase 4 (Análisis Final) ---
-
-    def generate_final_intent_and_keywords(self, consolidated_text: str, query: str) -> Dict[str, Any]:
-        """Define la intención de búsqueda y las keywords finales."""
-        prompt = f"Analiza el siguiente CONTEXTO CONSOLIDADO (de 3 páginas web):\n---\n{consolidated_text}\n---\n\n"
-        prompt += f"Basándote en el contenido consolidado para la query '{query}':\n"
-        prompt += "1. Define la **Intención de Búsqueda Única** (Informativa, Transaccional, etc.). Luego, **justifica esta elección en UNA ORACIÓN COMPLETA**, basándote en el contenido. El resultado debe ser: '[Tipo de Intención]: [Justificación en una oración]'.\n"
-        prompt += "2. Identifica y sugiere una lista de **10 Keywords Principales** que deben usarse en el blog, basadas en la redundancia y relevancia de los 3 textos.\n"
-        
-        system_msg = 'Eres un estratega SEO. Devuelve tu respuesta en el siguiente formato JSON estricto: {"final_intent": "Intención definida con justificación", "final_keywords": ["kw1", "kw2", ...]}.'  
-        
-        response_text = self._llm_generate(prompt, system_msg, temperature=0.0)
-        
-        try:
-            # Lógica robusta para aislar y parsear el objeto JSON de la respuesta.
-            clean_text = response_text.replace("```json", "").replace("```", "").strip()
-            start_index = clean_text.find('{')
-            end_index = clean_text.rfind('}')
-            
-            if start_index != -1 and end_index != -1 and end_index > start_index:
-                json_content = clean_text[start_index:end_index + 1] 
-            else:
-                raise ValueError("No se pudo aislar el objeto JSON en la respuesta de la IA.")
-            
-            json_content = json_content.replace("'", '"')
-            
-            return json.loads(json_content)
-        
-        except (json.JSONDecodeError, ValueError) as e:
-            print(f"Error parseando JSON de intención/keywords final: {e}")
-            return {'final_intent': f'[Error de IA: {e}]', 'final_keywords': []}
-
-
-    def generate_final_blog_structure(self, consolidated_text: str, query: str, keywords: List[str]) -> Dict[str, Any]:
-        """
-        Genera la estructura final de blog en formato JSON con limpieza robusta.
-        """
-        keywords_str = ', '.join(keywords)
-        
-        prompt = f"Basándote en el CONTEXTO CONSOLIDADO (de 3 páginas) y las keywords:\n---\nCONTEXTO: {consolidated_text}\n---\nKEYWORDS PRINCIPALES: {keywords_str}\n\n"
-        prompt += f"Genera la **Estructura de Blog FINAL y ÚNICA** para el tema '{query}'. Devuelve **solo** un objeto JSON estricto con los siguientes campos:\n"
-        prompt += "1. 'seo_titles': Una lista de 3 títulos optimizados (solo el texto de cada título).\n"
-        prompt += "2. 'introduction': La introducción del artículo (máximo 4 oraciones).\n"
-        prompt += "3. 'structure_markdown': La estructura detallada del cuerpo del blog en formato Markdown (usando ## para H2 y ### para H3, sin el título principal).\n"
-        prompt += "4. 'conclusion_cta': La conclusión y llamada a la acción (máximo 4 oraciones)."
-
-        system_msg = "Eres un planificador de contenido de alto nivel. Devuelve **solo** el objeto JSON solicitado, sin explicaciones ni código adicional."
-        
-        response_text = self._llm_generate(prompt, system_msg, temperature=0.4) 
-        
-        try:
-            clean_text = response_text.replace("```json", "").replace("```", "").strip()
-            start_index = clean_text.find('{')
-            end_index = clean_text.rfind('}')
-            
-            if start_index != -1 and end_index != -1 and end_index > start_index:
-                json_content = clean_text[start_index:end_index + 1]
-            else:
-                raise ValueError("No se pudo aislar el objeto JSON en la respuesta de la IA.")
-
-            json_content = json_content.replace("'", '"')
-            
-            def clean_json_value_v3(match):
-                """Limpia y escapa caracteres problemáticos solo en las grandes secciones."""
-                key = match.group(1) 
-                value = match.group(2) 
-                
-                if key.strip('"') in ['introduction', 'structure_markdown', 'conclusion_cta']:
-                    value = re.sub(r'(?<!\\)"', r'\\"', value)
-                    value = re.sub(r'[\r\n\t]', ' ', value)
-                
-                value = value.replace('\\\\"', '\\"')
-                
-                return f'{key}:"{value}"'
-            
-            json_content = re.sub(r'(".*?")\s*:\s*"([^"]*)"', clean_json_value_v3, json_content, flags=re.DOTALL)
-            
-            json_content = json_content.replace('\n', ' ').replace('\r', ' ')
-
-            return json.loads(json_content)
-        
-        except (json.JSONDecodeError, ValueError) as e:
-            # ... (código de manejo de error para el frontend)
-            print(f"Error parseando JSON de estructura de blog: {e}")
-            return {
-                'error': f'[ERROR DE PARSEO CRÍTICO: {e}]', 
-                'response_text': response_text,
-                'seo_titles': ['Error de IA al generar títulos'],
-                'introduction': 'Error de IA al generar introducción',
-                'structure_markdown': f'[ERROR DE PARSEO CRÍTICO: {e}]',
-                'conclusion_cta': 'Error de IA al generar conclusión'
-            }
-        
     
-    # --- LÓGICA DE REGENERACIÓN ÚNICA (FASE 5) ---
+    # --- Funciones de IA de Fase 4 (Análisis Final - MODIFICADAS) ---
 
-    def generate_single_intent(self, consolidated_text: str, query: str, previous_content: Optional[List[str]] = None) -> str:
-        """Define solo la intención de búsqueda, EXCLUYENDO todo el historial proporcionado para forzar un resultado único."""
+    def generate_full_contextual_structure(self, 
+                                          consolidated_text: str, 
+                                          query: str, 
+                                          title_base: str, 
+                                          main_keyword: str, 
+                                          principal_keywords: List[str],
+                                          categoria: str,
+                                          idioma: str,
+                                          tecnica: str,
+                                          acento: str,
+                                          tono: str
+                                         ) -> Dict[str, Any]:
+        """
+        Genera la estructura final de blog, intención, introducción y conclusión, 
+        utilizando los parámetros de entrada (SIN GENERAR TÍTULOS NI KEYWORDS).
+        """
+        
+        keywords_str = ', '.join([main_keyword] + principal_keywords)
+        
+        system_message = f"""
+        Eres un Estratega SEO de Marketing de alto nivel y un excelente redactor en el idioma '{idioma}' con acento '{acento}'.
+        Tu objetivo es generar la INTENCIÓN DE BÚSQUEDA y la ESTRUCTURA DE BLOG, adaptándote a:
+        - Tono de Voz: '{tono}'
+        - Acento Cultural: '{acento}'
+        - Técnica de Redacción: '{tecnica}'
+        - Idioma: {idioma}
+        Tu única respuesta debe ser el objeto JSON solicitado, sin explicaciones ni texto adicional.
+        """
+        
+        prompt = f"""
+        --- MANDATOS SEO Y ESTRUCTURA OBLIGATORIOS ---
+        
+        **1. TEMA CENTRAL/TÍTULO PROPORCIONADO (BASE):** '{title_base}'.
+        **2. Estructura Base:** '{categoria}'.
+        
+        **3. Keywords de ENTRADA (Obligatorias):** '{keywords_str}'. Estas DEBEN ser integradas en la estructura de subtítulos.
+        
+        ---
+        
+        **CONSIGNA:** Basándote **únicamente** en el CONTEXTO CONSOLIDADO (de scraping):
+        {consolidated_text}
+        
+        1. Define la **Intención de Búsqueda Única**.
+        2. Genera una **Introducción** y una **Conclusión con CTA** (máximo 4 oraciones c/u), usando el tono y acento proporcionados.
+        3. Genera la **Estructura detallada del cuerpo del blog** en formato Markdown (## para H2 y ### para H3). DEBES usar el 'Título Base Deseado' y las 'Keywords de ENTRADA' como guía obligatoria.
+
+        ---
+        
+        **FORMATO DE SALIDA (JSON ESTRICTO REQUERIDO):**
+        {{
+            "search_intent": "Intención de búsqueda única (máx 15 palabras).",
+            "introduction": "Texto de la introducción.",
+            "structure_markdown": "Estructura Markdown de H2/H3.",
+            "conclusion_cta": "Texto de la conclusión con CTA."
+        }}
+        """
+        
+        response_json_str = self._llm_generate(prompt, system_message=system_message, temperature=0.4) 
+        
+        try:
+            return self._parse_json_result(response_json_str)
+        except Exception as e:
+            # Manejo de error para la estructura final
+            return {
+                "search_intent": "ERROR: JSON Inválido",
+                "introduction": "Error de IA al generar introducción",
+                "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e}]",
+                "conclusion_cta": "Error de IA al generar conclusión"
+            }
+  
+    # --- LÓGICA DE REGENERACIÓN ÚNICA (FASE 5 - MODIFICADA) ---
+
+    def generate_single_intent(self, 
+                               consolidated_text: str, 
+                               query: str, 
+                               previous_content: Optional[List[str]] = None,
+                               idioma: str = "es", 
+                               acento: str = "neutral",
+                               tono: str = "profesional", 
+                               **kwargs
+                              ) -> str:
+        """Define solo la intención de búsqueda, adaptada a los parámetros de estilo."""
         
         exclusion_instruction = ""
         if previous_content and isinstance(previous_content, list) and len(previous_content) > 0:
@@ -167,58 +169,22 @@ class AIService:
                 exclusion_instruction = f"***INSTRUCCIÓN DE UNICIDAD: NO DEBES generar NINGUNA de estas intenciones de búsqueda históricas: {previous_str}. Genera un resultado completamente diferente y nuevo.***\n"
             
         prompt = f"{exclusion_instruction}Analiza el siguiente CONTEXTO CONSOLIDADO:\n---\n{consolidated_text}\n---\n\nBasándote en el contenido consolidado para la query '{query}' y justifícala brevemente. Devuelve solo una breve descripcion de la intencion de busqueda."
-        # CAMBIO: Se ajusta el mensaje del sistema para que no sea tan restrictivo, permitiendo una descripción más rica.
-        system_msg = 'Eres un estratega SEO. Devuelve **solo** la descripción breve y la justificación solicitada.'
+        system_msg = f'Eres un estratega SEO en idioma "{idioma}" con tono "{tono}". Devuelve **solo** la descripción breve y la justificación solicitada.'
         return self._llm_generate(prompt, system_msg)
 
-
-    def generate_single_keywords(self, consolidated_text: str, query: str, previous_content: Optional[List[str]] = None) -> List[str]:
-        """Identifica y sugiere una lista de 10 Keywords Principales, EXCLUYENDO todo el historial proporcionado."""
-        
-        exclusion_instruction = ""
-        if previous_content and isinstance(previous_content, list) and len(previous_content) > 0:
-            previous_str = ", ".join([item for item in previous_content if item])
-            if previous_str:
-                exclusion_instruction = f"***INSTRUCCIÓN DE UNICIDAD: NO DEBES generar NINGUNA de estas keywords: {previous_str}. Genera una lista de 10 keywords nuevas y distintas.***\n"
-            
-        prompt = f"{exclusion_instruction}Analiza el siguiente CONTEXTO CONSOLIDADO:\n---\n{consolidated_text}\n---\n\nBasándote en el contenido consolidado para la query '{query}', identifica y sugiere una lista de **10 Keywords Principales** que deben usarse en el blog, basadas en la redundancia y relevancia de los textos."
-        system_msg = 'Eres un estratega SEO. Devuelve tu respuesta en el siguiente formato JSON estricto: {"content": ["kw1", "kw2", ...]}.'
-        
-        response_text = self._llm_generate(prompt, system_msg)
-        try:
-            clean_text = response_text.replace("```json", "").replace("```", "").replace("'", '"').strip()
-            parsed = json.loads(clean_text)
-            return parsed.get("content", [])
-        except json.JSONDecodeError:
-            return [f"Error de IA al generar keywords: {response_text[:50]}..."]
-
-
-    def generate_single_titles(self, consolidated_text: str, query: str, previous_content: Optional[List[str]] = None) -> List[str]:
-        """Genera solo 3 Títulos SEO, EXCLUYENDO todo el historial proporcionado."""
-        
-        exclusion_instruction = ""
-        if previous_content and isinstance(previous_content, list) and len(previous_content) > 0:
-            previous_str = "; ".join([item for item in previous_content if item])
-            if previous_str:
-                exclusion_instruction = f"***INSTRUCCIÓN DE UNICIDAD: NO DEBES generar NINGUNO de estos títulos históricos: {previous_str}. Genera 3 títulos nuevos y distintos.***\n"
-            
-        prompt = f"{exclusion_instruction}Basado en la Query: '{query}' y el Contenido Consolidado proporcionado, genera una lista de 3 Títulos SEO sugeridos, optimizados y atractivos. Elige opciones que no se parezcan a las anteriores."
-        system_msg = 'Eres un experto en copy SEO. Devuelve tu respuesta en el siguiente formato JSON estricto: {"content": ["Titulo 1", "Titulo 2", "Titulo 3"]}.'
-        
-        response_text = self._llm_generate(prompt, system_msg)
-        try:
-            clean_text = response_text.replace("```json", "").replace("```", "").replace("'", '"').strip()
-            parsed = json.loads(clean_text)
-            return parsed.get("content", [])
-        except json.JSONDecodeError:
-            return [f"Error de IA al generar títulos: {response_text[:50]}..."]
-
-    def generate_single_introduction(self, consolidated_text: str, query: str, previous_content: List[str] = None) -> str:
-        """Genera una nueva introducción para el blog, usando el historial para evitar repeticiones."""
+    def generate_single_introduction(self, 
+                                    consolidated_text: str, 
+                                    query: str, 
+                                    previous_content: List[str] = None,
+                                    idioma: str = "es", 
+                                    acento: str = "neutral",
+                                    tono: str = "profesional", 
+                                    **kwargs
+                                   ) -> str:
+        """Genera una nueva introducción, adaptada a los parámetros de estilo."""
         
         history_prompt = ""
         if previous_content and previous_content[-1] != 'Error de IA al generar introducción':
-            # Solo pasamos la última versión para que el modelo la use como referencia
             history_prompt = f"VERSIÓN ANTERIOR:\n{previous_content[-1]}\n"
 
         prompt = (
@@ -232,17 +198,70 @@ class AIService:
             f"Devuelve **SOLO** el texto de la Introducción, sin etiquetas, comillas, ni texto adicional."
         )
 
-        system_msg = "Eres un redactor SEO experto. Tu única tarea es generar el texto de la Introducción solicitado de manera concisa y directa."
+        system_msg = f'Eres un redactor SEO experto. Tu única tarea es generar el texto de la Introducción solicitado, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
+        return self._llm_generate(prompt, system_msg, temperature=0.7) 
+
+    # --- LOGICA PARA REGENERAR SOLAMENTE UNA UNICA PARTE DE LA ESTRUCTURA --- 
+
+    def regenerate_structure_section(self, 
+                                     consolidated_text: str, 
+                                     full_structure_markdown: str,
+                                     section_to_regenerate: str,
+                                     new_prompt: Optional[str] = None,
+                                     idioma: str = "es", 
+                                     acento: str = "neutral",
+                                     tono: str = "profesional", 
+                                     **kwargs
+                                    ) -> str:
+        """
+        Regenera UN ÚNICO título o subtítulo de la estructura del blog, usando el contexto completo.
+        Devuelve SOLO el nuevo texto del título/subtítulo.
+        """
+        user_prompt_instruction = f"Instrucción de Edición/Regeneración Adicional: {new_prompt}\n" if new_prompt else ""
         
-        # Usamos 0.7 para asegurar variación en cada regeneración
-        return self._llm_generate(prompt, system_msg, temperature=0.7)      
-            
+        prompt = f"""
+        --- CONTEXTO COMPLETO DE REFERENCIA ---
+        TEMA BASE: '{kwargs.get('query')}'
+        CONTENIDO DE SCRAPING CONSOLIDADO: {consolidated_text[:2500]}... (Primeros 2500 caracteres como referencia de contexto)
+        
+        ESTRUCTURA ACTUAL COMPLETA DEL BLOG (Para mantener el contexto y evitar redundancia):
+        ---
+        {full_structure_markdown}
+        ---
+
+        --- TÍTULO/SUBTÍTULO A REGENERAR ---
+        TÍTULO ACTUAL: '{section_to_regenerate}'
+        
+        --- INSTRUCCIONES CLAVE ---
+        1. **Regeneración de Un Único Elemento:** Tu única tarea es generar una **nueva y mejorada versión** para el título/subtítulo: '{section_to_regenerate}'. 
+        2. **Coherencia y Contexto:** El nuevo título/subtítulo DEBE encajar perfectamente en la 'Estructura Actual Completa' y ser relevante al 'Contenido de Scraping Consolidado'.
+        3. **Unicidad:** El nuevo título/subtítulo NO debe ser redundante con ningún otro título en la estructura.
+        4. **Formato Estricto:** Devuelve **SOLO** el nuevo texto del título/subtítulo (sin el ## o ### Markdown, sin comillas, sin texto adicional).
+
+        {user_prompt_instruction}
+        """
+        
+        system_msg = f'Eres un Estratega SEO y Redactor Creativo. Tu única tarea es regenerar **un único título o subtítulo**, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
+        return self._llm_generate(prompt, system_msg, temperature=0.7)
+
+
     def run_final_ai_analysis(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
-        """Orquesta las llamadas finales de IA para intención, keywords, estructura o regeneración única."""
+        """Punto de entrada para el análisis final de IA (Servicio de IA), incluyendo regeneración de secciones."""
         consolidated_text = req.consolidated_content
         query = req.query
-        keywords_base = req.keywords 
-
+        
+        # Se asume que estos campos existen en el modelo AIAnalysisRequest para la nueva lógica
+        # Aunque no estaban en el archivo original, son necesarios para el nuevo flujo
+        title_base = getattr(req, 'title_base', query)
+        main_keyword = getattr(req, 'main_keyword', req.keywords[0] if req.keywords else query)
+        principal_keywords = getattr(req, 'principal_keywords', req.keywords[1:] if req.keywords and len(req.keywords) > 1 else [])
+        categoria = getattr(req, 'categoria', 'blog')
+        idioma = getattr(req, 'idioma', 'es')
+        tecnica = getattr(req, 'tecnica', 'SEO')
+        acento = getattr(req, 'acento', 'neutral')
+        tono = getattr(req, 'tono', 'profesional')
+        
+        
         # LÓGICA DE REGENERACIÓN (FASE 5)
         if req.section_type:
             content = None
@@ -251,40 +270,86 @@ class AIService:
             if not isinstance(previous_history, list):
                 previous_history = [previous_history] if previous_history else None
 
-        
-            if req.section_type == 'keywords':
-                content = self.generate_single_keywords(consolidated_text, query, previous_content=previous_history)
-            elif req.section_type == 'titles':
-                content = self.generate_single_titles(consolidated_text, query, previous_content=previous_history)
+            # --- MANEJO DE SECCIONES PROHIBIDAS ---
+            if req.section_type in ['keywords', 'titles']:
+                # Se devuelve un error o se ignora si se intenta regenerar una sección prohibida.
+                raise ValueError(f"La regeneración de '{req.section_type}' está deshabilitada ya que se usan los datos proporcionados por el dashboard.")
+
+            # --- REGENERACIÓN DE INTENCIÓN ---
+            if req.section_type == 'search_intent': # Se asume 'search_intent' es el nuevo nombre
+                content = self.generate_single_intent(
+                    consolidated_text, 
+                    query, 
+                    previous_content=previous_history,
+                    idioma=idioma,
+                    acento=acento,
+                    tono=tono
+                )
+
+            # --- REGENERACIÓN DE INTRODUCCIÓN ---
             elif req.section_type == 'introduction': 
-                content = self.generate_single_introduction(consolidated_text, query, previous_content=previous_history)
-            elif req.section_type == 'conclusion_cta':
-                content = self.generate_single_conclusion_cta(consolidated_text, query, previous_content=previous_history)
-            else:
-                raise ValueError(f"Tipo de sección de regeneración no válido: {req.section_type}")
+                content = self.generate_single_introduction(
+                    consolidated_text, 
+                    query, 
+                    previous_content=previous_history,
+                    idioma=idioma,
+                    acento=acento,
+                    tono=tono
+                )
+            
+            # --- NUEVA REGENERACIÓN DE SECCIÓN DE ESTRUCTURA  ---
+            elif req.section_type == 'structure_section': 
+                # Verifica que se hayan enviado los datos necesarios desde el frontend
+                if not req.regenerate_data or 'section_text' not in req.regenerate_data or 'full_structure_markdown' not in req.regenerate_data:
+                    raise ValueError("Faltan datos requeridos para la regeneración de la sección de estructura: section_text y full_structure_markdown.")
+
+                # Llama al nuevo método que usa la estructura completa como contexto
+                content = self.regenerate_structure_section(
+                    consolidated_text=consolidated_text,
+                    full_structure_markdown=req.regenerate_data['full_structure_markdown'], # Contexto completo
+                    section_to_regenerate=req.regenerate_data['section_text'], # Título a reemplazar
+                    new_prompt=req.regenerate_data.get('new_prompt'), # Prompt de edición/regeneración
+                    idioma=idioma,
+                    acento=acento,
+                    tono=tono,
+                    query=query
+                )
+            
+            # --- REGENERACIÓN DE OTRAS SECCIONES PERMITIDAS (Ej. conclusion_cta) ---
+            # elif req.section_type == 'conclusion_cta':
+            #    content = self.generate_single_conclusion_cta(consolidated_text, query, previous_content=previous_history)
             
             
             if content is not None:
                 # El frontend espera 'regenerated_content'
                 return {"regenerated_content": content, "section_type": req.section_type}
             else:
-                return {"error": f"Tipo de sección '{req.section_type}' no soportado o error de IA.", "regenerated_content": None}
+                # Si llega aquí y no es prohibida, es inválida.
+                raise ValueError(f"Tipo de sección de regeneración no válido: {req.section_type}")
 
-        # Flujo inicial de Análisis (FASE 4)
-        final_ai_data = self.generate_final_intent_and_keywords(consolidated_text, query)
-        final_intent = final_ai_data.get('final_intent', '[Error en intención final]')
-        final_keywords_list = final_ai_data.get('final_keywords', keywords_base) 
+        # Flujo inicial de Análisis de Estructura COMPLETA (FASE 4)
+        analysis_result = self.generate_full_contextual_structure(
+            consolidated_text=consolidated_text,
+            query=query,
+            title_base=title_base,
+            main_keyword=main_keyword,
+            principal_keywords=principal_keywords,
+            categoria=categoria,
+            idioma=idioma,
+            tecnica=tecnica,
+            acento=acento,
+            tono=tono
+        )
         
-        # Generar Estructura de Blog
-        final_structure_json = self.generate_final_blog_structure(consolidated_text, query, final_keywords_list)
+        # Consolidar el resultado final, usando las keywords de entrada (req.keywords).
+        final_keywords_list = [main_keyword] + principal_keywords
         
-        # Consolidar el resultado final
         return {
-            "search_intent": final_intent,
+            "search_intent": analysis_result.get("search_intent"),
             "final_keywords": final_keywords_list,
-            "final_structure_json": final_structure_json,
+            "final_structure_json": analysis_result,
         }
-
+    
 # --- 2. CLASE ContentExtractor: Lógica de Scraping y Fallback ---
 
 class ContentExtractor:

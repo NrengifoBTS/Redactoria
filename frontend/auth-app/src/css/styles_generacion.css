@@ -131,6 +131,14 @@ select {
   color: #fff;
   flex: 1;
 }
+
+/* Botón Descargar */
+#btn-cancelar {
+  background: linear-gradient(135deg, #a3db6e, #be6161);
+  color: #fff;
+  flex: 1;
+}
+
 #btn-download:hover {
   box-shadow: 0 6px 16px rgba(57, 58, 148, 0.4);
 }
@@ -144,7 +152,8 @@ select {
 .visual-generator,
 .image-generator,
 .links-generator,
-.faq-generator {
+.faq-generator,
+.analysis-result /* <<<<<<< CLASE REUTILIZADA PARA EL ESTILO BASE DE TARJETA */ {
   padding: 40px; /* Reducción a 40px para consistencia */
   background: #ffffff;
   border-radius: 16px;
@@ -156,7 +165,8 @@ select {
 .visual-generator:hover,
 .image-generator:hover,
 .links-generator:hover,
-.faq-generator:hover {
+.faq-generator:hover,
+.analysis-result:hover /* <<<<<<< CLASE REUTILIZADA PARA EL HOVER */ {
   transform: translateY(-5px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
 }
@@ -240,7 +250,7 @@ select {
 
 /* Log de Debug (Terminal) */
 .terminal-content {
-  background-color: #282c34;
+  background-color: #d9dce2;
   color: #61dafb;
   padding: 15px;
   border-radius: 8px;
@@ -285,6 +295,43 @@ select {
 }
 
 /* ==========================================================
+   LAYOUT Y ESTILOS ESPECÍFICOS DE LAS CARDS DE CONFIGURACIÓN
+   ========================================================== */
+
+/* Contenedor de las 3 tarjetas de Configuración (Debajo de URLs) */
+.config-cards-wrapper {
+  display: flex;
+  gap: 20px;
+  padding: 0 20px 20px 20px; /* Margen lateral y espacio debajo */
+  justify-content: space-between;
+  flex-wrap: wrap; /* Esencial para la responsividad */
+  margin: 0 auto;
+}
+
+/* Reglas para que las tarjetas de configuración ocupen un tercio del ancho */
+.config-cards-wrapper .analysis-result {
+  flex: 1 1 300px; /* Ancho base de 300px, 1 de crecimiento/encogimiento */
+  min-width: 250px;
+  /* Ajustes visuales para que sean tarjetas de información más compactas */
+  padding: 25px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.config-cards-wrapper .analysis-result:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Contenedor de las Tarjetas de Resumen (Query, Intención, Keywords) */
+.summary-cards-container {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+/* ==========================================================
    MEDIA QUERY PARA PANTALLAS PEQUEÑAS (Mobile / Tablet Pequeña)
    ========================================================== */
 
@@ -320,8 +367,9 @@ select {
   .visual-generator,
   .image-generator,
   .links-generator,
-  .faq-generator {
-    padding: 25px 20px; /* Reducción de padding en móviles */
+  .faq-generator,
+  .analysis-result {
+    padding: 25px 20px;
   }
 
   /* LAYOUTS INTERNOS (Idea y Imagen) */
@@ -368,6 +416,14 @@ select {
     flex-direction: column; /* Apila los botones de generar/cancelar si hay más de 1 */
     gap: 10px;
   }
+
+  /* Apila los contenedores de tarjetas en móvil */
+  .config-cards-wrapper,
+  .summary-cards-container {
+    padding: 10px;
+    gap: 15px;
+    flex-direction: column;
+  }
 }
 
 /* Nuevos estilos para la sección de análisis final */
@@ -405,4 +461,75 @@ select {
 .list-style-none {
   list-style: none;
   padding-left: 0;
+}
+
+/* ==========================================================
+   ESTILOS PARA LA ESTRUCTURA DE BLOG (StructureRenderer)
+   ========================================================== */
+
+/* Contenedor principal para la lista */
+.structure-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  /* Espacio entre los elementos de la lista */
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Espacio entre cada caja */
+}
+
+/* Estilos base para cada título (La "Caja" seleccionable) */
+.structure-item {
+  cursor: pointer;
+  padding: 12px; /* Relleno interior */
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Sombra sutil */
+  transition: all 0.2s ease-in-out;
+  line-height: 1.4;
+  font-size: 0.95rem;
+}
+
+/* Efecto Hover */
+.structure-item:hover {
+  background-color: #f7f7f7;
+  border-color: #ccc;
+  transform: translateY(-1px); /* Ligero movimiento para feedback */
+}
+
+/* Estilo para los encabezados H2 (Nivel principal) */
+.structure-item-h2 {
+  background-color: #f3f3f3; /* Fondo gris claro */
+  font-weight: bold;
+  color: #333;
+  /* No hay margin-left para H2 */
+}
+
+/* Estilo para los encabezados H3 (Nivel anidado) */
+.structure-item-h3 {
+  background-color: #fff;
+  color: #555;
+  margin-left: 25px; /* Sangría visible */
+  border-left: 3px solid #eee; /* Barra de separación sutil */
+}
+
+/* Estilo para el elemento seleccionado (Resaltado) */
+.structure-item-selected {
+  /* Color de acento de tu proyecto (se vio en los snippets: #00eba7) */
+  border-color: #00eba7;
+  background-color: #e6fff3; /* Fondo verde muy claro para resaltar */
+  font-weight: bold;
+  box-shadow: 0 0 10px rgba(0, 235, 167, 0.3); /* Sombra de color */
+  transform: scale(1.01); /* Ligeramente más grande */
+}
+
+/* Estilo para los iconos dentro de la estructura */
+.structure-icon-wrapper {
+  margin-right: 8px;
+}
+.structure-icon-h2 {
+  color: #00eba7; /* Icono con color de acento */
+}
+.structure-icon-h3 {
+  color: #666;
 }
