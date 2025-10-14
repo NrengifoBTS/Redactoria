@@ -71,7 +71,6 @@ const ModalCreacionBlog = ({ onClose, onGenerateSubmit }) => {
               value={formData.keywordPrincipal}
               onChange={handleChange}
               placeholder="Ej: 'inversion en bienes raices'"
-              required
             />
           </div>
           <div className="form-group">

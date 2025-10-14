@@ -4,595 +4,674 @@ import requests
 import spacy
 from bs4 import BeautifulSoup, Tag
 from collections import Counter
-from typing import Generator, List, Dict, Any
+from typing import Generator, List, Dict, Any, Optional, Union
 from datetime import datetime
 from . import models 
-
-# --- Configuración de Control de Datos (Mantenida) ---
-
-MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions"
-MODEL_NAME = "openai/gpt-oss-20b"
-DEFAULT_SYSTEM_MESSAGE = "Eres un analista SEO profesional y experimentado. Tu única tarea es generar el contenido solicitado de manera concisa y directa, sin añadir explicaciones ni texto adicional."
+from pydantic import BaseModel
 
 
-# --- Funciones Auxiliares de IA (Mantenidas) ---
+# --- 1. CLASE AIService: Control y Generación de IA ---
 
-def _llm_generate(prompt: str, system_message: str = DEFAULT_SYSTEM_MESSAGE) -> str:
-    data = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.4,
-        "stream": False
-    }
-    try:
-        response = requests.post(MODEL_URL, headers={"Content-Type": "application/json"}, json=data)
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        return f"[Error: {e}]"
+class AIService:
+    """
+    Gestiona todas las interacciones con el modelo de lenguaje (LLM),
+    incluyendo resúmenes de bloques y análisis final.
+    """
 
-def generate_ai_chunk_summary(chunk: str, media_info: List[Dict[str, str]], query: str, heading: str) -> str:
-    media_text = ""
-    if media_info:
-        media_descriptions = [f"- {m['type']} (Descripción: {m.get('description') or m.get('alt') or m.get('caption')})" for m in media_info]
-        media_text = "\n\nElementos Multimedia Asociados:\n" + "\n".join(media_descriptions)
+    #MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions" #<-- Compu Alda
+    MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
+    MODEL_NAME = "openai/gpt-oss-20b"
+    DEFAULT_SYSTEM_MESSAGE = "Eres un analista SEO profesional y experimentado. Tu única tarea es generar el contenido solicitado de manera concisa y directa, sin añadir explicaciones ni texto adicional."
 
-    prompt = f"Basándote en el BLOQUE DE TEXTO bajo el título '{heading}' relacionado con el tema '{query}':\n---\n{chunk}\n{media_text}\n---\n\n"
-    prompt += f"Identifica los puntos clave y el propósito de esta sección. Menciona la relevancia de los elementos multimedia (si existen) en el resumen. Devuelve un resumen conciso y directo de 3 a 5 oraciones."
+    def __init__(self):
+        pass
+
+
+    def _llm_generate(self, prompt: str, system_message: str = DEFAULT_SYSTEM_MESSAGE, temperature: float = 0.4) -> str:
+        """Función auxiliar para llamar al LLM."""
+        data = {
+            "model": self.MODEL_NAME,
+            "messages": [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": temperature,
+            "stream": False
+        }
+        try:
+            response = requests.post(self.MODEL_URL, headers={"Content-Type": "application/json"}, json=data)
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            return f"[Error: {e}]"
+
+
+    def _parse_json_result(self, json_string: str) -> Dict[str, Any]:
+        """Aísla y parsea un objeto JSON de una respuesta de la IA de manera robusta."""
+        clean_json = re.sub(r'```json\s*|```', '', json_string, flags=re.IGNORECASE).strip()
+        try:
+            return json.loads(clean_json)
+        except json.JSONDecodeError:
+            start_index = clean_json.find('{')
+            end_index = clean_json.rfind('}')
+            if start_index != -1 and end_index != -1:
+                # Intento de parseo forzado
+                return json.loads(clean_json[start_index:end_index + 1])
+            raise
+
+
+    # --- Funciones de IA de Fase 3 (Análisis por Bloque) ---
+
+    def generate_chunk_summary(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str) -> str:
+        """Genera un resumen conciso para un bloque de contenido."""
+        media_text = ""
+        if media_info:
+            media_descriptions = [f"- {m['type']} (Descripción: {m.get('description') or m.get('alt') or m.get('caption')})" for m in media_info]
+            media_text = "\n\nElementos Multimedia Asociados (Primeros 5 de la URL):\n" + "\n".join(media_descriptions[:5]) + ("\n..." if len(media_descriptions) > 5 else "")
+
+        prompt = f"Basándote en el ARTÍCULO CONSOLIDADO, el cual contiene MÚLTIPLES SECCIONES ESTRUCTURADAS, bajo el título '{heading}' y relacionado con el tema '{query}':\n---\n{chunk}\n{media_text}\n---\n\n"
+        
+        prompt += f"Analiza todas las secciones. Identifica los **puntos clave principales y el propósito general del artículo**. Menciona la relevancia de la multimedia en el artículo (si aplica). Devuelve un resumen conciso y directo de 3 a 5 oraciones."
+        
+        system_msg = "Eres un analista de texto que procesa la estructura completa de un artículo. Devuelve **solo** el resumen conciso."
+        return self._llm_generate(prompt, system_msg)
+
     
-    system_msg = "Eres un analista de texto. Devuelve **solo** el resumen conciso."
-    return _llm_generate(prompt, system_msg)
+    # --- Funciones de IA de Fase 4 (Análisis Final - MODIFICADAS) ---
 
-def generate_ai_titles(query: str, keywords: List[str], context: str) -> List[str]:
-    prompt = f"Basándote en el siguiente CONTEXTO de la web scrapeada:\n---\n{context}\n---\n\n"
-    prompt += f"Genera 3 títulos SEO persuasivos para el tema: '{query}' usando estas keywords: {', '.join(keywords)}. Asegúrate de que los títulos reflejen el contenido del contexto."
-    system_msg = "Eres un experto en SEO. Devuelve **solo** los 3 títulos en formato de lista (uno por línea), sin numeración ni guiones."
-    response_text = _llm_generate(prompt, system_msg)
-    return [t.strip() for t in response_text.split('\n') if t.strip() and "error" not in t.lower()]
+    def generate_full_contextual_structure(self, 
+                                          consolidated_text: str, 
+                                          query: str, 
+                                          title_base: str, 
+                                          main_keyword: str, 
+                                          principal_keywords: List[str],
+                                          categoria: str,
+                                          idioma: str,
+                                          tecnica: str,
+                                          acento: str,
+                                          tono: str
+                                         ) -> Dict[str, Any]:
+        """
+        Genera la estructura final de blog, intención, introducción y conclusión, 
+        utilizando los parámetros de entrada (SIN GENERAR TÍTULOS NI KEYWORDS).
+        """
+        
+        keywords_str = ', '.join([main_keyword] + principal_keywords)
+        
+        system_message = f"""
+        Eres un Estratega SEO de Marketing de alto nivel y un excelente redactor en el idioma '{idioma}' con acento '{acento}'.
+        Tu objetivo es generar la INTENCIÓN DE BÚSQUEDA y la ESTRUCTURA DE BLOG, adaptándote a:
+        - Tono de Voz: '{tono}'
+        - Acento Cultural: '{acento}'
+        - Técnica de Redacción: '{tecnica}'
+        - Idioma: {idioma}
+        Tu única respuesta debe ser el objeto JSON solicitado, sin explicaciones ni texto adicional.
+        """
+        
+        prompt = f"""
+        --- MANDATOS SEO Y ESTRUCTURA OBLIGATORIOS ---
+        
+        **1. TEMA CENTRAL/TÍTULO PROPORCIONADO (BASE):** '{title_base}'.
+        **2. Estructura Base:** '{categoria}'.
+        
+        **3. Keywords de ENTRADA (Obligatorias):** '{keywords_str}'. Estas DEBEN ser integradas en la estructura de subtítulos.
+        
+        ---
+        
+        **CONSIGNA:** Basándote **únicamente** en el CONTEXTO CONSOLIDADO (de scraping):
+        {consolidated_text}
+        
+        1. Define la **Intención de Búsqueda Única**.
+        2. Genera una **Introducción** y una **Conclusión con CTA** (máximo 4 oraciones c/u), usando el tono y acento proporcionados.
+        3. Genera la **Estructura detallada del cuerpo del blog** en formato Markdown (## para H2 y ### para H3). DEBES usar el 'Título Base Deseado' y las 'Keywords de ENTRADA' como guía obligatoria.
 
-def generate_ai_subtitles(query: str, keywords: List[str], context: str) -> List[str]:
-    prompt = f"Basándote en el siguiente CONTEXTO de la web scrapeada:\n---\n{context}\n---\n\n"
-    prompt += f"Genera una lista de subtítulos H2/H3 para un artículo sobre: '{query}' que organicen el contenido presente en el contexto. Usa estas keywords: {', '.join(keywords)}."
-    system_msg = "Eres un experto en estructuración de contenido. Devuelve **solo** los subtítulos en formato de lista (uno por línea), sin numeración ni guiones."
-    response_text = _llm_generate(prompt, system_msg)
-    # Corrección de error de variable 't' no definida en la lógica de subtítulos
-    return [s.strip() for s in response_text.split('\n') if s.strip() and "error" not in s.lower()]
+        ---
+        
+        **FORMATO DE SALIDA (JSON ESTRICTO REQUERIDO):**
+        {{
+            "search_intent": "Intención de búsqueda única (máx 15 palabras).",
+            "introduction": "Texto de la introducción.",
+            "structure_markdown": "Estructura Markdown de H2/H3.",
+            "conclusion_cta": "Texto de la conclusión con CTA."
+        }}
+        """
+        
+        response_json_str = self._llm_generate(prompt, system_message=system_message, temperature=0.4) 
+        
+        try:
+            return self._parse_json_result(response_json_str)
+        except Exception as e:
+            # Manejo de error para la estructura final
+            return {
+                "search_intent": "ERROR: JSON Inválido",
+                "introduction": "Error de IA al generar introducción",
+                "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e}]",
+                "conclusion_cta": "Error de IA al generar conclusión"
+            }
+  
+    # --- LÓGICA DE REGENERACIÓN ÚNICA (FASE 5 - MODIFICADA) ---
 
-def generate_ai_intent(query: str, keywords: List[str], context: str) -> str:
-    prompt = f"Analizando la query: '{query}', las keywords: {', '.join(keywords)}, y el CONTEXTO proporcionado (que es el contenido actual de la página) Define la intención de búsqueda (Informativa, Transaccional, Navegacional, Comercial). Justifica brevemente."
-    system_msg = "Eres un estratega de contenido. Devuelve **solo** la intención de búsqueda definida y su justificación en un solo párrafo."
-    return _llm_generate(prompt, system_msg)
+    def generate_single_intent(self, 
+                               consolidated_text: str, 
+                               query: str, 
+                               previous_content: Optional[List[str]] = None,
+                               idioma: str = "es", 
+                               acento: str = "neutral",
+                               tono: str = "profesional", 
+                               **kwargs
+                              ) -> str:
+        """Define solo la intención de búsqueda, adaptada a los parámetros de estilo."""
+        
+        exclusion_instruction = ""
+        if previous_content and isinstance(previous_content, list) and len(previous_content) > 0:
+            previous_str = "; ".join([item for item in previous_content if item])
+            if previous_str:
+                exclusion_instruction = f"***INSTRUCCIÓN DE UNICIDAD: NO DEBES generar NINGUNA de estas intenciones de búsqueda históricas: {previous_str}. Genera un resultado completamente diferente y nuevo.***\n"
+            
+        prompt = f"{exclusion_instruction}Analiza el siguiente CONTEXTO CONSOLIDADO:\n---\n{consolidated_text}\n---\n\nBasándote en el contenido consolidado para la query '{query}' y justifícala brevemente. Devuelve solo una breve descripcion de la intencion de busqueda."
+        system_msg = f'Eres un estratega SEO en idioma "{idioma}" con tono "{tono}". Devuelve **solo** la descripción breve y la justificación solicitada.'
+        return self._llm_generate(prompt, system_msg)
 
-def generate_ai_introduction(query: str, keywords: List[str], context: str) -> str:
-    prompt = f"Basándote en el siguiente CONTEXTO de la web scrapeada:\n---\n{context}\n---\n\n"
-    prompt += f"Genera un texto introductorio engaging (máximo 4 oraciones) para un artículo sobre: '{query}' usando estas keywords: {', '.join(keywords)}. El texto debe resumir o introducir el contenido del contexto."
-    system_msg = "Eres un copywriter. Devuelve **solo** el texto introductorio."
-    return _llm_generate(prompt, system_msg)
+    def generate_single_introduction(self, 
+                                    consolidated_text: str, 
+                                    query: str, 
+                                    previous_content: List[str] = None,
+                                    idioma: str = "es", 
+                                    acento: str = "neutral",
+                                    tono: str = "profesional", 
+                                    **kwargs
+                                   ) -> str:
+        """Genera una nueva introducción, adaptada a los parámetros de estilo."""
+        
+        history_prompt = ""
+        if previous_content and previous_content[-1] != 'Error de IA al generar introducción':
+            history_prompt = f"VERSIÓN ANTERIOR:\n{previous_content[-1]}\n"
 
-def generate_ai_conclusion(query: str, keywords: List[str], context: str) -> str:
-    prompt = f"Basándote en el siguiente CONTEXTO de la web scrapeada:\n---\n{context}\n---\n\n"
-    prompt += f"Genera una conclusión final y un call-to-action (máximo 4 oraciones) para un artículo sobre: '{query}' usando estas keywords: {', '.join(keywords)}. La conclusión debe cerrar el tema tratado en el contexto."
-    system_msg = "Eres un experto en conversión. Devuelve **solo** la conclusión final."
-    return _llm_generate(prompt, system_msg)
+        prompt = (
+            f"Basándote en el CONTEXTO CONSOLIDADO (de 3 páginas) y el tema:\n"
+            f"---"
+            f"TEMA DEL BLOG: '{query}'\n"
+            f"{history_prompt}"
+            f"CONTEXTO: {consolidated_text}\n"
+            f"---"
+            f"Genera una **nueva, única y mejorada Introducción** para el artículo. Debe ser concisa (máximo 4 oraciones) y muy atractiva, resumiendo el tema.\n"
+            f"Devuelve **SOLO** el texto de la Introducción, sin etiquetas, comillas, ni texto adicional."
+        )
 
-def generate_final_intent_and_keywords(consolidated_text: str, query: str) -> Dict[str, Any]:
-    prompt = f"Analiza el siguiente CONTEXTO CONSOLIDADO (de 3 páginas web):\n---\n{consolidated_text}\n---\n\n"
-    prompt += f"Basándote en el contenido consolidado para la query '{query}':\n"
-    prompt += "1. Define la **Intención de Búsqueda Única** (Informativa, Transaccional, etc.) y justifícala brevemente.\n"
-    prompt += "2. Identifica y sugiere una lista de **10 Keywords Principales** que deben usarse en el blog, basadas en la redundancia y relevancia de los 3 textos.\n"
+        system_msg = f'Eres un redactor SEO experto. Tu única tarea es generar el texto de la Introducción solicitado, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
+        return self._llm_generate(prompt, system_msg, temperature=0.7) 
+
+    # --- LOGICA PARA REGENERAR SOLAMENTE UNA UNICA PARTE DE LA ESTRUCTURA --- 
+
+    def regenerate_structure_section(self, 
+                                     consolidated_text: str, 
+                                     full_structure_markdown: str,
+                                     section_to_regenerate: str,
+                                     new_prompt: Optional[str] = None,
+                                     idioma: str = "es", 
+                                     acento: str = "neutral",
+                                     tono: str = "profesional", 
+                                     **kwargs
+                                    ) -> str:
+        """
+        Regenera UN ÚNICO título o subtítulo de la estructura del blog, usando el contexto completo.
+        Devuelve SOLO el nuevo texto del título/subtítulo.
+        """
+        user_prompt_instruction = f"Instrucción de Edición/Regeneración Adicional: {new_prompt}\n" if new_prompt else ""
+        
+        prompt = f"""
+        --- CONTEXTO COMPLETO DE REFERENCIA ---
+        TEMA BASE: '{kwargs.get('query')}'
+        CONTENIDO DE SCRAPING CONSOLIDADO: {consolidated_text[:2500]}... (Primeros 2500 caracteres como referencia de contexto)
+        
+        ESTRUCTURA ACTUAL COMPLETA DEL BLOG (Para mantener el contexto y evitar redundancia):
+        ---
+        {full_structure_markdown}
+        ---
+
+        --- TÍTULO/SUBTÍTULO A REGENERAR ---
+        TÍTULO ACTUAL: '{section_to_regenerate}'
+        
+        --- INSTRUCCIONES CLAVE ---
+        1. **Regeneración de Un Único Elemento:** Tu única tarea es generar una **nueva y mejorada versión** para el título/subtítulo: '{section_to_regenerate}'. 
+        2. **Coherencia y Contexto:** El nuevo título/subtítulo DEBE encajar perfectamente en la 'Estructura Actual Completa' y ser relevante al 'Contenido de Scraping Consolidado'.
+        3. **Unicidad:** El nuevo título/subtítulo NO debe ser redundante con ningún otro título en la estructura.
+        4. **Formato Estricto:** Devuelve **SOLO** el nuevo texto del título/subtítulo (sin el ## o ### Markdown, sin comillas, sin texto adicional).
+
+        {user_prompt_instruction}
+        """
+        
+        system_msg = f'Eres un Estratega SEO y Redactor Creativo. Tu única tarea es regenerar **un único título o subtítulo**, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
+        return self._llm_generate(prompt, system_msg, temperature=0.7)
+
+
+    def run_final_ai_analysis(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
+        """Punto de entrada para el análisis final de IA (Servicio de IA), incluyendo regeneración de secciones."""
+        consolidated_text = req.consolidated_content
+        query = req.query
+        
+        # Se asume que estos campos existen en el modelo AIAnalysisRequest para la nueva lógica
+        # Aunque no estaban en el archivo original, son necesarios para el nuevo flujo
+        title_base = getattr(req, 'title_base', query)
+        main_keyword = getattr(req, 'main_keyword', req.keywords[0] if req.keywords else query)
+        principal_keywords = getattr(req, 'principal_keywords', req.keywords[1:] if req.keywords and len(req.keywords) > 1 else [])
+        categoria = getattr(req, 'categoria', 'blog')
+        idioma = getattr(req, 'idioma', 'es')
+        tecnica = getattr(req, 'tecnica', 'SEO')
+        acento = getattr(req, 'acento', 'neutral')
+        tono = getattr(req, 'tono', 'profesional')
+        
+        
+        # LÓGICA DE REGENERACIÓN (FASE 5)
+        if req.section_type:
+            content = None
+            previous_history = req.previous_content 
+            
+            if not isinstance(previous_history, list):
+                previous_history = [previous_history] if previous_history else None
+
+            # --- MANEJO DE SECCIONES PROHIBIDAS ---
+            if req.section_type in ['keywords', 'titles']:
+                # Se devuelve un error o se ignora si se intenta regenerar una sección prohibida.
+                raise ValueError(f"La regeneración de '{req.section_type}' está deshabilitada ya que se usan los datos proporcionados por el dashboard.")
+
+            # --- REGENERACIÓN DE INTENCIÓN ---
+            if req.section_type == 'search_intent': # Se asume 'search_intent' es el nuevo nombre
+                content = self.generate_single_intent(
+                    consolidated_text, 
+                    query, 
+                    previous_content=previous_history,
+                    idioma=idioma,
+                    acento=acento,
+                    tono=tono
+                )
+
+            # --- REGENERACIÓN DE INTRODUCCIÓN ---
+            elif req.section_type == 'introduction': 
+                content = self.generate_single_introduction(
+                    consolidated_text, 
+                    query, 
+                    previous_content=previous_history,
+                    idioma=idioma,
+                    acento=acento,
+                    tono=tono
+                )
+            
+            # --- NUEVA REGENERACIÓN DE SECCIÓN DE ESTRUCTURA  ---
+            elif req.section_type == 'structure_section': 
+                # Verifica que se hayan enviado los datos necesarios desde el frontend
+                if not req.regenerate_data or 'section_text' not in req.regenerate_data or 'full_structure_markdown' not in req.regenerate_data:
+                    raise ValueError("Faltan datos requeridos para la regeneración de la sección de estructura: section_text y full_structure_markdown.")
+
+                # Llama al nuevo método que usa la estructura completa como contexto
+                content = self.regenerate_structure_section(
+                    consolidated_text=consolidated_text,
+                    full_structure_markdown=req.regenerate_data['full_structure_markdown'], # Contexto completo
+                    section_to_regenerate=req.regenerate_data['section_text'], # Título a reemplazar
+                    new_prompt=req.regenerate_data.get('new_prompt'), # Prompt de edición/regeneración
+                    idioma=idioma,
+                    acento=acento,
+                    tono=tono,
+                    query=query
+                )
+            
+            # --- REGENERACIÓN DE OTRAS SECCIONES PERMITIDAS (Ej. conclusion_cta) ---
+            # elif req.section_type == 'conclusion_cta':
+            #    content = self.generate_single_conclusion_cta(consolidated_text, query, previous_content=previous_history)
+            
+            
+            if content is not None:
+                # =========================================================
+                # >>> LIMPIEZA DEL CONTENIDO REGENERADO (REGENERACIÓN) <<<
+                # =========================================================
+                content = content.replace('\r\n', '\n').replace('\r', '\n')
+                content = re.sub(r'[^\S\n]+', ' ', content)
+                content = '\n'.join([line.strip() for line in content.split('\n') if line.strip()])
+                content = content.strip()
+                # =========================================================
+                
+                # El frontend espera 'regenerated_content'
+                return {"regenerated_content": content, "section_type": req.section_type}
+            else:
+                # Si llega aquí y no es prohibida, es inválida.
+                raise ValueError(f"Tipo de sección de regeneración no válido: {req.section_type}")
+
+        # Flujo inicial de Análisis de Estructura COMPLETA (FASE 4)
+        analysis_result = self.generate_full_contextual_structure(
+            consolidated_text=consolidated_text,
+            query=query,
+            title_base=title_base,
+            main_keyword=main_keyword,
+            principal_keywords=principal_keywords,
+            categoria=categoria,
+            idioma=idioma,
+            tecnica=tecnica,
+            acento=acento,
+            tono=tono
+        )
+
+        # =========================================================
+        # >>> FIX CRÍTICO: LIMPIEZA Y NORMALIZACIÓN DE LA ESTRUCTURA COMPLETA <<<
+        # (Esto aplica al flujo inicial de generación de estructura)
+        # =========================================================
+        MARKDOWN_KEY = 'full_structure_markdown' # Asumiendo esta es la clave con el texto Markdown. ¡Ajusta si es diferente!
+
+        if MARKDOWN_KEY in analysis_result and isinstance(analysis_result[MARKDOWN_KEY], str):
+            markdown_to_clean = analysis_result[MARKDOWN_KEY]
+
+            # 1. Normalizar saltos de línea (\r\n y \r a \n)
+            markdown_to_clean = markdown_to_clean.replace('\r\n', '\n').replace('\r', '\n')
+
+            # 2. Reemplazar caracteres de espacio no estándar (tabs, espacios unicode) y múltiples espacios por un espacio simple.
+            # [^\S\n] = Cualquier espacio excepto el salto de línea.
+            markdown_to_clean = re.sub(r'[^\S\n]+', ' ', markdown_to_clean) 
+
+            # 3. Eliminar líneas completamente vacías y limpiar espacios al inicio/fin del bloque
+            markdown_to_clean = '\n'.join([line.strip() for line in markdown_to_clean.split('\n') if line.strip()])
+            
+            # 4. Limpiar el string final.
+            markdown_to_clean = markdown_to_clean.strip()
+            
+            # 5. Guardar el resultado limpio en el diccionario
+            analysis_result[MARKDOWN_KEY] = markdown_to_clean
+        # =========================================================
+        
+        # Consolidar el resultado final, usando las keywords de entrada (req.keywords).
+        final_keywords_list = [main_keyword] + principal_keywords
+        
+        return {
+            "search_intent": analysis_result.get("search_intent"),
+            "final_keywords": final_keywords_list,
+            "final_structure_json": analysis_result,
+        }
     
-    system_msg = "Eres un estratega SEO. Devuelve tu respuesta en el siguiente formato JSON estricto: `{'final_intent': 'Intención definida con justificación', 'final_keywords': ['kw1', 'kw2', ...]}`. No incluyas explicaciones adicionales ni código."
-    
-    response_text = _llm_generate(prompt, system_msg)
-    
-    try:
-        clean_text = response_text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_text)
-    except json.JSONDecodeError as e:
-        print(f"Error parseando JSON de intención/keywords final: {e}")
-        return {'final_intent': f'[Error de IA: {e}]', 'final_keywords': []}
+# --- 2. CLASE ContentExtractor: Lógica de Scraping y Fallback ---
 
-def generate_final_blog_structure(consolidated_text: str, query: str, keywords: List[str]) -> str:
-    keywords_str = ', '.join(keywords)
-    
-    prompt = f"Basándote en el CONTEXTO CONSOLIDADO (de 3 páginas) y las keywords:\n---\nCONTEXTO: {consolidated_text}\n---\nKEYWORDS PRINCIPALES: {keywords_str}\n\n"
-    prompt += f"Genera la **Estructura de Blog FINAL y ÚNICA** para el tema '{query}'. Tu respuesta debe incluir:\n"
-    prompt += "1. **3 Opciones de Título** (SEO optimizado).\n"
-    prompt += "2. **Introducción** (Máximo 4 oraciones).\n"
-    
-    prompt += "3. **Estructura Detallada (H2/H3)** que aborde todos los puntos clave redundantes encontrados en el contexto.\n"
-    prompt += "4. **Conclusión y CTA** (Máximo 4 oraciones).\n"
-    
-    system_msg = "Eres un planificador de contenido de alto nivel. Formatea tu respuesta con títulos en negrita y estructura clara, apta para ser presentada directamente al usuario final como la sugerencia final del blog."
-    
-    return _llm_generate(prompt, system_msg)
-
-# --- Funciones Auxiliares de Scraping Necesarias (Mantenidas) ---
-
-EXCLUDED_HEADINGS = [
-    'contenido relacionado', 'principales noticias', 'no te lo pierdas', 
-    'lecturas más populares', 'más información', 'comentarios', 
-    'temas relacionados', 'navegación', 'créditos', 'síguenos', 
-    'te puede interesar', 'leer más', 'share', 'siguiente', 'anterior', 
-    'ver también', 'suscríbete', 'regístrate', 'cierra sesión', 'publicidad', 
-    'productos recomendados', 'Contenido relacionado', 'Temas relacionados',
-    'Lecturas más populares', 'patrocinado' 
-]
-NOISE_PATTERNS = re.compile(
-    r'Fuente\s+de\s+la\s+imagen[,\s]+(Getty\s+Images|Alamy)\s*|'
-    r'Información\s+del\s+artículo\s+Autor[,\s]+Redacción\s+Título\s+del\s+autor[,\s]+BBC\s+Travel\s+[\d\s\w]+\s*|'
-    r'Getty\s+Images\.?\s*|'
-    r'Agencia\s+EFE\s*|'
-    r'\s*Lo\s+mejor\s*:\s*',
-    re.I | re.M
-)
+class ContentExtractor:
+    """
+    Clase encargada de la descarga, limpieza, extracción estructurada (Plan A/B)
+    y la gestión de la lógica de fallback de scraping.
+    """
+    # --- Constantes y Patrones de Ruido ---
+    EXCLUDED_HEADINGS = [
+        'contenido relacionado', 'principales noticias', 'no te lo pierdas', 
+        'lecturas más populares', 'más información', 'comentarios', 
+        'temas relacionados', 'navegación', 'créditos', 'síguenos', 
+        'te puede interesar', 'leer más', 'share', 'siguiente', 'anterior', 
+        'ver también', 'suscríbete', 'regístrate', 'cierra sesión', 'publicidad', 
+        'productos recomendados', 'Contenido relacionado', 'Temas relacionados',
+        'Lecturas más populares', 'patrocinado' 
+    ]
+    NOISE_PATTERNS = re.compile(
+        r'Fuente\s+de\s+la\s+imagen[,\s]+(Getty\s+Images|Alamy)\s*|'
+        r'Información\s+del\s+artículo\s+Autor[,\s]+Redacción\s+Título\s+del\s+autor[,\s]+BBC\s+Travel\s+[\d\s\w]+\s*|'
+        r'Getty\s+Images\.?\s*|'
+        r'Agencia\s+EFE\s*|'
+        r'\s*Lo\s+mejor\s*:\s*'
+        r'\s{2,}|\n|\t|[\xa0\ufeff]+', 
+        re.UNICODE | re.I | re.M 
+    )
 
 
-def is_relevant_src(src: str | None) -> bool:
-    """Funcion anti ruido para la extraccion de elementos multmedia, evita paginas de publicidad o elementos de seguimiento"""
-    if not src or len(src) < 10 or src.startswith('data:image') or src.startswith('#'):
-        return False
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive", 
+            "Upgrade-Insecure-Requests": "1" 
+        })
     
-    if any(s in src.lower() for s in ['adserve', 'sponsors', 'tracker', 'g-recaptcha', 'pixel', 'comments-area']):
-        return False
-    return True
 
-def clean_text(text: str) -> str:
-    """ELIMINA O RECORTA LOS  ESPACIOS SOBREANTES EN EL HTML EXTRAIDO"""
-    if not text: return ""
-    return NOISE_PATTERNS.sub(' ', text).strip()
- 
-def _get_media_info(tag: Tag) -> Dict[str, str] | None:
-    """Extrae la información multimedia, manejando lazy loading y etiquetas contenedoras."""
-    PRIMARY_MEDIA_TAGS = ['img', 'picture', 'iframe', 'video', 'figure', 'source'] 
-    IS_PRIMARY_MEDIA_TAG = tag.name in PRIMARY_MEDIA_TAGS
-    
-    if not IS_PRIMARY_MEDIA_TAG and not tag.has_attr('class'):
+    @staticmethod
+    def is_relevant_src(src: str | None) -> bool:
+        """Función anti ruido para la extraccion de elementos multmedia."""
+        if not src or len(src) < 10 or src.startswith('data:image') or src.startswith('#'):
+            return False
+        if any(s in src.lower() for s in ['adserve', 'sponsors', 'tracker', 'g-recaptcha', 'pixel', 'comments-area']):
+            return False
+        return True
+
+
+    @staticmethod
+    def clean_text(text: str) -> str:
+        """ELIMINA O RECORTA LOS ESPACIOS SOBREANTES Y EL RUIDO PATRONIZADO."""
+        if not text: return ""
+        return ContentExtractor.NOISE_PATTERNS.sub(' ', text).strip()
+
+
+    @staticmethod
+    def _get_media_info(tag: Tag) -> Dict[str, str] | None:
+        """Extrae la información multimedia, manejando lazy loading y etiquetas contenedoras."""
+        # Lógica para encontrar la URL de origen relevante y la descripción (alt/caption) del elemento multimedia.
+        PRIMARY_MEDIA_TAGS = ['img', 'picture', 'iframe', 'video', 'figure', 'source'] 
+        if not tag.name in PRIMARY_MEDIA_TAGS and not tag.has_attr('class'): return None
+        src = tag.get('src')
+        
+        if not src and tag.name in ['img', 'picture', 'video', 'iframe', 'source']:
+            LAZY_ATTRIBUTES = ['data-src', 'data-original', 'data-url', 'data-lazy-src', 'data-image-src', 
+                            'srcset', 'data-srcset', 'data-iframe-src', 'data-lazyload', 'data-large-file']
+            for attr in LAZY_ATTRIBUTES:
+                # Lógica para manejar atributos de carga perezosa (lazy loading)
+                if tag.get(attr):
+                    src_value = tag.get(attr)
+                    if attr in ['srcset', 'data-srcset'] and src_value:
+                        try:
+                            last_pair = src_value.split(',')[-1].strip()
+                            src = last_pair.split(' ')[0]
+                        except:
+                            src = None
+                    else: 
+                        src = src_value
+                    if src: break
+
+        if src and ContentExtractor.is_relevant_src(src):
+            # Formateo de la información multimedia
+            media_type = 'Imagen'; alt_text = tag.get('alt', '')
+            if tag.name in ['iframe']: media_type = 'Video/Mapa'
+            if tag.name in ['video']: media_type = 'Video'
+            caption_text = ''
+            search_scope = tag if tag.name == 'figure' else tag.find_parent('figure')
+            
+            if search_scope:
+                 caption_tag = search_scope.find(
+                     ['figcaption', 'span', 'p'], 
+                     class_=re.compile(r'caption|pie-de-foto|fig-caption|description|credit', re.I)
+                 ) 
+                 caption_text = caption_tag.get_text(strip=True) if caption_tag else ''
+
+            source_text = caption_text if caption_text else alt_text if alt_text else f"Multimedia de tipo {media_type}"
+            return {'type': media_type, 'url': src, 'description': source_text, 'alt': alt_text, 'caption': caption_text} 
         return None
 
-    src = tag.get('src')
-    
-    # 1. Búsqueda exhaustiva de 'src' en atributos de lazy loading
-    if not src and tag.name in ['img', 'picture', 'video', 'iframe', 'source']:
-        LAZY_ATTRIBUTES = ['data-src', 'data-original', 'data-url', 'data-lazy-src', 'data-image-src', 
-                           'srcset', 'data-srcset', 'data-iframe-src', 'data-lazyload', 'data-large-file']
+
+    @staticmethod
+    def get_article_main_heading(soup: BeautifulSoup) -> str:
+        """Busca el título principal del artículo, priorizando H1 y etiquetas de título comunes."""
         
-        for attr in LAZY_ATTRIBUTES:
-            if tag.get(attr):
-                src_value = tag.get(attr)
-                
-                if attr in ['srcset', 'data-srcset'] and src_value:
-                    try:
-                        last_pair = src_value.split(',')[-1].strip()
-                        src = last_pair.split(' ')[0]
-                    except:
-                        src = None
-                else: 
-                    src = src_value
-                
-                if src: break
-
-    # 2. Manejo de etiquetas contenedoras (<picture>, <figure>)
-    if not src and tag.name in ['figure', 'picture']:
-        img_tag = tag.find('img') or tag.find('source')
-        if img_tag:
-            return _get_media_info(img_tag)
-
-    # 3. Procesamiento final si se encontró una fuente relevante
-    if src and is_relevant_src(src):
-        media_type = 'Imagen'
-        alt_text = tag.get('alt', '')
+        h1_tag = soup.find('h1', class_=lambda c: c is None or 'logo' not in c.lower() and 'brand' not in c.lower() and 'site-title' not in c.lower())
+        if h1_tag and h1_tag.get_text(strip=True) and len(h1_tag.get_text(strip=True)) > 10:
+            return h1_tag.get_text(strip=True)
         
-        if tag.name in ['iframe']: media_type = 'Video/Mapa'
-        if tag.name in ['video']: media_type = 'Video'
-        
-        caption_text = ''
-        search_scope = tag if tag.name == 'figure' else tag.find_parent('figure')
-        
-        if search_scope:
-             caption_tag = search_scope.find(
-                 ['figcaption', 'span', 'p'], 
-                 class_=re.compile(r'caption|pie-de-foto|fig-caption|description|credit', re.I)
-             ) 
-             caption_text = caption_tag.get_text(strip=True) if caption_tag else ''
-
-        source_text = caption_text if caption_text else alt_text if alt_text else f"Multimedia de tipo {media_type}"
-
-        return {
-            'type': media_type, 
-            'url': src, 
-            'description': source_text,
-            'alt': alt_text, 
-            'caption': caption_text
-        } 
-
-    return None
-
-def get_article_main_heading(soup: BeautifulSoup) -> str:
-    """Busca el título principal del artículo, priorizando H1 y etiquetas de título comunes."""
-    h1_tag = soup.find('h1', class_=lambda c: c is None or 'logo' not in c.lower() and 'brand' not in c.lower() and 'site-title' not in c.lower())
-    if h1_tag and h1_tag.get_text(strip=True) and len(h1_tag.get_text(strip=True)) > 10:
-        return h1_tag.get_text(strip=True)
-    
-    title_classes = re.compile(r'main-title|article-title|entry-title|post-title|headline-text', re.I)
-    main_div = soup.find(['div', 'span'], class_=title_classes)
-    if main_div and main_div.get_text(strip=True) and len(main_div.get_text(strip=True)) > 10:
-        return main_div.get_text(strip=True)
-        
-    title_tag = soup.find("title")
-    return title_tag.get_text(strip=True) if title_tag else "Contenido Principal del Artículo"
-
-
-# --- Lógica de Scraping Robusta  ---
-def group_content_by_headings_robust(soup: BeautifulSoup) -> List[Dict[str, Any]]: 
-    
-    #-- INICIALIZACION DONDE ALMACENA BLOQUES DE CONTENIDO TEXTO, CONTENIDO MULTIMEDIA Y GUARDA EL CONTENEDOR HTML
-    blocks = []
-    current_heading = None 
-    current_content: List[str] = []
-    current_media: List[Dict[str, str]] = [] 
-    content_area = None
-    
-    #--Función auxiliar que finaliza el bloque actual y lo añade a 'blocks'.
-    def save_current_block():
-        heading_to_save = current_heading if current_heading is not None else "Introducción/Pre-H2"
-        if current_content or current_media:
-        
-            # Convierte cada elemento a string y filtra los None antes de hacer 'join'.
-            safe_content = [str(c) for c in current_content if c is not None]
+        # Búsqueda basada en clases comunes de título
+        title_classes = re.compile(r'main-title|article-title|entry-title|post-title|headline-text', re.I)
+        main_div = soup.find(['div', 'span'], class_=title_classes)
+        if main_div and main_div.get_text(strip=True) and len(main_div.get_text(strip=True)) > 10:
+            return main_div.get_text(strip=True)
             
-            # Usa la lista saneada (safe_content)
-            cleaned_content = clean_text(" ".join(safe_content))
+        title_tag = soup.find("title")
+        return title_tag.get_text(strip=True) if title_tag else "Contenido Principal del Artículo"
+
+
+    @staticmethod
+    def _get_content_area(soup: BeautifulSoup, mode: str) -> Tag | BeautifulSoup:
+        """Aísla el área de contenido principal basándose en el modo de extracción ('simple' o 'robust')."""
+        
+        temp_content_area = None
+        
+        if mode == 'simple':
+            # Intento de encontrar contenedores de alta confianza (article, main) y heurística de densidad.
+            high_confidence_selectors = ['article', 'main', 'div[itemprop*="articleBody"]']
+            content_selectors = ['.entry-content', '.td-post-content', '.post-content', '.content-body', 'div[itemprop*="articleBody"]', '#content'] 
+            # ... Lógica de búsqueda de área de contenido 'simple' ...
+            for selector in high_confidence_selectors:
+                area = soup.select_one(selector)
+                if area:
+                    refined_area = area.select_one(', '.join(content_selectors))
+                    temp_content_area = refined_area if refined_area else area
+                    break 
+            if not temp_content_area:
+                for selector in content_selectors:
+                    area = soup.select_one(selector)
+                    if area:
+                        temp_content_area = area
+                        break
+            # Heurística de Densidad como último recurso en modo simple
+            if not temp_content_area:
+                potential_content_areas = soup.find_all(['div', 'section'], recursive=True)
+                best_area = None; max_density = 0
+                for area in potential_content_areas:
+                    # Lógica de cálculo de densidad para encontrar el contenedor más probable.
+                    area_class_str = " ".join(area.get('class', []))
+                    if area.name == 'div' and area.get('id') in ['comments', 'sidebar', 'footer', 'header', 'nav', 'ad', 'sponsor']: continue
+                    if 'sidebar' in area_class_str or 'navigation' in area_class_str or 'menu' in area_class_str: continue
+                    p_count = len(area.find_all(['p', 'ul', 'ol', 'h3', 'h4'], limit=20))
+                    area_text_len = len(area.get_text(strip=True)); a_count = len(area.find_all('a', limit=10)) 
+                    link_density_penalty = 1.0
+                    if area_text_len < 400 and a_count > 5: link_density_penalty = 0.1 
+                    current_density = (p_count * area_text_len) * link_density_penalty 
+                    if current_density > max_density and p_count >= 2 and area_text_len >= 100: 
+                        best_area = area; max_density = current_density
+                
+                if best_area: temp_content_area = best_area
+                
+        else: # mode == 'robust' (Plan B: Aislamiento rápido y directo)
+            # Prioriza selectores comunes en blogs con contenido sustancial
+            article_container_selectors = ['#content', '#primary', '#main-content', '.post-wrapper', '.site-main','article','#main',
+                                       '.entry-content','.article-content','.post-content','.td-post-content','.article-body',]
+            for selector in article_container_selectors:
+                area = soup.select_one(selector)
+                if area and len(area.get_text(strip=True)) > 300 and len(area.find_all('p', limit=6)) >= 4:
+                    temp_content_area = area
+                    break
             
-            # Elimina URLs multimedia duplicadas
-            deduplicated_media = {item.get('url'): item for item in current_media if item.get('url')} 
-            if cleaned_content or deduplicated_media:
-                blocks.append({
-                    "heading": heading_to_save,
-                    "content": cleaned_content,
-                    "media_elements": list(deduplicated_media.values())
-                })
+            if not temp_content_area: temp_content_area = soup.find(class_='entry-content') 
+            if not temp_content_area: temp_content_area = soup.find('main', class_=lambda c: c and 'content' in c.split())
+            if not temp_content_area: temp_content_area = soup.find('article', class_=lambda c: c and 'post-' in c)
 
-    
-    # --- FASE 1: AISLAMIENTO RÁPIDO Y DIRECTO ---
-    
-    # 1. Contenedores de Raíz Específicos
-    article_container_selectors = ['#content', '#primary', '#main-content', '.post-wrapper', '.site-main']
-    for selector in article_container_selectors:
-        area = soup.select_one(selector)
-        if area and len(area.get_text(strip=True)) > 300 and len(area.find_all('p', limit=6)) >= 4:
-            content_area = area
-            break
-    
-    # 2. Refuerzo WP/Común (entry-content, main, article)
-    if not content_area:
-        content_area = soup.find(class_='entry-content') 
-    if not content_area:
-        content_area = soup.find('main', class_=lambda c: c and 'content' in c.split())
-    if not content_area:
-        content_area = soup.find('article', class_=lambda c: c and 'post-' in c)
-    
-    # 3. FALLBACK SIMPLE (EL SCRAPING SENCILLO): Usar el BODY completo.
-    # Evita Pasos 2 y 3 complejos.
-    if not content_area:
-        content_area = soup.find('body') or soup
-        
-    # --- FASE 2: AGRUPACIÓN POR ENCABEZADOS (El "scrapping sencillo") ---
-    
-    article_title = get_article_main_heading(soup)
-        
-    elements_to_find = ['h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'blockquote', 'div', 'section', 'img', 'figure', 'iframe', 'video', 'picture', 'span']
-    elements = content_area.find_all(elements_to_find, recursive=True)
-    
-    HEADING_CLASSES = re.compile(r'title|subtitle|headline|subhead|h-?[234]|h[234]-?style', re.I)
-    LOW_CONFIDENCE_CLASSES = re.compile(r'caption|credit|footer|ad|widget|photo|image|media-title|social-share|figure-title|byline|author|metadata', re.I)
-    
-    for tag in elements:
-        tag_name = tag.name.lower()
-        text_content = tag.get_text(strip=True, separator=' ')
-        
-        if tag.get('aria-hidden') == 'true' or tag.get('role') == 'presentation' or (not text_content and tag_name not in ['img', 'figure', 'picture', 'iframe']):
-            continue
+        return temp_content_area or soup.find('body') or soup
 
-        is_heading_divisor = False
+
+    @staticmethod
+    def group_content_by_headings(soup: BeautifulSoup, mode: str) -> List[Dict[str, Any]]: 
+        """Agrupa el contenido del artículo por encabezados (H2/H3) o tags de encabezado detectados."""
+        blocks = []
+        current_heading: Optional[str] = None 
+        current_content: List[str] = []
+        current_media: List[Dict[str, str]] = [] 
         
-        # 1. Identificación del Divisor
-        if tag_name in ['img', 'figure', 'picture', 'iframe', 'video']:
+        content_area = ContentExtractor._get_content_area(soup, mode)
+        article_title = ContentExtractor.get_article_main_heading(soup)
+
+        def save_current_block():
+            heading_to_save = current_heading if current_heading is not None else "Introducción/Pre-H2"
+            if current_content or current_media:
+                safe_content = [str(c) for c in current_content if c is not None]
+                cleaned_content = ContentExtractor.clean_text(" ".join(safe_content))
+                deduplicated_media = {item.get('url'): item for item in current_media if item.get('url')} 
+                if cleaned_content or deduplicated_media:
+                    blocks.append({
+                        "heading": heading_to_save,
+                        "content": cleaned_content,
+                        "media_elements": list(deduplicated_media.values())
+                    })
+        
+        # Tags a buscar para la división y el contenido
+        elements_to_find = ['h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'blockquote', 'div', 'section', 'img', 'figure', 'iframe', 'video', 'picture', 'span']
+        elements = content_area.find_all(elements_to_find, recursive=True)
+        
+        HEADING_CLASSES = re.compile(r'title|subtitle|headline|subhead|h-?[234]|h[234]-?style', re.I)
+        LOW_CONFIDENCE_CLASSES = re.compile(r'caption|credit|footer|ad|widget|photo|image|media-title|social-share|figure-title|byline|author|metadata', re.I)
+        
+        for tag in elements:
+            # Lógica para identificar si el elemento es un divisor de encabezado (H2/H3/Div con clase de título)
+            tag_name = tag.name.lower()
+            text_content = tag.get_text(strip=True, separator=' ')
+            
+            if tag.get('aria-hidden') == 'true' or tag.get('role') == 'presentation' or (not text_content and tag_name not in ['img', 'figure', 'picture', 'iframe']):
+                continue
+
             is_heading_divisor = False
             
-        elif tag_name in ['h1', 'h2']:
-            is_heading_divisor = True
+            # 1. Identificación del Divisor (H1, H2, H3/H4 bajo ciertas condiciones, y divs/spans con clases de encabezado)
+            if tag_name in ['img', 'figure', 'picture', 'iframe', 'video']: is_heading_divisor = False
+            elif tag_name in ['h1', 'h2']: is_heading_divisor = True
+            elif tag_name in ['h3', 'h4']:
+                if len(" ".join(current_content)) > 2000 or current_heading is None: is_heading_divisor = True
+            elif tag_name in ['div', 'span', 'section']:
+                if tag.get('role') == 'heading' and tag.get('aria-level') in ['1', '2', '3', '4']: is_heading_divisor = True
+                elif tag.has_attr('class'):
+                    class_str = " ".join(tag.get('class', []))
+                    class_match = HEADING_CLASSES.search(class_str)
+                    if class_match and len(text_content) > 10:
+                        low_conf_match = LOW_CONFIDENCE_CLASSES.search(class_str)
+                        if not low_conf_match:
+                            has_media_child = tag.find(['img', 'figure', 'video', 'iframe'])
+                            if not has_media_child or len(tag.contents) > 2: is_heading_divisor = True
             
-        elif tag_name in ['h3', 'h4']:
-            if len(" ".join(current_content)) > 2000 or current_heading is None:
-                is_heading_divisor = True
-        
-        elif tag_name in ['div', 'span', 'section']:
-            if tag.get('role') == 'heading' and tag.get('aria-level') in ['1', '2', '3', '4']:
-                is_heading_divisor = True
-            elif tag.has_attr('class'):
-                class_str = " ".join(tag.get('class', []))
-                class_match = HEADING_CLASSES.search(class_str)
+            # 2. Manejo de Encabezado: Guarda el bloque anterior e inicia uno nuevo
+            if is_heading_divisor:
+                if len(text_content) < 5 or any(exc in text_content.lower() for exc in ['pie de foto', 'foto:', 'imagen de', 'ver galeria', 'crédito']): continue
+                if current_heading is None or text_content.strip() != current_heading.strip():
+                    save_current_block()
+                    current_heading = text_content; current_content = []; current_media = []
                 
-                if class_match and len(text_content) > 10:
-                    low_conf_match = LOW_CONFIDENCE_CLASSES.search(class_str)
+            # 3. Manejo de Contenido Multimedia
+            media_info = ContentExtractor._get_media_info(tag) 
+            if media_info: current_media.append(media_info) 
+                
+            # 4. Manejo de Contenido Textual
+            is_content_tag = tag_name in ['p', 'ul', 'ol', 'blockquote']
+            if tag_name == 'span' and not is_heading_divisor and len(text_content) > 100: is_content_tag = True
+            
+            if is_content_tag and text_content and len(text_content) > 10: 
+                if not is_heading_divisor: current_content.append(text_content)
                     
-                    if not low_conf_match:
-                        has_media_child = tag.find(['img', 'figure', 'video', 'iframe'])
-                        
-                        if not has_media_child or len(tag.contents) > 2:
-                            is_heading_divisor = True
+        save_current_block()
         
-        # 2. Manejo de Encabezado (Separación)
-        if is_heading_divisor:
-            if len(text_content) < 5 or any(exc in text_content.lower() for exc in ['pie de foto', 'foto:', 'imagen de', 'ver galeria', 'crédito']):
-                continue
-
-            if current_heading is None or text_content.strip() != current_heading.strip():
-                save_current_block()
-                current_heading = text_content
-                current_content = []
-                current_media = []
-            
-        # 3. Manejo de Contenido Multimedia
-        media_info = _get_media_info(tag) 
-        if media_info:
-            current_media.append(media_info) 
-            
-        # 4. Manejo de Contenido Textual
-        is_content_tag = tag_name in ['p', 'ul', 'ol', 'blockquote']
-        if tag_name == 'span' and not is_heading_divisor and len(text_content) > 100:
-            is_content_tag = True
+        if blocks and blocks[0]['heading'] == "Introducción/Pre-H2":
+            blocks[0]['heading'] = article_title 
         
-        if is_content_tag and text_content and len(text_content) > 10: 
-            if not is_heading_divisor:
-                current_content.append(text_content)
+        # --- FASE 3: FILTRADO FINAL (Aplicar filtros de longitud y ruido) ---
+        final_blocks = []
+        MIN_TEXT_LENGTH_CHARS = 50 
+        for block in blocks:
+            heading_lower = block['heading'].lower().strip()
+            is_irrelevant_heading = any(exc in heading_lower for exc in ContentExtractor.EXCLUDED_HEADINGS)
+            if is_irrelevant_heading: continue
+            content_len = len(block['content']); has_media = bool(block['media_elements'])
+            is_substantial = (content_len >= MIN_TEXT_LENGTH_CHARS) or (content_len > 0 and has_media) 
+            if is_substantial: final_blocks.append(block)
                 
-    save_current_block()
-    
-    if blocks and blocks[0]['heading'] == "Introducción/Pre-H2":
-        blocks[0]['heading'] = article_title 
-    
-    # --- FASE 3: FILTRADO FINAL ---
-    final_blocks = []
-    MIN_TEXT_LENGTH_CHARS = 50 
-    
-    for block in blocks:
-        heading_lower = block['heading'].lower().strip()
-        is_irrelevant_heading = any(exc in heading_lower for exc in EXCLUDED_HEADINGS)
-        if is_irrelevant_heading: continue
-            
-        content_len = len(block['content'])
-        has_media = bool(block['media_elements'])
-        is_substantial = (content_len >= MIN_TEXT_LENGTH_CHARS) or (content_len > 0 and has_media) 
-        
-        if is_substantial:
-            final_blocks.append(block)
-            
-    return final_blocks
+        return final_blocks
 
-
-# --- Lógica de Scraping Sencilla ---
-
-def group_content_by_headings_simple(soup: BeautifulSoup) -> List[Dict[str, Any]]: 
-    
-    blocks = []
-    current_heading = None 
-    current_content: List[str] = []
-    current_media: List[Dict[str, str]] = [] 
-    
-    content_area = None
-    
-    def save_current_block():
-        heading_to_save = current_heading if current_heading is not None else "Introducción/Pre-H2"
-        if current_content or current_media:
-            
-            # 🛑 CORRECCIÓN CRÍTICA: Sanea current_content. 
-            # Convierte cada elemento a string y filtra los None antes de hacer 'join'.
-            safe_content = [str(c) for c in current_content if c is not None]
-            
-            # Usa la lista saneada (safe_content)
-            cleaned_content = clean_text(" ".join(safe_content))
-            
-            deduplicated_media = {item.get('url'): item for item in current_media if item.get('url')} 
-            if cleaned_content or deduplicated_media:
-                blocks.append({
-                    "heading": heading_to_save,
-                    "content": cleaned_content,
-                    "media_elements": list(deduplicated_media.values())
-                })
-    
-    
-    # --- BÚSQUEDA DE ÁREA DE CONTENIDO (UNIVERSAL MEJORADA V.12 - Refinamiento) ---
-    high_confidence_selectors = ['article', 'main', 'div[itemprop*="articleBody"]']
-    # --- Comunes en wordpress --
-    content_selectors = ['.entry-content', '.td-post-content', '.post-content', '.content-body', 'div[itemprop*="articleBody"]'] 
-
-
-    for selector in high_confidence_selectors:
-        area = soup.select_one(selector)
-        if area:
-            # **PASO DE REFINAMIENTO**
-            # Si encontramos un contenedor de alta confianza, buscamos el contenedor de contenido real dentro.
-            refined_area = area.select_one(', '.join(content_selectors))
-            
-            # Si encontramos el contenedor refinado (el que solo tiene el texto del post), lo usamos.
-            if refined_area and len(refined_area.get_text(strip=True)) > 50: # Pequeño filtro para evitar divs vacíos
-                content_area = refined_area
-                break 
-            
-            # Si no se encuentra un contenedor refinado, pero el contenedor principal (article/main) tiene suficiente texto, lo usamos como Plan B para este paso.
-            elif len(area.get_text(strip=True)) > 100: 
-                content_area = area
-                break
-
-    if not content_area:
-        potential_content_areas = soup.find_all(['div', 'section'], recursive=True)
-        best_area = None
-        max_density = 0
-        
-        for area in potential_content_areas:
-            area_class_str = " ".join(area.get('class', []))
-            if area.name == 'div' and area.get('id') in ['comments', 'sidebar', 'footer', 'header', 'nav', 'ad', 'sponsor']:
-                continue
-            if 'sidebar' in area_class_str or 'navigation' in area_class_str or 'menu' in area_class_str:
-                continue
-            
-            p_count = len(area.find_all(['p', 'ul', 'ol', 'h3', 'h4'], limit=20))
-            area_text_len = len(area.get_text(strip=True))
-            
-            # Penalización dinámica por alta densidad de enlaces 
-            a_count = len(area.find_all('a', limit=10)) 
-            link_density_penalty = 1.0
-            if area_text_len < 400 and a_count > 5:
-                 link_density_penalty = 0.1 
-
-            current_density = (p_count * area_text_len) * link_density_penalty 
-
-            if current_density > max_density and p_count >= 4 and area_text_len >= 200: 
-                best_area = area
-                max_density = current_density
-
-        if best_area:
-            content_area = best_area
-        else:
-            content_area = soup.find('body') or soup 
-            
-    if not content_area: content_area = soup.find('body') or soup
-        
-    # --- Extracción del Título Principal ---
-    article_title = get_article_main_heading(soup)
-        
-    elements_to_find = ['h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'blockquote', 'div', 'section', 'img', 'figure', 'iframe', 'video', 'picture', 'span']
-    elements = content_area.find_all(elements_to_find, recursive=True)
-    
-    HEADING_CLASSES = re.compile(r'title|subtitle|headline|subhead|h-?[234]|h[234]-?style', re.I)
-    LOW_CONFIDENCE_CLASSES = re.compile(r'caption|credit|footer|ad|widget|photo|image|media-title|social-share|figure-title|byline|author|metadata', re.I)
-    
-    # --- BUCLE PRINCIPAL DE ITERACIÓN ---
-    
-    for tag in elements:
-        tag_name = tag.name.lower()
-        text_content = tag.get_text(strip=True, separator=' ')
-        
-        if tag.get('aria-hidden') == 'true' or tag.get('role') == 'presentation' or (not text_content and tag_name not in ['img', 'figure', 'picture', 'iframe']):
-            continue
-
-        is_heading_divisor = False
-        
-        # 1. Identificación del Divisor
-        
-        if tag_name in ['img', 'figure', 'picture', 'iframe', 'video']:
-            is_heading_divisor = False
-            
-        elif tag_name in ['h1', 'h2']:
-            is_heading_divisor = True
-            
-        elif tag_name in ['h3', 'h4']:
-            if len(" ".join(current_content)) > 2000 or current_heading is None:
-                 is_heading_divisor = True
-        
-        elif tag_name in ['div', 'span', 'section']:
-            if tag.get('role') == 'heading' and tag.get('aria-level') in ['1', '2', '3', '4']:
-                is_heading_divisor = True
-            elif tag.has_attr('class'):
-                class_str = " ".join(tag.get('class', []))
-                class_match = HEADING_CLASSES.search(class_str)
-                
-                if class_match and len(text_content) > 10:
-                    low_conf_match = LOW_CONFIDENCE_CLASSES.search(class_str)
-                    
-                    if not low_conf_match:
-                        has_media_child = tag.find(['img', 'figure', 'video', 'iframe'])
-                        
-                        if not has_media_child or len(tag.contents) > 2:
-                            is_heading_divisor = True
-        
-        # 2. Manejo de Encabezado (¡Fuerza la Separación!)
-        if is_heading_divisor:
-            if len(text_content) < 5 or any(exc in text_content.lower() for exc in ['pie de foto', 'foto:', 'imagen de', 'ver galeria', 'crédito']):
-                 continue
-
-            if current_heading is None or text_content.strip() != current_heading.strip():
-                save_current_block()
-                current_heading = text_content
-                current_content = []
-                current_media = []
-            
-        # 3. Manejo de Contenido Multimedia
-        media_info = _get_media_info(tag) 
-        if media_info:
-            current_media.append(media_info) 
-            
-        # 4. Manejo de Contenido Textual (RESTRICTIVO)
-        is_content_tag = tag_name in ['p', 'ul', 'ol', 'blockquote']
-        if tag_name == 'span' and not is_heading_divisor and len(text_content) > 100:
-             is_content_tag = True
-        
-        if is_content_tag and text_content and len(text_content) > 10: 
-            if not is_heading_divisor:
-                current_content.append(text_content)
-                
-    save_current_block()
-    
-    if blocks and blocks[0]['heading'] == "Introducción/Pre-H2":
-        blocks[0]['heading'] = article_title 
-    
-    # --- FILTRADO FINAL DE BLOQUES ---
-    final_blocks = []
-    MIN_TEXT_LENGTH_CHARS = 50 
-    
-    for block in blocks:
-        heading_lower = block['heading'].lower().strip()
-        is_irrelevant_heading = any(exc in heading_lower for exc in EXCLUDED_HEADINGS)
-        if is_irrelevant_heading: continue
-            
-        content_len = len(block['content'])
-        has_media = bool(block['media_elements'])
-        is_substantial = (content_len >= MIN_TEXT_LENGTH_CHARS) or (content_len > 0 and has_media) 
-        
-        if is_substantial:
-            final_blocks.append(block)
-            
-    return final_blocks
-
-class WebScraperAnalyzer:
-    """
-    Clase encargada de la extracción de contenido y análisis por página,
-    implementando la lógica de fallback de scraping.
-    """
-    def __init__(self):
-        # Inicialización y configuración
-        self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"})
-        try:
-            # Asume que spacy se carga si es necesario para NLP/Keywords
-            self.nlp = spacy.load("es_core_news_sm")
-        except Exception:
-            self.nlp = None
 
     def fetch_webpage(self, url: str) -> tuple[str, str, BeautifulSoup]:
+        """Descarga la página web y realiza la limpieza inicial (remoción de scripts, estilos, banners)."""
         try:
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, "html.parser")
             
-            for tag in soup(["script", "style", "nav", "header", "aside", "form", "footer", "iframe"]):
-                tag.decompose()
-                
-            irrelevant_selectors = [
+            # Limpieza de etiquetas y selectores irrelevantes (ruido de navegación, publicidad, etc.)
+            for tag in soup(["script", "style", "form", "iframe"]): tag.decompose()
+            irrelevant_selectors = [ 
                 '.c-cookie-banner', '.c-site-footer', '.SocialShare', '#site-footer',
-                
-                # REFUERZO CLAVE para sitios de noticias 
                 '.article-meta', '.byline', '.metadata', '.author-info', '.date-info', 
                 '.paywall-meter', '.g-ui-layer', '.loading-bar', 
                 '.article__meta-container', '#article-tools', '.c-article-media-switcher', 
                 '.article-comments', 
-                
-                # Selectores ruido genérico
                 '.css-1qxt0m5', '.e1pby31a0', '.e1pby31a1', 
                 '[data-testid="expanded-footer"]', 
                 '[data-testid*="paywall"]',
@@ -604,23 +683,19 @@ class WebScraperAnalyzer:
                 '.StoryHeader__byline',
                 '.article-section-header', 
                 '.css-g2jrl', '.e1pby31a3', '.e1pby31a4',
-                
-                # === BLOQUES COMUNES DE RUIDO ===
                 '[class*="stk-block-columns"]',   
                 '[class*="ct-share-box"]',        
-                '[data-block*="hook"]',           # Bloques de publicidad/widgets inyectados (Ezoic, etc.)
-                '[id^="ezoic-"]',                 # Publicidad Ezoic
-                '.ct-breadcrumbs',                # Migas de pan
-                '.hero-section',                  # Sección de cabecera con imagen y título
-                'nav.wp-block-stackable-table-of-contents', # Índice de contenidos
+                '[data-block*="hook"]',           
+                '[id^="ezoic-"]',                 
+                '.ct-breadcrumbs',                
+                '.hero-section',                  
+                'nav.wp-block-stackable-table-of-contents', 
             ]
-            
             for selector in irrelevant_selectors:
                 for element in soup.select(selector):
                     try: element.decompose()
                     except Exception: pass 
             
-
             title = soup.find("title")
             title_text = title.get_text().strip() if title else "Sin título"
             text = re.sub(r"\s+", " ", soup.get_text()).strip()
@@ -630,29 +705,19 @@ class WebScraperAnalyzer:
             print(f"Error en {url}: {e}")
             return "Error de Scrapeo", "", BeautifulSoup("", "html.parser")
 
-    def extract_keywords(self, text, top_n=20) -> List[str]:
-        if not self.nlp:
-            return ["spacy-error-keyword"]
-        doc = self.nlp(text.lower())
-        candidates = [chunk.text.strip() for chunk in doc.noun_chunks if 3 <= len(chunk.text.split()) <= 5]
-        counter = Counter(candidates)
-        return [kw for kw, _ in counter.most_common(top_n)]
 
-    # --- MÉTODO PRIVADO PARA LA LÓGICA DE FALLBACK ---
     def _scrape_with_fallback(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
         """
-        Ejecuta el Plan A (simple) y si el resultado es insuficiente, 
-        pasa automáticamente al Plan B (robusto).
+        Ejecuta el Plan A (simple/flexible) y si el resultado es insuficiente, 
+        pasa automáticamente al Plan B (robust/agresivo).
         """
-
-        # Parámetros de Umbral de Éxito
-        MIN_CONTENT_CHARS = 300  # Mínimo de caracteres 
-        MIN_BLOCKS = 5           # Mínimo de bloques de contenido
+        MIN_CONTENT_CHARS = 300  
+        MIN_BLOCKS = 5           
         
         # 1. Intento Sencillo (Plan A)
-        blocks_simple = group_content_by_headings_simple(soup) 
+        blocks_simple = ContentExtractor.group_content_by_headings(soup, mode='simple') 
         
-        # Evaluar el éxito del Plan A
+        # Evaluación del Plan A
         total_content_len_simple = sum(len(b.get('content', '')) for b in blocks_simple)
         is_simple_successful = total_content_len_simple >= MIN_CONTENT_CHARS and len(blocks_simple) >= MIN_BLOCKS
         
@@ -660,334 +725,283 @@ class WebScraperAnalyzer:
             return blocks_simple
             
         # 2. Fallback Robusto (Plan B)
-        # Si el Plan Simple falla , usamos el Plan Robusto (Plan B)
-        blocks_robust = group_content_by_headings_robust(soup)
+        blocks_robust = ContentExtractor.group_content_by_headings(soup, mode='robust')
         
         return blocks_robust
-    
-    
-    # --- MÉTODO PRINCIPAL DE ANÁLISIS  ---
-    def analyze(self, url: str, query: str) -> models.ScrapeResult:
-        """
-        Busca, analiza, extrae contenido (con fallback) y genera resúmenes IA para una URL.
-        """
-        # Suponiendo que self.fetch_webpage devuelve (status, html_content, soup)
-        status, html_content, soup = self.fetch_webpage(url) 
-        
-        if status != 200:
-            return models.ScrapeResult(
-                url=url, 
-                query=query, 
-                error=f"Error al conectar ({status})", 
-                status=status
-            )
-        
-        # 1. Extracción de Contenido: Aquí se usa la lógica adaptativa
-        blocks = self._scrape_with_fallback(soup)
-        
-        if not blocks:
-            return models.ScrapeResult(
-                url=url, 
-                query=query, 
-                error="No se pudo extraer contenido sustancial con Plan A ni Plan B.", 
-                status=status
-            )
 
-        # 2. Consolidación de Texto para IA
-        consolidated_text_chunks = [b['content'] for b in blocks if len(b['content']) > 50]
-        context_text = " ".join(consolidated_text_chunks)
-        
-        # 3. Análisis de IA (Usando las funciones generate_ai_* y extract_keywords)
-        ai_analysis_parts = []
-        for block in blocks:
-            summary = generate_ai_chunk_summary(block['content'], block['media_elements'], query, block['heading'])
-            ai_analysis_parts.append(f"## {block['heading']}\n{summary}")
+# --- 3. CLASE AnalysisOrchestrator: Coordinación del Flujo ---
 
-        ai_analysis = "\n\n".join(ai_analysis_parts)
+class AnalysisOrchestrator:
+    """
+    Clase que coordina la extracción, el análisis de keywords y las llamadas a la IA.
+    Contiene la lógica del flujo de 'execute_scraping'.
+    """
+
+    def __init__(self, ai_service: AIService, extractor: ContentExtractor):
+        self.ai_service = ai_service
+        self.extractor = extractor
+        try:
+            self.nlp = spacy.load("es_core_news_sm")
+        except Exception:
+            self.nlp = None
+
+    def extract_keywords(self, text, top_n=20) -> List[str]:
+        """Extrae keywords utilizando Spacy."""
+        if not self.nlp:
+            return ["spacy-error-keyword"]
+        doc = self.nlp(text.lower())
+        candidates = [chunk.text.strip() for chunk in doc.noun_chunks if 3 <= len(chunk.text.split()) <= 5]
+        counter = Counter(candidates)
+        return [kw for kw, _ in counter.most_common(top_n)]
+
+    def _aggressive_text_fallback(self, soup: BeautifulSoup, article_heading: str) -> List[Dict[str, Any]]:
+        """
+        Plan C: Intento de extracción de texto agresiva cuando la división estructural falla.
+        Devuelve el contenido en un solo bloque.
+        """
         
-        keywords = self.extract_keywords(context_text) 
-        titles = generate_ai_titles(query, keywords, context_text)
+        content_area: Tag | BeautifulSoup = ContentExtractor._get_content_area(soup, mode='robust') 
         
-        # Devolución del resultado
-        return models.ScrapeResult(
-            url=url,
+        text_elements = content_area.find_all(['p', 'h2', 'h3', 'li', 'p','h4', 'h5', 'h6','strong'])
+        
+        aggressive_text = []
+        for elem in text_elements:
+            text = ContentExtractor.clean_text(elem.get_text(strip=True))
+            if len(text) >= 3: 
+                text_lower = text.lower()
+                if 'skip to' not in text_lower and 'search' not in text_lower:
+                    aggressive_text.append(text)
+
+        fallback_text = "\n\n".join(aggressive_text)
+
+        if len(fallback_text) < 5:
+            try:
+                # Fallback ultra-agresivo (todo el texto del cuerpo)
+                content_to_extract = soup.body if soup.body else soup
+                raw_text_ultra = content_to_extract.get_text(separator=' ', strip=True) 
+                fallback_text = ContentExtractor.clean_text(raw_text_ultra)
+                if len(fallback_text) == 0: raise ValueError("Contenido del documento es CERO.")
+            except Exception:
+                return [] 
+
+        return [{"heading": article_heading, "content": fallback_text, "media_elements": []}]
+
+    def execute_scraping(self, req: models.ScrapeRequest) -> Generator[str, None, None]:
+        """
+        Ejecuta el flujo completo de scraping, análisis y generación de resúmenes IA (FASE 1 a 3),
+        devolviendo el resultado final como un generador de eventos (SSE).
+        """
+        query = req.query
+        urls = [u.strip() for u in query.split(",") if u.strip()][:req.num_results]
+
+        all_results = []
+        log = [f"Iniciando scraping de URLs a las {datetime.now().strftime('%H:%M:%S')}"]
+        
+        MIN_BLOCKS = 1 
+        MIN_CONTENT_CHARS = 300
+
+        yield f"data: Iniciando scraping de {len(urls)} URLs...\n\n"
+
+        for i, url in enumerate(urls, 1):
+            yield f"data: Procesando URL {i} de {len(urls)}: {url}\n\n"
+
+            # 1. Scraping y Limpieza de página
+            title, full_text, soup = self.extractor.fetch_webpage(url) 
+            
+            if not full_text:
+                msg = f"Contenido nulo o error de conexión en {url} (Título: {title}), se descarta."
+                yield f"data: {msg}\n\n"; log.append(msg); continue
+                
+            keywords = self.extract_keywords(full_text)
+            
+            # 2. FASE 2: ADAPTABILIDAD ESTRUCTURAL (Plan A -> Plan B -> Plan C)
+            structured_chunks = self.extractor._scrape_with_fallback(soup)
+            
+            total_content_len = sum(len(b.get('content', '')) for b in structured_chunks)
+            is_structured_successful = total_content_len >= MIN_CONTENT_CHARS and len(structured_chunks) >= MIN_BLOCKS
+
+            if is_structured_successful:
+                yield f"data: [PLAN A/B - ÉXITO] Extracción Estructurada exitosa ({len(structured_chunks)} bloques).\n\n"
+            elif structured_chunks:
+                yield f"data: [PLAN A/B - ALERTA] Extracción Estructurada con bajo rendimiento ({len(structured_chunks)} bloques), pero se usará.\n\n"
+            else:
+                # Plan C: Fallback Ultra Robusto
+                yield "data: La división estructural falló COMPLETAMENTE. Intentando usar texto plano y simplificado con extracción agresiva (Plan C - Ultra Robusto).\n\n"
+                structured_chunks = self._aggressive_text_fallback(soup, title)
+
+                if not structured_chunks:
+                    msg = f"Contenido insuficiente en {url} (fallo en Plan A, B y C), se descarta."
+                    yield f"data: {msg}\n\n"; log.append(msg); continue
+                
+                yield f"data: Éxito! Se recuperó texto forzado (Plan C revisado) en un solo bloque.\n\n"
+            
+            ai_analysis_result = " ".join([c['content'] for c in structured_chunks]) 
+            context_data = ai_analysis_result
+            
+            # 3. FASE 3: Iteración sobre Bloques (Análisis de IA por Chunk)
+            summaries = []
+            
+            url_consolidated_content = "\n\n".join([
+                f"--- SECCIÓN {j+1}: {chunk_data['heading']} ---\nCONTENIDO:\n{chunk_data['content']}" 
+                for j, chunk_data in enumerate(structured_chunks)
+            ])
+            
+            # El texto consolidado se empaqueta como el ÚNICO 'bloque' para el análisis final
+            chunk_data_for_ai = {
+                'heading': title,
+                'content': url_consolidated_content,
+                'media_elements': [
+                    media for b in structured_chunks for media in b.get('media_elements', [])
+                ]
+            }
+            
+            if url_consolidated_content:
+                
+                # RE-INTRODUCCIÓN DEL LOGGING DETALLADO PARA EL DEBUG DEL FRONT-END
+                yield f"data: Procesando {len(structured_chunks)} secciones estructurales (FASE 3: Extracción Detallada)....\n\n"
+                
+                # Bucle para SIMULAR el progreso y GENERAR los logs detallados (NO llama a la IA)
+                for j, chunk_data in enumerate(structured_chunks, 1):
+                    
+                    chunk_content = chunk_data['content']
+                    chunk_heading = chunk_data['heading']
+                    num_media = len(chunk_data.get('media_elements', []))
+                    
+                    # LOG DE BLOQUE
+                    log_msg_block = f"[BLOQUE {j}] Encabezado: '{chunk_heading}' (Multimedia: {num_media} elementos encontrados)"
+                    yield f"data: {log_msg_block}\n\n"
+                    log.append(log_msg_block)
+                    
+                    # LOG DE DEBUG de Contenido
+                    clean_debug_content = chunk_content[:150].replace('"', "'").strip() 
+                    log_msg_debug = f"[DEBUG: CHUNK SCRAPEADO] Contenido: \"{clean_debug_content}...\" (Tamaño: {len(chunk_content)} chars)"
+                    yield f"data: {log_msg_debug}\n\n"
+                    log.append(log_msg_debug)
+                
+                # 2. LLAMADA A IA CONSOLIDADA (se ejecuta solo UNA vez)
+                yield f"data: Análisis de IA en curso sobre el contenido CONSOLIDADO de la URL...\n\n"
+                
+                chunk_content = chunk_data_for_ai['content'] # Contenido consolidado
+                chunk_heading = chunk_data_for_ai['heading'] # Título principal
+                chunk_media = chunk_data_for_ai['media_elements'] # Media consolidada
+                
+                # Log del BLOQUE ÚNICO (para el log detallado del backend)
+                log_msg_final = f"[BLOQUE ÚNICO URL {i}] Encabezado: '{chunk_heading}' (Multimedia Total: {len(chunk_media)} elementos encontrados)"
+                log.append(log_msg_final)
+                
+                # LÍNEA CORREGIDA CON COMILLAS TRIPLES (Evita el SyntaxError)
+                log.append(f"""[DEBUG: CONTENIDO CONSOLIDADO] Inicio: "{chunk_content[:150].replace('"', "'").strip()}..." (Tamaño: {len(chunk_content)} chars)""")
+
+                if req.use_ai:
+                    summary = self.ai_service.generate_chunk_summary(chunk_content, chunk_media, query, chunk_heading) 
+                    summaries.append(summary)
+                    chunk_data_for_ai['ai_chunk_summary'] = summary
+                    yield "data: Resumen de IA por URL completado.\n\n"
+                else:
+                    summaries.append(chunk_content)
+                    chunk_data_for_ai['ai_chunk_summary'] = chunk_content
+                        
+                # Determinación del contexto consolidado
+                context_data = " ".join(summaries)
+                ai_analysis_result = context_data
+                
+                # structured_chunks debe contener solo el resultado consolidado para la FASE 4
+                structured_chunks = [chunk_data_for_ai] 
+                
+            else: # Fallback si el contenido estructurado está vacío
+                context_data = full_text 
+                ai_analysis_result = context_data
+                structured_chunks = [{"heading": title, "content": full_text, "media_elements": [], "ai_chunk_summary": context_data}]
+                yield "data: Alerta: Contenido estructurado vacío, se usó texto plano para el resumen.\n\n"
+
+
+            # Preparación del resultado del scrapeo para consolidación
+            result = models.ScrapeResult(
+                url=url,
+                title=title,
+                keywords=keywords,
+                ai_titles=[],
+                subtitles=[],
+                ai_intent="",
+                text_content=context_data,
+                conclusion="",
+                headers={"main_heading": [structured_chunks[0]['heading']] if structured_chunks else [title], "count": [str(len(structured_chunks))]},
+                ai_analysis=ai_analysis_result,
+                title_suggestions=[], 
+                search_intent=None,
+                final_structure="",
+                article_blocks=structured_chunks, 
+                status='OK' 
+            )
+            all_results.append(result)
+
+        # 4. FASE 4: Preparación para Análisis Manual (Omisión de LLAMADAS IA FINALES)
+        valid_results = [r for r in all_results if r.status == 'OK'] 
+        consolidated_text = ""
+        unique_keywords = []
+
+        if valid_results and req.use_ai: 
+            # Consolidación del texto para la FASE 4 (Análisis Final)
+            structured_context_parts = []
+            block_counter = 0 
+            for r in valid_results: 
+                structured_context_parts.append(f"\n\n--- INICIO DE ANÁLISIS DE URL: {r.url} ---")
+                blocks_to_process = getattr(r, 'article_blocks', []) 
+                if blocks_to_process:
+                    for b in blocks_to_process:
+                        heading = b.get('heading')
+                        analysis = b.get('ai_chunk_summary') 
+                        if analysis and heading:
+                            block_counter += 1
+                            structured_context_parts.append(f"### [SECCIÓN {block_counter}] {heading}")
+                            structured_context_parts.append(f"CONTENIDO CLAVE SINTETIZADO:\n{analysis}")
+                            
+            consolidated_text = "\n\n".join(structured_context_parts)
+            all_keywords_lists = [r.keywords for r in valid_results if r.keywords]
+            unique_keywords = list(set([kw for sublist in all_keywords_lists for kw in sublist]))
+            
+            final_intent = "Análisis IA Pendiente. Ejecutar 'Generar Análisis IA'."
+            final_keywords_list = unique_keywords
+            final_structure_text = "Contenido consolidado listo para análisis IA."
+
+            yield "data: [FASE 4: Análisis IA omitido. Contenido consolidado listo para generación manual.]\n\n"
+            
+        elif not valid_results:
+            final_intent = "No se pudo analizar ninguna página."
+            final_structure_text = "No se pudo generar la estructura final debido a fallos de scraping."
+            final_keywords_list = []
+        else: # not req.use_ai:
+            final_intent = "Análisis IA desactivado."
+            final_structure_text = "Análisis IA desactivado."
+            all_keywords_lists = [r.keywords for r in valid_results if r.keywords]
+            final_keywords_list = list(set([kw for sublist in all_keywords_lists for kw in sublist]))
+
+
+        # 5. FASE 5: PREPARACIÓN DE RESPUESTA FINAL
+        final_response = models.ScrapeResponse(
             query=query,
-            status=status,
-            titles=titles,
-            keywords=keywords,
-            article_blocks=blocks,
-            ai_analysis=ai_analysis
+            count=len(valid_results),
+            results=all_results, 
+            final_structure=final_structure_text, 
+            search_intent=final_intent,
+            final_keywords=final_keywords_list, 
+            log=log,
+            consolidated_content=consolidated_text 
         )
+
+        yield "event: final_data\n"
+        yield f"data: {final_response.model_dump_json()}\n\n"
+
 
 
 def execute_scraping(req: models.ScrapeRequest) -> Generator[str, None, None]:
-    query = req.query
-    # Lógica original para obtener URLs del campo 'query'
-    urls = [u.strip() for u in query.split(",") if u.strip()][:req.num_results]
+    """Punto de entrada para la ejecución del scraping (Orquestador)."""
+    ai_service = AIService()
+    extractor = ContentExtractor()
+    orchestrator = AnalysisOrchestrator(ai_service, extractor)
+    return orchestrator.execute_scraping(req)
 
-    analyzer = WebScraperAnalyzer()
-    all_results = []
-    log = [f"Iniciando scraping de URLs a las {datetime.now().strftime('%H:%M:%S')}"]
-    
-    # Variables de Umbral de Éxito
-    MIN_BLOCKS = 5
-    MIN_CONTENT_CHARS = 300
-
-    yield f"data: Iniciando scraping de {len(urls)} URLs...\n\n"
-
-    for i, url in enumerate(urls, 1):
-        yield f"data: Procesando URL {i} de {len(urls)}: {url}\n\n"
-
-        # Asumiendo que analyzer.fetch_webpage retorna status, full_text, soup
-        title, full_text, soup = analyzer.fetch_webpage(url) 
-
-        keywords = analyzer.extract_keywords(full_text)
-        
-        # --- FASE 2: ADAPTABILIDAD ESTRUCTURAL (Plan A -> Plan B) ---
-        structured_chunks = []
-        
-        # 1. Intento Sencillo (Plan A)
-        yield "data: [PLAN A] Intentando extracción con Scraper Simple (Contenedor Flexible).\n\n"
-        structured_chunks = group_content_by_headings_simple(soup) 
-
-        # Evaluar el éxito del Plan A
-        total_content_len = sum(len(b.get('content', '')) for b in structured_chunks)
-        is_simple_successful = total_content_len >= MIN_CONTENT_CHARS and len(structured_chunks) >= MIN_BLOCKS
-
-        if is_simple_successful:
-            yield f"data: [PLAN A - ÉXITO] Extracción Simple exitosa ({len(structured_chunks)} bloques).\n\n"
-        else:
-            # 2. Fallback Robusto de Estructura (Plan B)
-            yield "data: [PLAN A - FALLO] No se alcanzó el umbral. Ejecutando Scraper Robusto (Extracción Agresiva de Etiquetas).\n\n"
-            # NOTA: Asegúrese de que esta función también usa la corrección del TypeError en save_current_block().
-            structured_chunks = group_content_by_headings_robust(soup)
-            
-            # Reevaluar el resultado del Plan B
-            if not structured_chunks:
-                yield "data: [PLAN B - FALLO] Extracción Robusta falló o arrojó 0 resultados.\n\n"
-        
-       
-        content_area = None
-
-        if not structured_chunks:
-            
-            # ESTE ES SU CÓDIGO ORIGINAL DEL FALLBACK ULTRA ROBUSO
-            yield "data: La división estructural falló COMPLETAMENTE. Intentando usar texto plano y simplificado con extracción agresiva (Plan C - Ultra Robusto).\n\n"
-            
-            article_heading = get_article_main_heading(soup)  
-
-            # Recuperación del content_area para el Fallback
-            content_area = soup.find('body') or soup
-            high_confidence_selectors = ['article', 'main', 'div[itemprop*="articleBody"]']
-            for selector in high_confidence_selectors:
-                area = soup.select_one(selector)
-                if area: content_area = area; break
-
-            # 2. Extracción agresiva (Plan B/C original): buscar elementos de texto comunes en el cuerpo del HTML.
-            text_elements = content_area.find_all(['p', 'h2', 'h3', 'li'])
-            
-            aggressive_text = []
-            
-            for elem in text_elements:
-                text = clean_text(elem.get_text(strip=True))
-                
-                # *** Umbral de 30 a 10 caracteres ***
-                if len(text) > 10: 
-                    text_lower = text.lower()
-                    if ('subscribe' not in text_lower 
-                        and 'skip to' not in text_lower 
-                        and 'log in' not in text_lower
-                        and 'search' not in text_lower
-                        and 'opinión' not in text_lower
-                        and 'section navigation' not in text_lower): 
-                        
-                        aggressive_text.append(text)
-
-            fallback_text = "\n\n".join(aggressive_text)
-
-            # 3. FILTRO MÍNIMO + AJUSTE ULTRA AGRESIVO (Plan C - REVISADO)
-            if len(fallback_text) < 5:
-                
-                yield "data: Alerta! Fallback agresivo inicial falló. Activando Extracción Ultra Agresiva por Densidad Pura (Plan C revisado).\n\n"
-                
-                final_aggressive_text = []
-                # <-- AJUSTE CLAVE: Buscar divs/sections, p, ul, ol grandes para mayor agresividad
-                final_elements = content_area.find_all(['div', 'section', 'p', 'ul', 'ol']) 
-                
-                # Ordenamos por longitud de texto (descendente) para tomar los más grandes
-                sorted_elements = sorted(final_elements, key=lambda x: len(clean_text(x.get_text(strip=True))), reverse=True)
-                
-                # Tomamos los 5 bloques más grandes si superan un umbral
-                for elem in sorted_elements:
-                    text = clean_text(elem.get_text(strip=True))
-                    # Umbral más relajado para Plan C: 100 caracteres
-                    if len(text) > 100 and 'copyright' not in text.lower() and 'all rights reserved' not in text.lower():
-                        final_aggressive_text.append(text)
-                        
-                    if len(final_aggressive_text) >= 5: 
-                        break 
-                    
-                fallback_text = "\n\n".join(final_aggressive_text)
-
-                if len(fallback_text) < 5:
-                    msg = f"Contenido insuficiente en {url} (menos de 5 caracteres después de limpieza agresiva y relajada), se descarta."
-                    yield f"data: {msg}\n\n"
-                    log.append(msg)
-                    continue # Salta a la siguiente URL
-                    
-                yield "data: Éxito! Se recuperó texto por su densidad (Plan C revisado).\n\n"
-                
-            # Si se recuperó texto, se empaqueta en un solo chunk
-            structured_chunks = [{"heading": article_heading, "content": fallback_text, "media_elements": []}]
-            
-        
-        ai_titles, ai_subtitles, ai_intent, ai_intro, ai_conclusion = [], [], "", "", ""
-        ai_summary_by_chunk = "" 
-        
-        ai_analysis_result = " ".join([c['content'] for c in structured_chunks]) 
-
-        # --- FASE 3: Iteración sobre Bloques (Scraping y/o Análisis de IA) ---
-        summaries = []
-        yield f"data: Iterando sobre {len(structured_chunks)} secciones estructurales (FASE 3 - Scrapping por Bloques)....\n\n"
-        
-        for j, chunk_data in enumerate(structured_chunks, 1):
-            chunk_content = chunk_data['content']
-            chunk_heading = chunk_data['heading']
-            
-            chunk_media = chunk_data.get('media_elements', [])
-            
-            # Fallback para Extracción de multimedia agresiva 
-            
-            if len(structured_chunks) == 1 and not chunk_media:
-                
-                if content_area:
-                    
-                    for img_tag in content_area.find_all('img'):
-                        src = img_tag.get('src')
-                        
-                        # Búsqueda súper ampliada de Lazy Loading
-                        if not src:
-                            LAZY_FALLBACK = ['data-src', 'data-original', 'data-lazy-src', 'data-srcset', 'data-url', 'data-image', 'data-large-file', 'data-hero-img']
-                            for attr in LAZY_FALLBACK:
-                                temp_src = img_tag.get(attr)
-                                if temp_src:
-                                    if attr in ['data-srcset', 'srcset']:
-                                        try:
-                                            src = temp_src.split(',')[-1].strip().split(' ')[0]
-                                        except:
-                                            src = temp_src
-                                    else:
-                                        src = temp_src
-                                    break
-                                    
-                        if src and is_relevant_src(src):
-                            alt = img_tag.get('alt', 'Sin descripción agresiva')
-                            
-                            parent_figure = img_tag.find_parent('figure')
-                            caption = ''
-                            if parent_figure:
-                                caption_tag = parent_figure.find(['figcaption', 'span', 'p'], class_=re.compile(r'caption|pie-de-foto', re.I))
-                                if caption_tag:
-                                    caption = caption_tag.get_text(strip=True)
-
-                            chunk_media.append({
-                                'type': 'Imagen Agresiva',
-                                'url': src,
-                                'description': caption if caption else alt,
-                                'alt': alt,
-                                'caption': caption
-                            })
-                            
-            num_media = len(chunk_media)
-            
-            yield f"data: [BLOQUE {j}] Encabezado: '{chunk_heading}' (Multimedia: {num_media} elementos encontrados)\n\n"
-            yield f"data: CHUNK_CONTENT: {chunk_content}\n\n"
-            
-            if req.use_ai:
-                summary = generate_ai_chunk_summary(chunk_content, chunk_media, query, chunk_heading)
-                summaries.append(summary)
-
-        if req.use_ai and summaries:
-            ai_summary_by_chunk = " ".join(summaries)
-            context_data = ai_summary_by_chunk
-            
-            ai_titles = generate_ai_titles(query, keywords, context_data)
-            ai_subtitles = generate_ai_subtitles(query, keywords, context_data)
-            ai_intent = generate_ai_intent(query, keywords, context_data)
-            ai_intro = generate_ai_introduction(query, keywords, context_data)
-            ai_conclusion = generate_ai_conclusion(query, keywords, context_data)
-            yield "data: Análisis de IA individual completado.\n\n"
-            
-            ai_analysis_result = ai_summary_by_chunk 
-        
-        result = models.ScrapeResult(
-            url=url,
-            title=title,
-            keywords=keywords,
-            ai_titles=ai_titles,
-            subtitles=ai_subtitles,
-            ai_intent=ai_intent,
-            text_content=ai_analysis_result,
-            conclusion=ai_conclusion,
-            headers={},
-            ai_analysis=ai_analysis_result,
-            title_suggestions=[],
-            search_intent=None,
-            final_structure="",
-            status='OK' 
-        )
-        all_results.append(result)
-
-    # --- FASE 4: ANÁLISIS FINAL CONSOLIDADO  ---
-    final_intent = ""
-    final_structure_text = ""
-    final_keywords_list = []
-    
-    valid_results = [r for r in all_results if r.status == 'OK'] # Filtramos solo los resultados exitosos
-    
-    if valid_results and req.use_ai: 
-        yield "data: Iniciando FASE 4: Análisis final consolidado de todas las páginas...\n\n"
-        
-        consolidated_text = " ".join([r.ai_analysis for r in valid_results if r.ai_analysis])
-        
-        all_keywords_lists = [r.keywords for r in valid_results if r.keywords]
-        unique_keywords = list(set([kw for sublist in all_keywords_lists for kw in sublist]))
-        
-        # Asumiendo que estas funciones existen:
-        final_ai_data = generate_final_intent_and_keywords(consolidated_text, query)
-        final_intent = final_ai_data.get('final_intent', '[Error en intención final]')
-        final_keywords_list = final_ai_data.get('final_keywords', unique_keywords) 
-        
-        final_structure_text = generate_final_blog_structure(consolidated_text, query, final_keywords_list)
-        
-        yield "data: Análisis y estructura final generados.\n\n"
-    elif not valid_results:
-        final_intent = "No se pudo analizar ninguna página."
-        final_structure_text = "No se pudo generar la estructura final debido a fallos de scraping."
-    elif not req.use_ai:
-        final_intent = "Análisis IA desactivado."
-        final_structure_text = "Análisis IA desactivado."
-
-    # --- FASE 5: PREPARACIÓN DE RESPUESTA FINAL ---
-    final_response = models.ScrapeResponse(
-        query=query,
-        count=len(valid_results),
-        results=all_results, 
-        final_structure=final_structure_text, 
-        search_intent=final_intent,
-        final_keywords=final_keywords_list, 
-        log=log
-    )
-
-    yield "event: final_data\n"
-    yield f"data: {final_response.model_dump_json()}\n\n"
-
-
-
-
-
-
-
-
-
-
+def run_final_ai_analysis(req: models.AIAnalysisRequest) -> Dict[str, Any]:
+    """Punto de entrada para el análisis final de IA (Servicio de IA), incluyendo regeneración de secciones."""
+    ai_service = AIService()
+    return ai_service.run_final_ai_analysis(req)

@@ -123,7 +123,10 @@ class AIService:
         
         1. Define la **Intención de Búsqueda Única**.
         2. Genera una **Introducción** y una **Conclusión con CTA** (máximo 4 oraciones c/u), usando el tono y acento proporcionados.
-        3. Genera la **Estructura detallada del cuerpo del blog** en formato Markdown (## para H2 y ### para H3). DEBES usar el 'Título Base Deseado' y las 'Keywords de ENTRADA' como guía obligatoria.
+        3. Genera la **Estructura detallada del cuerpo del blog** en una lista línea por línea, utilizando el siguiente formato estricto: **[H{{N}} - X.Y] Título del Encabezado**.
+           - **{{N}}** debe ser el nivel de encabezado HTML (ej. **2** para H2, **3** para H3).
+           - **X.Y** debe ser la numeración decimal jerárquica (ej. 1.0, 1.1, 2.0).
+           - **ESTRICTAMENTE NO UTILICES** la sintaxis Markdown (##, ###, *) ni otros símbolos.
 
         ---
         
@@ -131,7 +134,7 @@ class AIService:
         {{
             "search_intent": "Intención de búsqueda única (máx 15 palabras).",
             "introduction": "Texto de la introducción.",
-            "structure_markdown": "Estructura Markdown de H2/H3.",
+            "structure_markdown": "Estructura detallada con formato [H{{N}} - X.Y] Título.", # <--- Usar dobles llaves aquí también
             "conclusion_cta": "Texto de la conclusión con CTA."
         }}
         """
@@ -297,7 +300,7 @@ class AIService:
                     tono=tono
                 )
             
-            # --- NUEVA REGENERACIÓN DE SECCIÓN DE ESTRUCTURA  ---
+            # --- NUEVA REGENERACIÓN DE SECCIÓN DE ESTRUCTURA  ---
             elif req.section_type == 'structure_section': 
                 # Verifica que se hayan enviado los datos necesarios desde el frontend
                 if not req.regenerate_data or 'section_text' not in req.regenerate_data or 'full_structure_markdown' not in req.regenerate_data:
@@ -321,6 +324,15 @@ class AIService:
             
             
             if content is not None:
+                # =========================================================
+                # >>> LIMPIEZA DEL CONTENIDO REGENERADO (REGENERACIÓN) <<<
+                # =========================================================
+                content = content.replace('\r\n', '\n').replace('\r', '\n')
+                content = re.sub(r'[^\S\n]+', ' ', content)
+                content = '\n'.join([line.strip() for line in content.split('\n') if line.strip()])
+                content = content.strip()
+                # =========================================================
+                
                 # El frontend espera 'regenerated_content'
                 return {"regenerated_content": content, "section_type": req.section_type}
             else:
@@ -340,6 +352,32 @@ class AIService:
             acento=acento,
             tono=tono
         )
+
+        # =========================================================
+        # >>> FIX CRÍTICO: LIMPIEZA Y NORMALIZACIÓN DE LA ESTRUCTURA COMPLETA <<<
+        # (Esto aplica al flujo inicial de generación de estructura)
+        # =========================================================
+        MARKDOWN_KEY = 'full_structure_markdown' # Asumiendo esta es la clave con el texto Markdown. ¡Ajusta si es diferente!
+
+        if MARKDOWN_KEY in analysis_result and isinstance(analysis_result[MARKDOWN_KEY], str):
+            markdown_to_clean = analysis_result[MARKDOWN_KEY]
+
+            # 1. Normalizar saltos de línea (\r\n y \r a \n)
+            markdown_to_clean = markdown_to_clean.replace('\r\n', '\n').replace('\r', '\n')
+
+            # 2. Reemplazar caracteres de espacio no estándar (tabs, espacios unicode) y múltiples espacios por un espacio simple.
+            # [^\S\n] = Cualquier espacio excepto el salto de línea.
+            markdown_to_clean = re.sub(r'[^\S\n]+', ' ', markdown_to_clean) 
+
+            # 3. Eliminar líneas completamente vacías y limpiar espacios al inicio/fin del bloque
+            markdown_to_clean = '\n'.join([line.strip() for line in markdown_to_clean.split('\n') if line.strip()])
+            
+            # 4. Limpiar el string final.
+            markdown_to_clean = markdown_to_clean.strip()
+            
+            # 5. Guardar el resultado limpio en el diccionario
+            analysis_result[MARKDOWN_KEY] = markdown_to_clean
+        # =========================================================
         
         # Consolidar el resultado final, usando las keywords de entrada (req.keywords).
         final_keywords_list = [main_keyword] + principal_keywords
@@ -970,3 +1008,5 @@ def run_final_ai_analysis(req: models.AIAnalysisRequest) -> Dict[str, Any]:
     """Punto de entrada para el análisis final de IA (Servicio de IA), incluyendo regeneración de secciones."""
     ai_service = AIService()
     return ai_service.run_final_ai_analysis(req)
+
+

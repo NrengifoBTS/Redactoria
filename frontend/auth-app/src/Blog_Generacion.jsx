@@ -14,23 +14,11 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   // 2. DATO INICIAL Y ESTADOS CLAVE
   // =======================================================================
 
-  // DATO INICIAL: Pre-formateamos el valor del Query/URLs
-  const initialQueryValue =
-    initialParams.titulo ||
-    (initialParams.keywordPrincipal
-      ? initialParams.keywordPrincipal +
-        " (Keywords: " +
-        initialParams.keywords +
-        ")"
-      : "");
-
   const [cardVisibility, setCardVisibility] = useState({
-    temasKeywords: true, // true = visible (por defecto)
+    temasKeywords: true,
     estiloTono: true,
     contexto: true,
   });
-
-  const [queryValue, setQueryValue] = useState(initialQueryValue);
 
   // URLs de la API del backend
   const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
@@ -77,78 +65,42 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
-  // FUNCIÓN: Parsear el Markdown de estructura H2/H3 a un objeto anidado para renderizar
+  // Funcion: Parsear el Markdown de estructura H2/H3 a un objeto anidado para renderizar
+
   const parseMarkdownStructure = (markdown) => {
     if (!markdown) return [];
 
     const lines = markdown.split("\n");
     const structure = [];
-    let idCounter = 0; // ID único para la interactividad
+    let idCounter = 0;
+
+    // RegEx para capturar: [H{N} - X.Y] Título
+    // Grupo 1: H{N} (ej. H2)
+    // Grupo 2: X.Y (ej. 1.0 o 2.1)
+    // Grupo 3: Título (el resto de la línea)
+    const structuredRegex = /^\[(H\d+)\s*-\s*(\d+\.?\d*)]\s*(.*)/i;
 
     for (const line of lines) {
       const trimmedLine = line.trim();
-      const matchH2 = trimmedLine.match(/^##\s*(.*)/);
-      const matchH3 = trimmedLine.match(/^###\s*(.*)/);
+      const matchStructured = trimmedLine.match(structuredRegex);
 
-      if (matchH2 || matchH3) {
-        const level = matchH2 ? "h2" : "h3";
-        const text = (matchH2 || matchH3)[1].trim();
+      if (matchStructured) {
+        const level = matchStructured[1].toLowerCase(); // 'h2', 'h3', etc.
+        const enumeration = matchStructured[2]; // '1.0', '1.1', etc.
+        const text = matchStructured[3].trim();
 
         structure.push({
           id: idCounter++,
-          text: text,
+          // Combina la enumeración con el texto para la visualización final
+          text: `${enumeration} ${text}`,
           level: level,
           children: [],
+          // Opcional: puede ser útil para la edición posterior
+          enumeration: enumeration,
         });
       }
     }
     return structure;
-  };
-
-  /**
-   * UTILIDAD: Actualiza el estado tablaEstructuraFinal y datosFinales.
-   * Se usa tanto para la regeneración (IA) como para la edición local.
-   */
-  const updateSectionTextInMarkdown = (oldText, newText) => {
-    const currentMarkdown =
-      datosFinales.final_structure_object?.structure_markdown ||
-      tablaEstructuraFinal;
-
-    let foundAndReplaced = false;
-
-    // Buscar y reemplazar la primera línea que contenga el texto antiguo, manteniendo el prefijo (## o ###)
-    const newMarkdown = currentMarkdown
-      .split("\n")
-      .map((line) => {
-        // Solo proceder si no se ha reemplazado aún y la línea contiene el texto antiguo
-        if (!foundAndReplaced && line.trim().includes(oldText)) {
-          // Expresión regular para encontrar el prefijo (# o ## o ###)
-          const prefixMatch = line.trim().match(/^#+/);
-          const prefix = prefixMatch ? prefixMatch[0] : "";
-
-          // Verificar que el texto antiguo es el título, no solo un fragmento de una línea de contenido
-          if (
-            line
-              .trim()
-              .replace(/^#+\s*/, "")
-              .trim() === oldText
-          ) {
-            foundAndReplaced = true;
-            return `${prefix} ${newText}`;
-          }
-        }
-        return line;
-      })
-      .join("\n");
-
-    setTablaEstructuraFinal(newMarkdown);
-    setDatosFinales((prev) => ({
-      ...prev,
-      final_structure_object: {
-        ...(prev?.final_structure_object || {}),
-        structure_markdown: newMarkdown,
-      },
-    }));
   };
 
   // FUNCIÓN: Maneja la selección del título en el StructureRenderer
@@ -157,27 +109,61 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     setRegenTextareaValue(section.text); // Inicializa el área de texto con el título actual
   };
 
-  // FUNCIÓN : Maneja la edición local (Guardar)
-  const handleSaveEdit = () => {
-    if (!selectedSectionForRegen || !regenTextareaValue) return;
-
-    const oldText = selectedSectionForRegen.text.trim();
-    const newText = regenTextareaValue.trim();
-
-    if (oldText === newText) {
-      // No hay cambios, solo cierra el panel
-      setSelectedSectionForRegen(null);
-      setRegenTextareaValue("");
+  const handleGuardarCambiosTitulo = () => {
+    // 1. Validaciones
+    if (!selectedSectionForRegen || !regenTextareaValue) {
+      console.error(
+        "ERROR: No se ha seleccionado una sección o el nuevo título está vacío."
+      );
       return;
     }
 
-    // 1. Ejecuta la actualización local del Markdown
-    updateSectionTextInMarkdown(oldText, newText);
+    // Usamos el valor del estado que contiene el texto editado del textarea
+    const newTitle = regenTextareaValue.trim();
 
-    // 2. Reinicia los estados de edición
-    setSelectedSectionForRegen(null);
-    setRegenTextareaValue("");
-    console.log(`[EDICIÓN LOCAL] Título/Subtítulo guardado: "${newText}"`);
+    // -----------------------------------------------------------
+    // >> LÓGICA DE REEMPLAZO ADAPTADA AL NUEVO FORMATO <<
+    // -----------------------------------------------------------
+    const level = selectedSectionForRegen.level.toUpperCase(); // Obtiene H2 o H3
+    const enumeration = selectedSectionForRegen.enumeration; // Obtiene 1.0, 1.1, etc.
+    const currentMarkdown = tablaEstructuraFinal;
+
+    // 1. Construcción de la RegEx para encontrar la línea completa
+    // La RegEx busca la línea que COMIENZA exactamente con la etiqueta [H{N} - X.Y].
+    // Escapa los puntos de la enumeración (\.) para que RegEx los trate como puntos literales.
+    const targetRegex = new RegExp(
+      `^(\\[${level}\\s*-\\s*${enumeration.replace(/\./g, "\\.")}\\]\\s*).*$`,
+      "m" // 'm' para modo multilínea, el '^' busca el inicio de la línea.
+    );
+
+    // 2. Construcción de la nueva línea completa con el título editado
+    // El formato de salida debe coincidir con el que la IA genera: [H{N} - X.Y] Nuevo Título
+    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
+
+    // 3. Ejecutar el reemplazo (solo la primera coincidencia, que debe ser la línea completa)
+    const newStructureString = currentMarkdown.replace(
+      targetRegex,
+      newFullLine
+    );
+
+    // -----------------------------------------------------------
+    // >> FIN LÓGICA DE REEMPLAZO <<
+    // -----------------------------------------------------------
+
+    // 4. Verificación y Actualización
+    if (newStructureString === currentMarkdown) {
+      console.error(
+        "ERROR CRÍTICO: Falló la sustitución. La RegEx no encontró el título con los marcadores de nivel."
+      );
+      // Opcional: Mostrar un error al usuario.
+    } else {
+      // Sustitución exitosa
+      setTablaEstructuraFinal(newStructureString);
+      // Limpiar estados de edición
+      setSelectedSectionForRegen(null);
+      setRegenTextareaValue("");
+      console.log("Sustitución local exitosa.");
+    }
   };
 
   // --- Función Principal de Scraping (FASE 1-3) ---
@@ -301,7 +287,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   parsed.log.forEach((log) => console.log(` - ${log}`));
                 }
                 console.log(
-                  "[SCRAPING] FASE 3 COMPLETA. Contenido consolidado listo para Análisis IA manual."
+                  "[SCRAPING] Contenido consolidado listo para Análisis IA."
                 );
 
                 reader.cancel();
@@ -349,9 +335,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       return;
     }
 
-    console.log(
-      "[IA] Iniciando generación de Análisis de Estructura (FASE 4)..."
-    );
+    console.log("Iniciando generación de Análisis de Estructura ...");
 
     setCargandoIA(true);
     setError(null);
@@ -424,7 +408,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       // 4. Ocultar el botón al finalizar exitosamente
       setContenidoConsolidado(null);
 
-      console.log("[IA] FASE 4 completada exitosamente.");
+      console.log("[IA] Analisis completado exitosamente.");
     } catch (err) {
       console.error("[IA] Error al generar análisis de IA:", err);
       setError(`Error en la generación de IA: ${err.message}. Revise logs.`);
@@ -473,7 +457,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       regenerate_data: undefined,
     };
 
-    // 3. Lógica de Manejo Específico para 'structure_section' 🎯
+    // 3. Lógica de Manejo Específico para 'structure_section'
     if (sectionType === "structure_section") {
       const fullStructure =
         datosFinales.final_structure_object?.structure_markdown ||
@@ -557,11 +541,63 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             },
           }));
           break;
-        case "structure_section": // 🎯 Manejo de la actualización de estructura
-          const oldText = selectedSectionForRegen.text;
+        case "structure_section": // Manejo de la actualización de estructura
+          const fullStructure =
+            datosFinales.final_structure_object?.structure_markdown ||
+            tablaEstructuraFinal;
 
-          // Llama a la función que actualiza el estado del Markdown de la estructura
-          updateSectionTextInMarkdown(oldText, regeneratedContent);
+          if (
+            !selectedSectionForRegen ||
+            !fullStructure ||
+            !regeneratedContent
+          ) {
+            setError(
+              "Error interno: Faltan datos para la regeneración de estructura."
+            );
+            setSeccionRegenerando(null);
+            setCargandoIA(false);
+            return;
+          }
+
+          // --- Sustitución directa de línea ---
+          const level = selectedSectionForRegen.level.toUpperCase(); // H2, H3
+          const enumeration = selectedSectionForRegen.enumeration; // 1.0, 1.1
+
+          // 1. RegEx para encontrar la línea exacta a reemplazar (usando nivel y enumeración).
+          // La expresión reemplaza los puntos de la enumeración con '\.' para evitar errores RegEx.
+          const targetRegex = new RegExp(
+            `^\\[${level}\\s*-\\s*${enumeration.replace(
+              /\./g,
+              "\\."
+            )}\\]\\s*(.*)$`,
+            "m" // 'm' para modo multilínea, buscando desde el inicio de la línea
+          );
+
+          // 2. Ejecutar la sustitución: reemplaza la línea antigua (que coincide con RegEx) con el nuevo texto de la IA.
+          const newStructureString = fullStructure.replace(
+            targetRegex,
+            regeneratedContent
+          );
+
+          if (newStructureString === fullStructure) {
+            console.error(
+              "ERROR CRÍTICO (REGEN): Falló la sustitución de la línea. Revise el formato devuelto por la IA."
+            );
+            setError(
+              "Error: La IA regeneró el contenido, pero la línea antigua no pudo ser reemplazada."
+            );
+            break;
+          }
+
+          // 3. Actualización de Estados: Esto forzará el re-renderizado.
+          setTablaEstructuraFinal(newStructureString); // <--- ESTO ACTUALIZA LA VISTA
+          setDatosFinales((prev) => ({
+            ...prev,
+            final_structure_object: {
+              ...(prev?.final_structure_object || {}),
+              structure_markdown: newStructureString,
+            },
+          }));
 
           // Deselecciona el elemento después de la regeneración exitosa
           setSelectedSectionForRegen(null);
@@ -590,7 +626,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   };
 
   // =======================================================================
-  // 5. COMPONENTE StructureRenderer 🎯 (CON CLASES FUNCIONALES)
+  // 5. COMPONENTE StructureRenderer
   // =======================================================================
 
   // FUNCIÓN DE RENDERIZADO PARA INTERACCION
@@ -675,7 +711,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
         {/* Sección de Input */}
         <section className="preconfig">
-          <h2>Ingresa URLs Competidoras (mínimo 3)</h2>
+          <h2>Ingresa URLs (mínimo 3)</h2>
           <textarea
             ref={referenciaUrls}
             className="auto-expand"
@@ -709,9 +745,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             className={`btn-generate ${cargandoScraping ? "btn-cancel" : ""}`}
             disabled={!referenciaUrls.current?.value && !cargandoScraping}
           >
-            {cargandoScraping
-              ? "Cancelar Scraping"
-              : "1. Iniciar Scraping (FASE 1-3)"}
+            {cargandoScraping ? "Cancelar Scraping" : "Iniciar Scraping "}
           </button>
         </section>
 
@@ -851,7 +885,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 >
                   {cargandoIA
                     ? "Generando Análisis IA..."
-                    : "2. Generar Análisis IA Final"}
+                    : "Generar Análisis IA"}
                 </button>
               </section>
             )}
@@ -882,15 +916,10 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   />
 
                   {/* Botones de acción: Guardar Edición (Local) y Regenerar (IA) */}
-                  <div
-                    className="idea-buttons"
-                    style={{ display: "flex", gap: "10px", marginTop: "15px" }}
-                  >
+                  <div className="idea-buttons">
                     <button
-                      onClick={handleSaveEdit}
-                      disabled={cargandoIA || seccionRegenerando}
+                      onClick={handleGuardarCambiosTitulo}
                       className="btn-generate"
-                      style={{ flexGrow: 1 }}
                     >
                       <i className="uil uil-save"></i> Guardar Edición Local
                     </button>
@@ -910,8 +939,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   {/* Botón para deseleccionar */}
                   <button
                     onClick={() => setSelectedSectionForRegen(null)}
-                    className="btn-cancel"
-                    style={{ width: "100%", marginTop: "10px" }}
+                    className="btn-generate btn-cancel"
+                    style={{ flexGrow: 1 }}
                   >
                     <i className="uil uil-times"></i> Cancelar Edición
                   </button>
@@ -945,7 +974,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                       onClick={() =>
                         regenerarSeccion("search_intent", historialIntencion)
                       }
-                      className="btn-regenerar"
+                      className="btn-generate"
                       disabled={seccionRegenerando || cargandoIA}
                     >
                       {seccionRegenerando === "search_intent"
@@ -966,7 +995,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                       onClick={() =>
                         regenerarSeccion("introduction", [introduccionFinal])
                       }
-                      className="btn-regenerar"
+                      className="btn-generate"
                       disabled={seccionRegenerando || cargandoIA}
                     >
                       {seccionRegenerando === "introduction"
@@ -987,7 +1016,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                       onClick={() =>
                         regenerarSeccion("conclusion_cta", [conclusionFinal])
                       }
-                      className="btn-regenerar"
+                      className="btn-generate"
                       disabled={seccionRegenerando || cargandoIA}
                     >
                       {seccionRegenerando === "conclusion_cta"
@@ -1022,9 +1051,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
           {/* >>> COLUMNA DERECHA: PREVISUALIZACIÓN DE ESTRUCTURA FINAL <<< */}
           {/* ========================================================= */}
           <div className="generadores-derecha">
-            <h2 className="text-center">
-              3. Estructura de Blog (Markdown H2/H3)
-            </h2>
+            <h2 className="text-center">Estructura de Blog</h2>
             <section className="idea-generator">
               <p className="text-sm text-gray-500 mb-2">
                 *Esta sección muestra el esquema principal de los H2/H3 generado

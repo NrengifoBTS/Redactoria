@@ -15,11 +15,11 @@ body {
 }
 
 /* ==========================================================
-   TIPOGRAFÍA Y ESTILOS DE ENTRADA GENERALES
+   TIPOGRAFÍA Y ESTILOS DE ENTRADA GENERALES (CONSOLIDADO)
    ========================================================== */
-/* Inputs Base (para aplicar a todos los inputs/textareas/selects que no tienen un estilo especializado) */
 input[type="text"],
 input[type="number"],
+textarea,
 select,
 .auto-expand {
   width: 100%;
@@ -27,12 +27,13 @@ select,
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 0.95rem;
-  box-sizing: border-box; /* Asegura que padding no aumente el width */
+  box-sizing: border-box;
   transition: all 0.3s ease;
 }
 
-/* Foco */
+/* Foco (CONSOLIDADO) */
 input[type="text"]:focus,
+input[type="number"]:focus,
 textarea:focus,
 select:focus,
 .auto-expand:focus {
@@ -41,7 +42,7 @@ select:focus,
   box-shadow: 0 0 8px rgba(0, 235, 167, 0.4);
 }
 
-/* Selects de sistema */
+/* Selects de sistema (Estilos específicos) */
 select {
   appearance: none;
   -webkit-appearance: none;
@@ -52,7 +53,7 @@ select {
   padding: 10px 30px 10px 12px;
 }
 
-/* Textarea auto-expand */
+/* Textarea auto-expand (Estilos específicos) */
 .auto-expand {
   min-height: 40px;
   max-height: 200px;
@@ -75,26 +76,25 @@ select {
   color: #0583ff;
 }
 
-/* Botones Base (para todos: navbar, generar, regenerar) */
 .btn,
 .btn-generate,
 .btn-regenerar,
-.btn-generate-image,
-#btn-download {
+.btn-download,
+.btn-generate-image {
+  /* Estilos Estructurales Comunes: Eliminación de redundancia */
   height: 55px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
   font-weight: bold;
-  border: none;
-  border-radius: 12px;
+  border-radius: 16px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.3s ease;
-  text-decoration: none; /* Para la clase .btn del navbar */
+  text-decoration: none;
 }
 
-/* Botón Principal (Generar) */
+/* Botón Principal (Generar, Imagen, Navbar) */
 .btn,
 .btn-generate,
 .btn-generate-image,
@@ -109,7 +109,7 @@ select {
   box-shadow: 0 6px 16px rgba(0, 235, 167, 0.3);
 }
 
-/* Botón de Cancelación (Se usa la clase del botón generar con un modificador) */
+/* Botón de Cancelación (Modificador) */
 .btn-generate.btn-cancel {
   background: linear-gradient(135deg, #ff6b6b, #ff9a9e);
 }
@@ -120,53 +120,50 @@ select {
 
 /* Botón Regenerar */
 .btn-regenerar {
-  background: linear-gradient(135deg, #ff6b6b, #ff9a9e);
+  /* Solo estilos específicos: El resto de estilos base se aplican arriba */
+  background: linear-gradient(135deg, #41c08b, #88e2b8);
   color: #fff;
-  flex: 1; /* Necesario para que ocupe espacio en .idea-buttons */
+  flex: 1;
 }
 
 /* Botón Descargar */
-#btn-download {
+.btn-download {
+  /* Solo estilos específicos: El resto de estilos base se aplican arriba */
   background: linear-gradient(135deg, #0583ff, #9900ff);
   color: #fff;
   flex: 1;
 }
 
-/* Botón Descargar */
-#btn-cancelar {
-  background: linear-gradient(135deg, #a3db6e, #be6161);
-  color: #fff;
-  flex: 1;
-}
-
-#btn-download:hover {
+.btn-download:hover {
   box-shadow: 0 6px 16px rgba(57, 58, 148, 0.4);
 }
 
 /* ==========================================================
    SECCIONES BASE (Idea, Visual, Image, Links, FAQ)
+   (CONSOLIDADO)
    ========================================================== */
 
-/* Estilos de las "Cards" contenedoras (Unificadas) */
 .idea-generator,
 .visual-generator,
 .image-generator,
 .links-generator,
 .faq-generator,
-.analysis-result /* <<<<<<< CLASE REUTILIZADA PARA EL ESTILO BASE DE TARJETA */ {
-  padding: 40px; /* Reducción a 40px para consistencia */
+.analysis-result {
+  padding: 40px;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
+
+/* Efecto Hover Consolidado */
 .idea-generator:hover,
 .visual-generator:hover,
 .image-generator:hover,
 .links-generator:hover,
 .faq-generator:hover,
-.analysis-result:hover /* <<<<<<< CLASE REUTILIZADA PARA EL HOVER */ {
+.analysis-result:hover {
   transform: translateY(-5px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
 }
@@ -188,20 +185,20 @@ select {
    ========================================================== */
 
 .generadores-container {
-  display: flex; /* Habilitar el layout de columnas */
+  display: flex;
   gap: 20px;
   padding: 20px;
 }
 
 .generadores-izquierda {
-  flex: 1 1 50%; /* Columna de resultados más ancha */
+  flex: 1 1 50%;
   display: flex;
   flex-direction: column;
-  gap: 20px; /* Reducción de 40px a 20px para no desperdiciar espacio */
+  gap: 20px;
 }
 
 .generadores-derecha {
-  flex: 1 1 50%; /* Columna de logs más estrecha */
+  flex: 1 1 50%;
 }
 
 /* ==========================================================
@@ -256,7 +253,7 @@ select {
   border-radius: 8px;
   font-family: "Consolas", "Courier New", monospace;
   font-size: 14px;
-  max-height: 80vh; /* Se usa un valor relativo para adaptabilidad */
+  max-height: 80vh;
   overflow-y: auto;
   white-space: pre-wrap;
 }
@@ -302,17 +299,17 @@ select {
 .config-cards-wrapper {
   display: flex;
   gap: 20px;
-  padding: 0 20px 20px 20px; /* Margen lateral y espacio debajo */
+  padding: 0 20px 20px 20px;
   justify-content: space-between;
-  flex-wrap: wrap; /* Esencial para la responsividad */
+  flex-wrap: wrap;
   margin: 0 auto;
 }
 
 /* Reglas para que las tarjetas de configuración ocupen un tercio del ancho */
 .config-cards-wrapper .analysis-result {
-  flex: 1 1 300px; /* Ancho base de 300px, 1 de crecimiento/encogimiento */
+  flex: 1 1 300px;
   min-width: 250px;
-  /* Ajustes visuales para que sean tarjetas de información más compactas */
+  /* Ajustes visuales para que sean tarjetas de información más compactas (Override del padding de 40px) */
   padding: 25px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
@@ -351,14 +348,14 @@ select {
 
   /* LAYOUT PRINCIPAL: DE COLUMNA A PILA */
   .generadores-container {
-    flex-direction: column; /* Apila las columnas */
+    flex-direction: column;
     padding: 10px;
     gap: 15px;
   }
 
   .generadores-izquierda,
   .generadores-derecha {
-    flex: none; /* Ignora las proporciones de escritorio */
+    flex: none;
     width: 100%;
   }
 
@@ -375,7 +372,7 @@ select {
   /* LAYOUTS INTERNOS (Idea y Imagen) */
   .idea-layout,
   .image-generator {
-    flex-direction: column; /* Apila los controles y los outputs */
+    flex-direction: column;
     gap: 20px;
   }
   .idea-input,
@@ -390,17 +387,16 @@ select {
   .btn-regenerar,
   .btn-generate-image,
   #btn-download {
-    height: 45px; /* Altura más pequeña para móviles */
+    height: 45px;
     font-size: 1rem;
   }
 
   /* DEBUG LOG */
   .generadores-derecha {
-    /* Opcional: Empujar el log al final de la página */
     order: 10;
   }
   .terminal-content {
-    max-height: 300px; /* Limita la altura del log en móviles */
+    max-height: 300px;
     font-size: 12px;
   }
 
@@ -413,7 +409,7 @@ select {
     font-size: 1.2rem;
   }
   .idea-buttons {
-    flex-direction: column; /* Apila los botones de generar/cancelar si hay más de 1 */
+    flex-direction: column;
     gap: 10px;
   }
 
@@ -432,7 +428,7 @@ select {
   display: block;
   font-weight: bold;
   margin-bottom: 8px;
-  border-bottom: 2px solid #20c997; /* Color principal de la sección */
+  border-bottom: 2px solid #20c997;
   padding-bottom: 3px;
   font-size: 1.1em;
 }
@@ -441,14 +437,14 @@ select {
   background-color: #fff;
   padding: 10px;
   border-radius: 4px;
-  white-space: pre-wrap; /* Para preservar el formato en la estructura Markdown */
+  white-space: pre-wrap;
 }
 
 /* Estilo para las Keyword Tags */
 .keyword-tag {
   display: inline-block;
-  background-color: #e9f5ff; /* Color azul claro */
-  color: #007bff; /* Texto azul */
+  background-color: #e9f5ff;
+  color: #007bff;
   border: 1px solid #b3d7ff;
   padding: 4px 8px;
   margin-right: 5px;
@@ -475,16 +471,16 @@ select {
   /* Espacio entre los elementos de la lista */
   display: flex;
   flex-direction: column;
-  gap: 8px; /* Espacio entre cada caja */
+  gap: 8px;
 }
 
-/* Estilos base para cada título (La "Caja" seleccionable) */
+/* Estilos base para cada título  */
 .structure-item {
   cursor: pointer;
-  padding: 12px; /* Relleno interior */
+  padding: 12px;
   border: 1px solid #ddd;
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Sombra sutil */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease-in-out;
   line-height: 1.4;
   font-size: 0.95rem;
@@ -494,12 +490,12 @@ select {
 .structure-item:hover {
   background-color: #f7f7f7;
   border-color: #ccc;
-  transform: translateY(-1px); /* Ligero movimiento para feedback */
+  transform: translateY(-1px);
 }
 
 /* Estilo para los encabezados H2 (Nivel principal) */
 .structure-item-h2 {
-  background-color: #f3f3f3; /* Fondo gris claro */
+  background-color: #f3f3f3;
   font-weight: bold;
   color: #333;
   /* No hay margin-left para H2 */
@@ -509,18 +505,17 @@ select {
 .structure-item-h3 {
   background-color: #fff;
   color: #555;
-  margin-left: 25px; /* Sangría visible */
-  border-left: 3px solid #eee; /* Barra de separación sutil */
+  margin-left: 25px;
+  border-left: 3px solid #eee;
 }
 
 /* Estilo para el elemento seleccionado (Resaltado) */
 .structure-item-selected {
-  /* Color de acento de tu proyecto (se vio en los snippets: #00eba7) */
   border-color: #00eba7;
-  background-color: #e6fff3; /* Fondo verde muy claro para resaltar */
+  background-color: #e6fff3;
   font-weight: bold;
-  box-shadow: 0 0 10px rgba(0, 235, 167, 0.3); /* Sombra de color */
-  transform: scale(1.01); /* Ligeramente más grande */
+  box-shadow: 0 0 10px rgba(0, 235, 167, 0.3);
+  transform: scale(1.01);
 }
 
 /* Estilo para los iconos dentro de la estructura */
@@ -528,7 +523,7 @@ select {
   margin-right: 8px;
 }
 .structure-icon-h2 {
-  color: #00eba7; /* Icono con color de acento */
+  color: #00eba7;
 }
 .structure-icon-h3 {
   color: #666;
