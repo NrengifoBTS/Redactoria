@@ -158,7 +158,7 @@ function Dashboard() {
       pen_review: '#f59e0b',       
       pen_ajuste: '#ef4444',       
       approved: '#059669',         
-      rev_kws: '#7c3aed',          
+      rev_kws: '#E3AAAA',          
       cargue: '#0ea5e9',           
       test: '#f97316'              
     };

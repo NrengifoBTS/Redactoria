@@ -67,6 +67,5 @@ class SeccionLPPublicResponse(BaseModel):
     cell_position: str
     content: str
     section_type: str
-    
     model_config = ConfigDict(from_attributes=True)
     
