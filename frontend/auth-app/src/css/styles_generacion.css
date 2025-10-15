@@ -120,8 +120,7 @@ select {
 
 /* Botón Regenerar */
 .btn-regenerar {
-  /* Solo estilos específicos: El resto de estilos base se aplican arriba */
-  background: linear-gradient(135deg, #41c08b, #88e2b8);
+  background: linear-gradient(135deg, #00eba7, #41c08b);
   color: #fff;
   flex: 1;
 }
@@ -247,8 +246,8 @@ select {
 
 /* Log de Debug (Terminal) */
 .terminal-content {
-  background-color: #d9dce2;
-  color: #61dafb;
+  background-color: #aaaaaa;
+  color: #000000;
   padding: 15px;
   border-radius: 8px;
   font-family: "Consolas", "Courier New", monospace;
@@ -527,4 +526,96 @@ select {
 }
 .structure-icon-h3 {
   color: #666;
+}
+
+/* ==========================================================
+   ESTILOS ESPECÍFICOS DE REGENERACIÓN DE TÍTULOS
+   ========================================================== */
+
+/* 1. Contenedor de las sugerencias */
+.suggestions-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-direction: column;
+  padding: 0;
+}
+
+/* 2. Estilo base para las burbujas  */
+.suggestion-bubble {
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: center;
+  word-break: break-word;
+  padding: 8px 15px;
+  color: #333; /* Texto oscuro */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.suggestion-bubble:hover {
+  transform: translateY(-1px) scale(1.005);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  opacity: 0.9;
+}
+
+/* ==========================================================
+   ESTILOS PARA LAYOUT DE REGENERACIÓN LATERAL (50/50 y Espaciado)
+   ========================================================== */
+
+.regen-input-area {
+  margin-top: 20px;
+}
+
+.regen-input-area.has-suggestions-flex {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.has-suggestions-flex > textarea {
+  flex-basis: 50%;
+  min-height: 100px;
+}
+
+.regen-side-panel {
+  flex-basis: 50%;
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+.suggestion-panel-title {
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+/* ==========================================================
+   AJUSTES FINALES DE BOTONES DE EDICIÓN (50/50 y Color)
+   ========================================================== */
+
+.idea-buttons {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.idea-buttons > .btn-generate,
+.idea-buttons > .btn-regenerar {
+  flex: 1 1 calc(50% - 5px);
+  width: auto;
+}
+
+.btn-regenerar {
+  background: linear-gradient(135deg, #00eba7, #dae085);
+  color: #fff;
 }

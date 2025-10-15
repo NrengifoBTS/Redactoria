@@ -25,8 +25,8 @@ router_ai = APIRouter(prefix="/ai", tags=["AI Generation"])
 @router_ai.post("/generate_structure", response_model=Dict[str, Any]) 
 def generate_structure_manually(req: AIAnalysisRequest):
     try:
-        # service.run_final_ai_analysis retorna un dict que debe ser aceptado.
-        return service.run_final_ai_analysis(req)
+        # service.analisis_final_ia retorna un dict que debe ser aceptado.
+        return service.analisis_final_ia(req)
     except HTTPException as http_e:
         raise http_e
     except Exception as e:

@@ -11,7 +11,6 @@ import GeneracionBlog from "./Blog_Generacion";
 const ModalCreacionBlog = ({ onClose, onGenerateSubmit }) => {
   const [formData, setFormData] = useState({
     titulo: "",
-    keywordPrincipal: "",
     categoria: "",
     keywords: "",
     idioma: "es",
@@ -60,19 +59,7 @@ const ModalCreacionBlog = ({ onClose, onGenerateSubmit }) => {
               required
             />
           </div>
-          <div className="form-group">
-            <label htmlFor="keywordPrincipal">
-              **Keyword Principal (Core SEO, Obligatoria):**
-            </label>
-            <input
-              type="text"
-              id="keywordPrincipal"
-              name="keywordPrincipal"
-              value={formData.keywordPrincipal}
-              onChange={handleChange}
-              placeholder="Ej: 'inversion en bienes raices'"
-            />
-          </div>
+
           <div className="form-group">
             <label htmlFor="categoria">Categoría del Blog:</label>
             <select

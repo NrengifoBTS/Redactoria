@@ -1,8 +1,7 @@
 import React, { useState, useRef } from "react";
-import "@iconscout/unicons/css/line.css"; // Añadido para los iconos
+import "@iconscout/unicons/css/line.css";
 import "./css/styles_generacion.css";
 
-// Componente principal para la generación y análisis de blog
 const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   // =======================================================================
   // 1. REFERENCIAS DE ELEMENTOS (useRef)
@@ -33,16 +32,19 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   // Resultados parseados para la vista
   const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
 
-  // ESTADOS DE HISTORIAL para la funcionalidad de regeneración
-  const [historialIntencion, setHistorialIntencion] = useState([]);
-
-  // ESTADOS CLAVE para el flujo manual (FASE 4: Análisis IA)
+  // Estados para el flujo manual
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [cargandoIA, setCargandoIA] = useState(false);
   const [seccionRegenerando, setSeccionRegenerando] = useState(null);
   const [selectedSectionForRegen, setSelectedSectionForRegen] = useState(null);
   const [regenTextareaValue, setRegenTextareaValue] = useState("");
+  const [titleSuggestions, setTitleSuggestions] = useState([]);
 
+  const PASTEL_COLORS = [
+    "#9EC6F3", // Azul claro
+    "#FFF1D5", // Verde menta claro
+    "#E6B2BA", // Amarillo pastel/Dorado
+  ];
   // =======================================================================
   // 3. FUNCIONES DE MANEJO DE PROCESOS (Scraping, Cancelación, Utilidades)
   // =======================================================================
@@ -65,14 +67,12 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
-  // Funcion: Parsear el Markdown de estructura H2/H3 a un objeto anidado para renderizar
-
+  // Funcion para parsear el Markdown de estructura H2/H3 a un objeto anidado para renderizar
   const parseMarkdownStructure = (markdown) => {
     if (!markdown) return [];
 
     const lines = markdown.split("\n");
     const structure = [];
-    let idCounter = 0;
 
     // RegEx para capturar: [H{N} - X.Y] Título
     // Grupo 1: H{N} (ej. H2)
@@ -86,16 +86,14 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
       if (matchStructured) {
         const level = matchStructured[1].toLowerCase(); // 'h2', 'h3', etc.
-        const enumeration = matchStructured[2]; // '1.0', '1.1', etc.
+        const enumeration = matchStructured[2]; // '1.0', '1.1', etc. <-- ID ESTABLE
         const text = matchStructured[3].trim();
 
         structure.push({
-          id: idCounter++,
-          // Combina la enumeración con el texto para la visualización final
+          id: enumeration,
           text: `${enumeration} ${text}`,
           level: level,
           children: [],
-          // Opcional: puede ser útil para la edición posterior
           enumeration: enumeration,
         });
       }
@@ -103,10 +101,11 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     return structure;
   };
 
-  // FUNCIÓN: Maneja la selección del título en el StructureRenderer
+  // Funcion que Maneja la selección del título en el StructureRenderer
   const handleSectionSelect = (section) => {
     setSelectedSectionForRegen(section);
-    setRegenTextareaValue(section.text); // Inicializa el área de texto con el título actual
+    setRegenTextareaValue(section.text);
+    setTitleSuggestions([]);
   };
 
   const handleGuardarCambiosTitulo = () => {
@@ -117,68 +116,57 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       );
       return;
     }
-
-    // Usamos el valor del estado que contiene el texto editado del textarea
     const newTitle = regenTextareaValue.trim();
-
-    // -----------------------------------------------------------
-    // >> LÓGICA DE REEMPLAZO ADAPTADA AL NUEVO FORMATO <<
-    // -----------------------------------------------------------
-    const level = selectedSectionForRegen.level.toUpperCase(); // Obtiene H2 o H3
-    const enumeration = selectedSectionForRegen.enumeration; // Obtiene 1.0, 1.1, etc.
+    const level = selectedSectionForRegen.level.toUpperCase();
+    const enumeration = selectedSectionForRegen.enumeration;
     const currentMarkdown = tablaEstructuraFinal;
 
-    // 1. Construcción de la RegEx para encontrar la línea completa
-    // La RegEx busca la línea que COMIENZA exactamente con la etiqueta [H{N} - X.Y].
-    // Escapa los puntos de la enumeración (\.) para que RegEx los trate como puntos literales.
+    // 1. RegEx para encontrar la línea completa
+    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
+
     const targetRegex = new RegExp(
-      `^(\\[${level}\\s*-\\s*${enumeration.replace(/\./g, "\\.")}\\]\\s*).*$`,
-      "m" // 'm' para modo multilínea, el '^' busca el inicio de la línea.
+      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
+      "m"
     );
 
-    // 2. Construcción de la nueva línea completa con el título editado
-    // El formato de salida debe coincidir con el que la IA genera: [H{N} - X.Y] Nuevo Título
+    // 2. Construcción de la nueva línea completa
     const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
 
-    // 3. Ejecutar el reemplazo (solo la primera coincidencia, que debe ser la línea completa)
+    // 3. Ejecutar el reemplazo (solo la primera coincidencia)
     const newStructureString = currentMarkdown.replace(
       targetRegex,
       newFullLine
     );
-
-    // -----------------------------------------------------------
-    // >> FIN LÓGICA DE REEMPLAZO <<
-    // -----------------------------------------------------------
 
     // 4. Verificación y Actualización
     if (newStructureString === currentMarkdown) {
       console.error(
         "ERROR CRÍTICO: Falló la sustitución. La RegEx no encontró el título con los marcadores de nivel."
       );
-      // Opcional: Mostrar un error al usuario.
     } else {
-      // Sustitución exitosa
       setTablaEstructuraFinal(newStructureString);
-      // Limpiar estados de edición
-      setSelectedSectionForRegen(null);
-      setRegenTextareaValue("");
+      setSelectedSectionForRegen((prevSection) => ({
+        ...prevSection,
+        text: newTitle,
+      }));
+
+      setRegenTextareaValue(newTitle);
+
       console.log("Sustitución local exitosa.");
     }
   };
 
-  // --- Función Principal de Scraping (FASE 1-3) ---
+  // --- Función Principal de Scraping ---
   const ejecutarScraping = async () => {
     // 1. Resetear estados al iniciar
     setCargandoScraping(true);
     setError(null);
-    // Limpieza de todos los estados de resultado
     setDatosFinales(null);
     setTablaEstructuraFinal("");
     setContenidoConsolidado(null);
-    // Limpiar el historial al iniciar un nue
-    // Limpiar estados de selección de regeneración
     setSelectedSectionForRegen(null);
     setRegenTextareaValue("");
+    setTitleSuggestions([]);
 
     console.clear();
     console.log("[SCRAPING] Iniciando nueva ejecución de scraping...");
@@ -194,7 +182,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       .filter((line) => line.length > 0);
     const consulta = lineasConsulta[0];
     const urls = lineasConsulta.slice(1);
-    const numResultados = urls.length > 0 ? urls.length : 1;
+    const numResultados = urls.length > 0 ? urls.length : 1; //<--- En esta parte se debe cambiar para ver cuantas urls se van a usar
 
     if (!consulta || numResultados < 1) {
       const msg =
@@ -208,12 +196,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
     // Extracción de initialParams
     const title_base = initialParams.titulo || consulta;
-    const main_keyword = initialParams.keywordPrincipal || consulta;
-    const principal_keywords_str = initialParams.keywords || "";
-    const principal_keywords = principal_keywords_str
-      .split(",")
-      .map((kw) => kw.trim())
-      .filter((kw) => kw.length > 0);
     const categoria = initialParams.categoria || "SEO";
     const idioma = initialParams.idioma || "es";
     const tecnica = initialParams.tecnica || "SEO";
@@ -227,14 +209,12 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: consulta,
-          urls, // <--- LISTA DE URLS
+          urls,
           num_results: numResultados,
           use_ai: usarIA,
           run_intent_keywords: false,
           run_structure: false,
           title_base,
-          main_keyword,
-          principal_keywords,
           categoria,
           idioma,
           tecnica,
@@ -287,7 +267,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   parsed.log.forEach((log) => console.log(` - ${log}`));
                 }
                 console.log(
-                  "[SCRAPING] Contenido consolidado listo para Análisis IA."
+                  "[SCRAPING] FASE 3 COMPLETA. Contenido consolidado listo para Análisis IA manual."
                 );
 
                 reader.cancel();
@@ -322,11 +302,54 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
+  // ---Funcion para la regeneracion de titulos ---
+  const handleSelectNewTitle = (newTitle) => {
+    if (!selectedSectionForRegen || !tablaEstructuraFinal) return;
+
+    // Obtener datos estables de la sección seleccionada
+    const level = selectedSectionForRegen.level.toUpperCase();
+    const enumeration = selectedSectionForRegen.enumeration;
+    const currentMarkdown = tablaEstructuraFinal;
+
+    // 1. Crear el patrón RegEx para reemplazar la línea completa usando la enumeración estable
+    // Se escapa el punto (`.`) en la enumeración (ej. 2.2).
+    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
+
+    // RegEx que apunta al prefijo de la línea usando el nivel y la enumeración
+    const targetRegex = new RegExp(
+      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
+      "m" // Bandera 'm' para multilínea
+    );
+
+    // 2. Construcción de la nueva línea completa (prefijo + nuevo título de la burbuja)
+    // newTitle NO incluye la enumeración (la burbuja solo tiene el texto)
+    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
+
+    // 3. Ejecutar el reemplazo
+    const newStructure = currentMarkdown.replace(targetRegex, newFullLine);
+
+    // 4. Actualizar estados
+    setTablaEstructuraFinal(newStructure);
+    setTitleSuggestions([]);
+
+    const newTitleWithEnumeration = `${enumeration} ${newTitle}`;
+
+    setSelectedSectionForRegen((prevSection) => ({
+      ...prevSection,
+      text: newTitleWithEnumeration,
+    }));
+
+    // Poner el nuevo título completo en el textarea para edición continua
+    setRegenTextareaValue(newTitleWithEnumeration);
+
+    console.log(`[IA - REEMPLAZO] Título reemplazado por: ${newTitle}`);
+  };
+
   // =======================================================================
-  // 4. FUNCIONES DE ANÁLISIS Y REGENERACIÓN DE IA (FASE 4-5)
+  // 4. FUNCIONES DE ANÁLISIS Y REGENERACIÓN DE IA
   // =======================================================================
 
-  // FUNCIÓN: Generación Manual de Análisis IA (FASE 4)
+  // Funcion Generación de Análisis IA
   const generarAnalisisIA = async () => {
     if (!contenidoConsolidado || !datosFinales?.query) {
       setError(
@@ -344,15 +367,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     const consulta =
       datosFinales?.query || referenciaUrls.current.value.split("\n")[0].trim();
 
-    // Reutilizar parámetros de initialParams para la llamada a la IA (FASE 4)
+    // Reutilizar parámetros de initialParams para la llamada a la IA
     const title_base = initialParams.titulo || consulta;
-    const main_keyword = initialParams.keywordPrincipal || consulta;
-    const principal_keywords_str = initialParams.keywords || "";
-    const principal_keywords = principal_keywords_str
-      .split(",")
-      .map((kw) => kw.trim())
-      .filter((kw) => kw.length > 0);
-
     const categoria = initialParams.categoria || "SEO";
     const idioma = initialParams.idioma || "es";
     const tecnica = initialParams.tecnica || "SEO";
@@ -364,10 +380,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       const requestData = {
         query: consulta,
         consolidated_content: textoConsolidado,
-        keywords: datosFinales?.final_keywords || [],
         title_base,
-        main_keyword,
-        principal_keywords,
         categoria,
         idioma,
         tecnica,
@@ -388,12 +401,10 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       const result = await response.json();
 
       // 1. Desestructurar y actualizar el estado principal
-      const { search_intent, final_keywords, final_structure_json } = result;
+      const { final_structure_json } = result;
 
       setDatosFinales((prev) => ({
         ...prev,
-        search_intent: search_intent,
-        final_keywords: final_keywords,
         final_structure: JSON.stringify(final_structure_json, null, 2),
         final_structure_object: final_structure_json,
       }));
@@ -403,12 +414,10 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
       setTablaEstructuraFinal(structureMarkdown);
 
-      // 3. Inicializar historial
-      if (search_intent) setHistorialIntencion([search_intent]);
       // 4. Ocultar el botón al finalizar exitosamente
       setContenidoConsolidado(null);
 
-      console.log("[IA] Analisis completado exitosamente.");
+      console.log("[IA] FASE 4 completada exitosamente.");
     } catch (err) {
       console.error("[IA] Error al generar análisis de IA:", err);
       setError(`Error en la generación de IA: ${err.message}. Revise logs.`);
@@ -441,13 +450,11 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
     const textoConsolidado = datosFinales.consolidated_content;
     const consulta = datosFinales.query;
-    const currentKeywords = datosFinales.final_keywords || [];
 
     // 2. Preparación de los datos de la solicitud base
     const requestData = {
       query: consulta,
       consolidated_content: textoConsolidado,
-      keywords: currentKeywords,
       section_type: sectionType,
       previous_content: historyArray,
       idioma: initialParams.idioma || "es",
@@ -472,7 +479,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         return;
       }
 
-      // El prompt personalizado es el texto del textarea si es diferente al texto original de la sección
       const customPrompt =
         regenTextareaValue !== selectedSectionForRegen.text
           ? regenTextareaValue
@@ -483,13 +489,10 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         full_structure_markdown: fullStructure,
         new_prompt: customPrompt,
       };
-
-      delete requestData.previous_content;
     }
-    // 4. Fin Lógica de Manejo Específico
 
     try {
-      // 5. Llamada a la API
+      // Llamada a la API
       const response = await fetch(URL_API_IA, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -503,107 +506,40 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       }
 
       const result = await response.json();
-      const regeneratedContent = result?.regenerated_content;
 
-      if (!regeneratedContent) {
-        throw new Error("Respuesta de IA vacía o formato incorrecto.");
+      let regeneratedSuggestions = result?.regenerated_suggestions;
+
+      // Lógica de validación y fallback
+      if (
+        !Array.isArray(regeneratedSuggestions) ||
+        regeneratedSuggestions.length === 0
+      ) {
+        const fallbackContent = result?.regenerated_content;
+        if (fallbackContent) {
+          console.warn(
+            "[IA - REGENERACIÓN] Recibida respuesta de formato simple. Usando como sugerencia única."
+          );
+          regeneratedSuggestions = [fallbackContent];
+        } else {
+          throw new Error(
+            "Respuesta de IA vacía o formato incorrecto (no hay sugerencias)."
+          );
+        }
       }
 
       console.log(
-        `[IA - REGENERACIÓN] Nuevo contenido para ${sectionType}:`,
-        regeneratedContent
+        `[IA - REGENERACIÓN] Sugerencias recibidas para ${sectionType}:`,
+        regeneratedSuggestions
       );
 
       // 6. Actualización de Estados y Historial
       switch (sectionType) {
-        case "search_intent":
-          setDatosFinales((prev) => ({
-            ...prev,
-            search_intent: regeneratedContent,
-          }));
-          setHistorialIntencion((prev) => [...prev, regeneratedContent]);
-          break;
-        case "introduction":
-          setDatosFinales((prev) => ({
-            ...prev,
-            final_structure_object: {
-              ...prev.final_structure_object,
-              introduction: regeneratedContent,
-            },
-          }));
-          break;
-        case "conclusion_cta":
-          setDatosFinales((prev) => ({
-            ...prev,
-            final_structure_object: {
-              ...prev.final_structure_object,
-              conclusion_cta: regeneratedContent,
-            },
-          }));
-          break;
-        case "structure_section": // Manejo de la actualización de estructura
-          const fullStructure =
-            datosFinales.final_structure_object?.structure_markdown ||
-            tablaEstructuraFinal;
-
-          if (
-            !selectedSectionForRegen ||
-            !fullStructure ||
-            !regeneratedContent
-          ) {
-            setError(
-              "Error interno: Faltan datos para la regeneración de estructura."
-            );
-            setSeccionRegenerando(null);
-            setCargandoIA(false);
-            return;
-          }
-
-          // --- Sustitución directa de línea ---
-          const level = selectedSectionForRegen.level.toUpperCase(); // H2, H3
-          const enumeration = selectedSectionForRegen.enumeration; // 1.0, 1.1
-
-          // 1. RegEx para encontrar la línea exacta a reemplazar (usando nivel y enumeración).
-          // La expresión reemplaza los puntos de la enumeración con '\.' para evitar errores RegEx.
-          const targetRegex = new RegExp(
-            `^\\[${level}\\s*-\\s*${enumeration.replace(
-              /\./g,
-              "\\."
-            )}\\]\\s*(.*)$`,
-            "m" // 'm' para modo multilínea, buscando desde el inicio de la línea
-          );
-
-          // 2. Ejecutar la sustitución: reemplaza la línea antigua (que coincide con RegEx) con el nuevo texto de la IA.
-          const newStructureString = fullStructure.replace(
-            targetRegex,
-            regeneratedContent
-          );
-
-          if (newStructureString === fullStructure) {
-            console.error(
-              "ERROR CRÍTICO (REGEN): Falló la sustitución de la línea. Revise el formato devuelto por la IA."
-            );
-            setError(
-              "Error: La IA regeneró el contenido, pero la línea antigua no pudo ser reemplazada."
-            );
-            break;
-          }
-
-          // 3. Actualización de Estados: Esto forzará el re-renderizado.
-          setTablaEstructuraFinal(newStructureString); // <--- ESTO ACTUALIZA LA VISTA
-          setDatosFinales((prev) => ({
-            ...prev,
-            final_structure_object: {
-              ...(prev?.final_structure_object || {}),
-              structure_markdown: newStructureString,
-            },
-          }));
-
-          // Deselecciona el elemento después de la regeneración exitosa
-          setSelectedSectionForRegen(null);
+        case "structure_section": {
+          setTitleSuggestions(regeneratedSuggestions);
+          //setSelectedSectionForRegen(null);
           setRegenTextareaValue("");
           break;
-        case "keywords":
+        }
         case "titles":
           setError(`La regeneración de ${sectionType} está deshabilitada.`);
           console.warn(
@@ -611,7 +547,12 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
           );
           break;
         default:
-          console.error("Tipo de sección no manejado:", sectionType);
+          // Manejo de caso por defecto para evitar warning
+          console.warn(
+            "Tipo de sección de regeneración no manejado:",
+            sectionType
+          );
+          break;
       }
     } catch (err) {
       console.error(
@@ -640,12 +581,12 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
 
     return (
-      // Usamos una clase única para el contenedor de la lista
+      //clase única para el contenedor de la lista
       <ul className="structure-list">
         {structure.map((item) => (
           <li
             key={item.id}
-            // Usamos clases específicas para la jerarquía y la selección
+            // clases específicas para la jerarquía y la selección
             className={`
             structure-item
             ${item.level === "h2" ? "structure-item-h2" : "structure-item-h3"}
@@ -673,26 +614,17 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   // 6. VARIABLES DE RENDERIZACIÓN (Derivación de Estado)
   // =======================================================================
 
-  // Variables para simplificar el render (manteniendo tus nombres)
-  const intencionFinal = datosFinales?.search_intent;
-  const estructuraFinalCruda = datosFinales?.final_structure;
+  // Variables para simplificar el render
   const objetoEstructuraFinal = datosFinales?.final_structure_object;
-  const introduccionFinal = objetoEstructuraFinal?.introduction;
-  const conclusionFinal = objetoEstructuraFinal?.conclusion_cta;
   const estructuraMarkdown =
     objetoEstructuraFinal?.structure_markdown || tablaEstructuraFinal;
 
-  // Condición para mostrar el botón de la FASE 4 (Análisis IA Manual)
+  // Condición para mostrar el botón de (Análisis IA Manual)
   const contenidoDisponible =
     contenidoConsolidado && datosFinales && !objetoEstructuraFinal;
 
-  // Condición para mostrar los resultados generados (FASE 4 completada)
-  const resultadosDisponibles =
-    objetoEstructuraFinal &&
-    (introduccionFinal ||
-      estructuraMarkdown ||
-      conclusionFinal ||
-      intencionFinal);
+  // Condición para mostrar los resultados generados
+  const resultadosDisponibles = objetoEstructuraFinal && estructuraMarkdown;
 
   // =======================================================================
   // 7. RENDER (JSX)
@@ -736,7 +668,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 disabled={cargandoScraping}
                 style={{ marginRight: "10px" }}
               />
-              Usar Resúmenes de IA por Bloque (FASE 3)
+              Usar Resúmenes de IA por Bloque
             </label>
           </div>
           {/* Botón de Ejecución/Cancelación */}
@@ -745,11 +677,11 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             className={`btn-generate ${cargandoScraping ? "btn-cancel" : ""}`}
             disabled={!referenciaUrls.current?.value && !cargandoScraping}
           >
-            {cargandoScraping ? "Cancelar Scraping" : "Iniciar Scraping "}
+            {cargandoScraping ? "Cancelar Analizador" : "Analizar Google "}
           </button>
         </section>
 
-        {/* Mensaje de Error (En el mismo estilo) */}
+        {/* Mensaje de Error  */}
         {error && <div className="error-message">{error}</div>}
 
         {/* ========================================================= */}
@@ -784,8 +716,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
               <div className="analysis-detail">
                 <span className="analysis-title">Título Base:</span>
                 <p>{initialParams.titulo || "N/A"}</p>
-                <span className="analysis-title">Keyword Principal:</span>
-                <p>{initialParams.keywordPrincipal || "N/A"}</p>
+
                 <span className="analysis-title">Keywords Secundarias:</span>
                 <p className="keywords-output">
                   {initialParams.keywords || "N/A"}
@@ -854,7 +785,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
               <div className="analysis-detail">
                 <span className="analysis-title">Idioma:</span>
                 <p>{initialParams.idioma || "N/A"}</p>
-                <span className="analysis-title">Categoría:</span>
+                <span className="analysis-title">Proyecto:</span>
                 <p>{initialParams.categoria || "N/A"}</p>
               </div>
             )}
@@ -874,9 +805,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
               <section className="analysis-result fade-in">
                 <h2 className="analysis-title">Análisis de Estructura</h2>
                 <p className="result-text">
-                  Contenido consolidado del scraping listo. Ejecuta el análisis
-                  final de la IA para generar la Intención, Introducción,
-                  Estructura y Conclusión.
+                  Análisis Google completo, click al siguiente botón para genera
+                  la estructura del Blog
                 </p>
                 <button
                   onClick={generarAnalisisIA}
@@ -884,19 +814,20 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   disabled={cargandoIA}
                 >
                   {cargandoIA
-                    ? "Generando Análisis IA..."
-                    : "Generar Análisis IA"}
+                    ? "Generando Estructura Interna...."
+                    : "Generar Estructura Final"}
                 </button>
               </section>
             )}
 
             {/* ---------------------------------------------------- */}
-            {/* --- 3. EDITOR / REGENERACIÓN DE TÍTULOS (FASE 5) --- */}
+            {/* --- 3. EDITOR / REGENERACIÓN DE TÍTULOS  --- */}
             {/* ---------------------------------------------------- */}
             <section className="analysis-result fade-in">
+              {/* Condición maestra: solo se muestra si hay una sección seleccionada. */}
               {selectedSectionForRegen ? (
                 <>
-                  {/* Panel de Regeneración ¿) */}
+                  {/* 1. Encabezado del Panel de Edición */}
                   <h2 className="analysis-title">
                     Editar/Regenerar Sección: "{selectedSectionForRegen.text}" (
                     {selectedSectionForRegen.level.toUpperCase()})
@@ -906,20 +837,56 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                     instrucciones para la regeneración con IA.
                   </p>
 
-                  {/* Input para edición directa / prompt */}
-                  <textarea
-                    className="auto-expand"
-                    rows="4"
-                    placeholder="Edita el título o escribe nuevas instrucciones para la IA (ej: 'Hazlo más enfocado en el factor costo')."
-                    value={regenTextareaValue}
-                    onChange={(e) => setRegenTextareaValue(e.target.value)}
-                  />
+                  {/* 2. CONTENEDOR FLEX PRINCIPAL: Textarea y Sugerencias lado a lado */}
+                  <div
+                    className={`
+          regen-input-area 
+          ${titleSuggestions.length > 0 ? "has-suggestions-flex" : ""}
+        `}
+                  >
+                    {/* A. Textarea para Edición Directa / Prompt */}
+                    <textarea
+                      className="auto-expand"
+                      rows="4"
+                      placeholder="Edita el título o escribe nuevas instrucciones para la IA (ej: 'Hazlo más enfocado en el factor costo')."
+                      value={regenTextareaValue}
+                      onChange={(e) => setRegenTextareaValue(e.target.value)}
+                    />
 
-                  {/* Botones de acción: Guardar Edición (Local) y Regenerar (IA) */}
+                    {/* B. Panel de Sugerencias Generadas (Lateral) - Solo visible si hay sugerencias */}
+                    {titleSuggestions.length > 0 && (
+                      <div className="suggestions-wrapper regen-side-panel">
+                        <div className="suggestions-container">
+                          {titleSuggestions.map((title, index) => {
+                            const colorIndex = index % PASTEL_COLORS.length; // 0, 1, 2, 0, 1, 2...
+                            const bubbleColor = PASTEL_COLORS[colorIndex];
+
+                            return (
+                              <button
+                                key={index}
+                                className="suggestion-bubble"
+                                onClick={() => handleSelectNewTitle(title)}
+                                title="Aplicar este título"
+                                style={{
+                                  backgroundColor: bubbleColor,
+                                  color: "#333",
+                                }}
+                              >
+                                {title}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Botones de Acción (Se mantienen debajo de los elementos flex) */}
                   <div className="idea-buttons">
                     <button
                       onClick={handleGuardarCambiosTitulo}
                       className="btn-generate"
+                      style={{ flexGrow: 1 }}
                     >
                       <i className="uil uil-save"></i> Guardar Edición Local
                     </button>
@@ -927,7 +894,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                     <button
                       onClick={() => regenerarSeccion("structure_section")}
                       disabled={cargandoIA || seccionRegenerando}
-                      className="btn-generate"
+                      className="btn-generate btn-regenerar"
                       style={{ flexGrow: 1 }}
                     >
                       {seccionRegenerando === "structure_section"
@@ -936,11 +903,14 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                     </button>
                   </div>
 
-                  {/* Botón para deseleccionar */}
+                  {/* Botón de Cancelar Edición Principal */}
                   <button
-                    onClick={() => setSelectedSectionForRegen(null)}
+                    onClick={() => {
+                      setSelectedSectionForRegen(null);
+                      setTitleSuggestions([]); // Limpia sugerencias al cancelar
+                    }}
                     className="btn-generate btn-cancel"
-                    style={{ flexGrow: 1 }}
+                    style={{ marginTop: "10px", width: "100%", height: "45px" }}
                   >
                     <i className="uil uil-times"></i> Cancelar Edición
                   </button>
@@ -963,100 +933,15 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             {/* ---------------------------------------------------- */}
             {/* --- RESULTADOS DE ANÁLISIS IA --- */}
             {/* ---------------------------------------------------- */}
-            {resultadosDisponibles && (
-              <>
-                {/* 1. Intención de Búsqueda */}
-                <section className="analysis-result">
-                  <h2 className="analysis-title">Intención de Búsqueda</h2>
-                  <p className="result-text">{intencionFinal}</p>
-                  <div className="idea-buttons">
-                    <button
-                      onClick={() =>
-                        regenerarSeccion("search_intent", historialIntencion)
-                      }
-                      className="btn-generate"
-                      disabled={seccionRegenerando || cargandoIA}
-                    >
-                      {seccionRegenerando === "search_intent"
-                        ? "Regenerando..."
-                        : "Regenerar Intención (IA)"}
-                    </button>
-                  </div>
-                </section>
-
-                {/* 2. Introducción */}
-                <section className="analysis-result">
-                  <h2 className="analysis-title">Introducción</h2>
-                  <p className="result-text pre-formatted-content">
-                    {introduccionFinal}
-                  </p>
-                  <div className="idea-buttons">
-                    <button
-                      onClick={() =>
-                        regenerarSeccion("introduction", [introduccionFinal])
-                      }
-                      className="btn-generate"
-                      disabled={seccionRegenerando || cargandoIA}
-                    >
-                      {seccionRegenerando === "introduction"
-                        ? "Regenerando..."
-                        : "Regenerar Introducción (IA)"}
-                    </button>
-                  </div>
-                </section>
-
-                {/* 3. Conclusión y CTA */}
-                <section className="analysis-result">
-                  <h2 className="analysis-title">Conclusión y CTA</h2>
-                  <p className="result-text pre-formatted-content">
-                    {conclusionFinal}
-                  </p>
-                  <div className="idea-buttons">
-                    <button
-                      onClick={() =>
-                        regenerarSeccion("conclusion_cta", [conclusionFinal])
-                      }
-                      className="btn-generate"
-                      disabled={seccionRegenerando || cargandoIA}
-                    >
-                      {seccionRegenerando === "conclusion_cta"
-                        ? "Regenerando..."
-                        : "Regenerar Conclusión (IA)"}
-                    </button>
-                  </div>
-                </section>
-
-                {/* 4. JSON crudo */}
-                <section
-                  className="analysis-result"
-                  style={{ marginTop: "20px" }}
-                >
-                  <h2 className="analysis-title" style={{ color: "#f75c5c" }}>
-                    Sugerencia de Estructura de Blog FINAL (Raw JSON)
-                  </h2>
-                  {estructuraFinalCruda ? (
-                    <pre className="structure-pre">{estructuraFinalCruda}</pre>
-                  ) : (
-                    <p>
-                      El output completo y crudo de la Estructura (JSON) se
-                      mostrará aquí.
-                    </p>
-                  )}
-                </section>
-              </>
-            )}
+            {resultadosDisponibles && <>{/* Aqui se agregan generaciones */}</>}
           </div>
 
           {/* ========================================================= */}
           {/* >>> COLUMNA DERECHA: PREVISUALIZACIÓN DE ESTRUCTURA FINAL <<< */}
           {/* ========================================================= */}
           <div className="generadores-derecha">
-            <h2 className="text-center">Estructura de Blog</h2>
+            <h2 className="text-center">3. Estructura de Blog</h2>
             <section className="idea-generator">
-              <p className="text-sm text-gray-500 mb-2">
-                *Esta sección muestra el esquema principal de los H2/H3 generado
-                por la IA. **Seleccione un título para editarlo.***
-              </p>
               {tablaEstructuraFinal ? (
                 // Uso del componente interactivo StructureRenderer
                 <StructureRenderer
@@ -1067,7 +952,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
               ) : (
                 // Mantiene el placeholder
                 <pre className="structure-pre terminal-content">
-                  Esperando la generación del Análisis IA (FASE 4)...
+                  Esperando la generación del Análisis...
                 </pre>
               )}
             </section>
