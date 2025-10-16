@@ -8,8 +8,10 @@ from typing import Generator, List, Dict, Any, Optional, Union
 from datetime import datetime
 from . import models 
 from pydantic import BaseModel
+import urllib3
 
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # --- 1. CLASE AIService: Control y Generación de IA ---
 
 class AIService:
@@ -112,32 +114,31 @@ class AIService:
         
         prompt = f"""
         --- MANDATOS SEO Y ESTRUCTURA OBLIGATORIOS ---
-        
         **1. TEMA CENTRAL/TÍTULO PROPORCIONADO (BASE):** '{title_base}'.
         **2. Estructura Base:** '{categoria}'.
-        
         **3. Keywords de ENTRADA (Obligatorias):** '{keywords_str}'. Estas DEBEN ser integradas en la estructura de subtítulos.
-        
         ---
-        
         **CONSIGNA:** Basándote **únicamente y de forma exhaustiva** en el CONTEXTO CONSOLIDADO (de scraping, que contiene contenido de **MÚLTIPLES PÁGINAS ANALIZADAS**):
-        
         {consolidated_text}
-        
-       
         1. Genera la **ESTRUCTURA COMPLETA Y DETALLADA del cuerpo del blog** en una lista línea por línea. La estructura debe ser:
             - **Extremadamente detallada y exhaustiva** (Skyscraper Content).
             - **Altamente jerárquica**, con un **MÍNIMO de 5 encabezados H2** bien diferenciados.
             - **OBLIGATORIO** incluir encabezados H3 (subtítulos) para dar profundidad a la mayoría de los H2, demostrando un análisis completo del contexto consolidado.
             - Integrar todos los puntos de datos, estadísticas, listas y las ideas únicas obtenidas de las MÚLTIPLES FUENTES.
         2. Utiliza el siguiente formato estricto: **[H{{N}} - X.Y] Título del Encabezado**.
-        
            - **{{N}}** debe ser el nivel de encabezado HTML (ej. **2** para H2, **3** para H3).
            - **X.Y** debe ser la numeración decimal jerárquica (ej. 1.0, 1.1, 2.0, 2.1, 3.0, 3.1, 3.1.1, etc.).
            - **ESTRICTAMENTE NO UTILICES** la sintaxis Markdown (##, ###, *) ni otros símbolos.
-
+        2. REGLA CLAVE MULTIMEDIA: Basado en el análisis SEO del contexto consolidado, si un encabezado requiere o se beneficia de un elemento multimedia, DEBES incluir el marcador **[MULTIMEDIA: TIPO]** al final de la línea.
+            - TIPO debe ser uno de los siguientes: **VIDEO, FOTO, MAPA, GRAFICO**.
+            - Si no se requiere multimedia, la línea termina después del título.
         ---
+        **REGLAS DE FORMATO ESTRICTAS Y PROHIBICIONES:**
+        - **PROHIBIDO** incluir secciones, títulos o subtítulos que contengan las palabras "Resumen" o "Conclusión" (o sus variantes en cualquier idioma).
+        -**PROHIBIDO** utilizar emojis, símbolos especiales o caracteres no alfanuméricos en los títulos de la estructura. Utiliza solo texto simple.
+        -**PROHIBIDO** Mencionar de cualquier manera las urls de donde se extrajo la informacion por ninigun motivo.
         
+
         **FORMATO DE SALIDA (JSON ESTRICTO REQUERIDO):**
         {{
             "structure_markdown": "Estructura detallada con formato [H{{N}} - X.Y] Título.",
@@ -330,7 +331,14 @@ class ContentExtractor:
         'te puede interesar', 'leer más', 'share', 'siguiente', 'anterior', 
         'ver también', 'suscríbete', 'regístrate', 'cierra sesión', 'publicidad', 
         'productos recomendados', 'Contenido relacionado', 'Temas relacionados',
-        'Lecturas más populares', 'patrocinado' 
+        'Lecturas más populares', 'patrocinado','opinión', 'redes sociales', 'directorio', 'aviso de privacidad', 
+        'términos y condiciones', 'nuestras redes', 'miembro del grupo de diarios de américa',
+        'código de ética', 'consultas', 'newsletters', 'juegos', 'podcast', 
+        'videos', 'publicidad', 'newsletter', 'lo más visto', 'lo más leído',
+        'contacto', 'acerca de', 'autor','te recomendamos', 'también te puede interesar', 'otras noticias', 
+        'más sobre este tema', 'otras historias', 'otras noticias de', 
+        'historias relacionadas', 'otras historias de', 'lo que te podría interesar',
+        'noticias de america latina', 'noticias internacional', 'lo más visto',
     ]
 
     # ---PATRONES A EXCLUIR ---
@@ -348,7 +356,7 @@ class ContentExtractor:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7",
             "Connection": "keep-alive", 
@@ -374,7 +382,7 @@ class ContentExtractor:
 
 
     @staticmethod
-    def _get_media_info(tag: Tag) -> Dict[str, str] | None:
+    def _get_media_info(tag: Tag) -> Dict[str, str] | None: # <<-- CORRECCIÓN APLICADA AQUÍ
         """Extrae la URL de origen y el texto descriptivo (alt/caption) de un elemento multimedia, manejando atributos de carga perezosa (lazy loading)."""
 
         PRIMARY_MEDIA_TAGS = ['img', 'picture', 'iframe', 'video', 'figure', 'source'] 
@@ -443,67 +451,132 @@ class ContentExtractor:
 
 
     @staticmethod
-    def _get_content_area(soup: BeautifulSoup, mode: str) -> Tag | BeautifulSoup:
-        """Aísla el contenedor HTML principal del artículo (e.g., <article>, <main>) utilizando selectores o heurísticas de densidad, basado en el modo ('simple' o 'robust')."""
-        
+    def _get_content_area(soup: BeautifulSoup, mode: str) -> Union[Tag, BeautifulSoup]:
+        """
+        Identifica el área principal del contenido usando selectores simples (Plan A) 
+        y luego heurística de densidad (Plan B/Modo Robusto). 
+        Aplica limpieza fina interna para eliminar ruido anidado.
+        """
         temp_content_area = None
         
+        # ----------------------------------------------------------------------
+        # A. DETECCIÓN SIMPLE (Plan A: Primer intento rápido y eficiente)
+        # ----------------------------------------------------------------------
         if mode == 'simple':
-
-            high_confidence_selectors = ['article', 'main', 'div[itemprop*="articleBody"]']
-            content_selectors = ['.entry-content', '.td-post-content', '.post-content', '.content-body', 'div[itemprop*="articleBody"]', '#content'] 
+            # Selectores de muy alta confianza
+            simple_selectors = ['div[itemprop*="articleBody"]', '.entry-content', 'article.post-content', 'article', 'main']
             
-            for selector in high_confidence_selectors:
+            for selector in simple_selectors:
                 area = soup.select_one(selector)
-                if area:
-                    refined_area = area.select_one(', '.join(content_selectors))
-                    temp_content_area = refined_area if refined_area else area
-                    break 
-            if not temp_content_area:
-                for selector in content_selectors:
-                    area = soup.select_one(selector)
-                    if area:
-                        temp_content_area = area
-                        break
-            # Heurística de Densidad como último recurso en modo simple
-            if not temp_content_area:
-                potential_content_areas = soup.find_all(['div', 'section'], recursive=True)
-                best_area = None; max_density = 0
-                for area in potential_content_areas:
-
-                    area_class_str = " ".join(area.get('class', []))
-                    if area.name == 'div' and area.get('id') in ['comments', 'sidebar', 'footer', 'header', 'nav', 'ad', 'sponsor']: continue
-                    
-                    if 'sidebar' in area_class_str or 'navigation' in area_class_str or 'menu' in area_class_str: continue
-                    p_count = len(area.find_all(['p', 'ul', 'ol', 'h3', 'h4'], limit=20))
-                    area_text_len = len(area.get_text(strip=True)); a_count = len(area.find_all('a', limit=10)) 
-                    link_density_penalty = 1.0
-                    
-                    if area_text_len < 400 and a_count > 5: link_density_penalty = 0.1 
-                    current_density = (p_count * area_text_len) * link_density_penalty 
-                    
-                    if current_density > max_density and p_count >= 2 and area_text_len >= 100: 
-                        best_area = area; max_density = current_density
-                
-                if best_area: temp_content_area = best_area
-                
-        else: 
-            # Prioriza selectores comunes en blogs con contenido sustancial
-            article_container_selectors = ['#content', '#primary', '#main-content', '.post-wrapper', '.site-main','article','#main',
-                                       '.entry-content','.article-content','.post-content','.td-post-content','.article-body',]
-            
-            for selector in article_container_selectors:
-                area = soup.select_one(selector)
-                if area and len(area.get_text(strip=True)) > 300 and len(area.find_all('p', limit=6)) >= 4:
+                # Debe tener suficiente texto para ser un artículo real
+                if area and len(area.get_text(strip=True)) > 500:
                     temp_content_area = area
                     break
+
+        # ----------------------------------------------------------------------
+        # B. DETECCIÓN ROBUSTA (Plan B: Heurística de Densidad y Selectores Agresivos)
+        # Se ejecuta si el modo es 'robust' O si el Plan A falló.
+        # ----------------------------------------------------------------------
+        
+        if mode == 'robust' or (mode == 'simple' and not temp_content_area):
             
-            if not temp_content_area: temp_content_area = soup.find(class_='entry-content') 
-            if not temp_content_area: temp_content_area = soup.find('main', class_=lambda c: c and 'content' in c.split())
-            if not temp_content_area: temp_content_area = soup.find('article', class_=lambda c: c and 'post-' in c)
+            # Selectores de contenedores de artículo (LISTA AMPLIADA y AGRESIVA para alta cobertura)
+            article_container_selectors = [
+                'div[itemprop*="articleBody"]', '.entry-content', '.post-content', 
+                '.article-body', '.post-body', '.article-main-content', '.td-post-content', 
+                '.post-inner', '.content-wrap', '.single-post-content', 
+                
+                # Selectores Agresivos (para casos como Japonpedia):
+                '[class*="content"]', '[class*="single"]', '.post', '.article',
+                '.main-content', '#main-content-area', '.main-area',
+                
+                'article', 'main', '#content', '#primary', '#main-content', 
+            ]
+            
+            best_area = temp_content_area
+            max_p_count = 0
+            
+            # Si venimos de un fallo en el modo simple, reiniciamos max_p_count
+            if not best_area:
+                 max_p_count = 0
 
+            # Iteramos sobre todos los candidatos para encontrar el mejor por DENSIDAD
+            for selector in article_container_selectors:
+                for area in soup.select(selector): 
+                    # Contamos párrafos (el marcador clave de contenido principal)
+                    p_count = len(area.find_all('p', limit=10)) 
+                    text_len = len(area.get_text(strip=True))
+                    
+                    # Criterio de Selección: Debe ser grande, tener al menos 3 párrafos y más que el candidato actual.
+                    if text_len > 300 and p_count >= 3:
+                         if p_count > max_p_count:
+                            max_p_count = p_count
+                            best_area = area
+            
+            temp_content_area = best_area
+        
+        # ----------------------------------------------------------------------
+        # C. LÓGICA DE LIMPIEZA INTERNA (LISTA BLANCA + EXCLUSIÓN DE RUIDO)
+        # ----------------------------------------------------------------------
+
+        if temp_content_area:
+            # Lista de etiquetas esenciales que SI deben sobrevivir (Lista Blanca)
+            essential_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'li', 'a', 'strong', 'em', 'blockquote', 'img', 'figure', 'ul', 'ol', 'video', 'table', 'span', 'br']
+            
+            for element in temp_content_area.find_all(True):
+                is_noise = False
+                
+                # Criterio C.1: Eliminación por Lista Blanca y Vacío (Protege el contenido esencial)
+                if element.name not in essential_tags:
+                    # Si no es un tag esencial y NO tiene texto significativo
+                    if len(element.get_text(strip=True)) < 50: 
+                        is_noise = True
+
+                # Criterio C.2: Heurística de Contenedor de Ruido (Clases y Densidad de Enlaces)
+                if element.name in ['div', 'section', 'aside']:
+                    # 1. Clases de ruido conocidas (Filtro AMPLIO)
+                    if any(c in element.get('class', []) for c in [
+                        'widget', 'promo-box', 'related-posts', 'guide-links', 
+                        'reviews-section', 'author-box', 'social-media', 'share-bar', 
+                        'elementor-widget', 'ad-container', 'post-nav', 'links-list', 
+                        'more-stories', 'paywall-block', 'sub-header', 'footer-content', 'byline-item'
+                    ]):
+                         is_noise = True
+                         
+                    # 2. Heurísticas de densidad de enlaces (Detecta listados de links/publicidad)
+                    num_p = len(element.find_all('p', recursive=False))
+                    num_a = len(element.find_all('a'))
+                    text_len = len(element.get_text(strip=True))
+
+                    # Regla: Si tiene muy pocos párrafos, muchos enlaces y poco texto total.
+                    if num_p < 3 and num_a > 3 and num_a / (len(element.find_all(True)) or 1) > 0.3 and text_len < 500:
+                        is_noise = True
+                        
+                # Criterio C.3: HEURÍSTICA DE CÓDIGO JS Y BOTONES DE ACCIÓN
+                element_text = element.get_text(strip=True)
+                
+                # Detecta tags de form, input o placeholders de JS/React
+                if element.name in ['input', 'textarea', 'select', 'form'] or '{{' in element_text or '}}' in element_text: 
+                     is_noise = True
+                
+                # Detecta botones o links de acción
+                elif element.name in ['button', 'a'] and any(keyword in element_text for keyword in ['Borrar', 'Selecciona', 'Reservar', 'Comprar', 'Agregar', 'Idioma', 'Moneda', 'Opciones', 'Destino', 'Ver más', 'Buscar', 'Suscribir', 'Newsletter', 'Publicidad']):
+                    is_noise = True
+                
+                if is_noise:
+                    element.decompose() # Elimina el elemento
+            
+            # 4. Heurística Final para eliminar bloques de Related Posts/Links al final
+            for last_tag in temp_content_area.find_all(recursive=False)[-3:]:
+                if last_tag.name in ['div', 'section'] and (
+                    len(last_tag.get_text(strip=True)) < 500 and len(last_tag.find_all('a')) > 5
+                ):
+                    last_tag.decompose()
+
+        # ----------------------------------------------------------------------
+        # D. FALLBACK FINAL
+        # ----------------------------------------------------------------------
         return temp_content_area or soup.find('body') or soup
-
 
     @staticmethod
     def group_content_by_headings(soup: BeautifulSoup, mode: str) -> List[Dict[str, Any]]: 
@@ -551,7 +624,7 @@ class ContentExtractor:
             if tag_name in ['img', 'figure', 'picture', 'iframe', 'video']: is_heading_divisor = False
             elif tag_name in ['h1', 'h2']: is_heading_divisor = True
             elif tag_name in ['h3', 'h4']:
-                if len(" ".join(current_content)) > 2000 or current_heading is None: is_heading_divisor = True
+                is_heading_divisor = True
             elif tag_name in ['div', 'span', 'section']:
                 if tag.get('role') == 'heading' and tag.get('aria-level') in ['1', '2', '3', '4']: is_heading_divisor = True
                 elif tag.has_attr('class'):
@@ -565,7 +638,41 @@ class ContentExtractor:
             
             # 2. Manejo de Encabezado: Guarda el bloque anterior e inicia uno nuevo
             if is_heading_divisor:
+                
+                # FILTRO 1: Títulos muy cortos o conocidos como ruido visual
                 if len(text_content) < 5 or any(exc in text_content.lower() for exc in ['pie de foto', 'foto:', 'imagen de', 'ver galeria', 'crédito']): continue
+                
+                # <<< INICIO DE FILTROS UNIVERSALES CONTRA EL RUIDO >>>
+                
+                # 1. Chequeo de calidad del bloque ANTERIOR antes de guardarlo.
+                if current_heading is not None and current_content:
+                    
+                    texto_consolidado = " ".join(current_content)
+                    len_texto = len(texto_consolidado)
+                    heading_strip = current_heading.strip()
+                    
+                    # *** FILTRO 1: DUPLICACIÓN HEADER-CONTENIDO EXTENDIDA (Arregla BBC Bloques 17, 18, 19, 20, 21) ***
+                    # Si el contenido es de longitud media o corta (< 1500 chars) y comienza con el encabezado.
+                    if len_texto < 1500 and texto_consolidado.startswith(heading_strip): 
+                        # self.log_debug(f"[FILTRO DUPLICACIÓN] Descartando bloque por duplicación Header/Contenido: '{current_heading[:30]}...'")
+                        current_heading = text_content
+                        current_content = []
+                        current_media = []
+                        continue 
+
+                    # *** FILTRO 2: DENSIDAD DE ENLACES ADAPTATIVA MÁS AGRESIVA (Arreglo Genérico de Widgets de Enlaces) ***
+                    link_count = texto_consolidado.lower().count('http') + texto_consolidado.lower().count('www.')
+                    
+                    # Si el bloque es PEQUEÑO (< 500 chars) Y DENSO EN ENLACES (>= 3), es ruido.
+                    if len_texto < 500 and link_count >= 3: # <<-- CAMBIO CLAVE: Umbral reducido a 3
+                        # self.log_debug(f"[FILTRO DENSIDAD] Descartando bloque por alta densidad de enlaces: '{current_heading[:30]}...'")
+                        current_heading = text_content
+                        current_content = []
+                        current_media = []
+                        continue 
+                        
+                # <<< FIN DE FILTROS UNIVERSALES CONTRA EL RUIDO >>>
+
                 if current_heading is None or text_content.strip() != current_heading.strip():
                     save_current_block()
                     current_heading = text_content; current_content = []; current_media = []
@@ -576,6 +683,12 @@ class ContentExtractor:
                 
             # 4. Manejo de Contenido Textual
             is_content_tag = tag_name in ['p', 'ul', 'ol', 'blockquote']
+            
+            # *** AÑADIDO: INCLUSIÓN DE DIV/SECTION COMO CONTENIDO (Arregla Vogue/GQ) ***
+            # Si no es un encabezado y tiene texto sustancial, es contenido.
+            if tag_name in ['div', 'section'] and not is_heading_divisor and len(text_content) > 50:
+                is_content_tag = True
+                
             if tag_name == 'span' and not is_heading_divisor and len(text_content) > 100: is_content_tag = True
             
             if is_content_tag and text_content and len(text_content) > 10: 
@@ -604,36 +717,37 @@ class ContentExtractor:
     def fetch_webpage(self, url: str) -> tuple[str, str, BeautifulSoup]:
         """Descarga la página web, elimina etiquetas no deseadas (scripts, estilos) y selectores de ruido (publicidad, navegación) y devuelve el título, el texto limpio y el objeto BeautifulSoup."""
         try:
-            response = self.session.get(url, timeout=10)
+            response = self.session.get(url, timeout=10, verify=False) 
             response.raise_for_status()
             soup = BeautifulSoup(response.content, "html.parser")
             
             # Limpieza de etiquetas y selectores irrelevantes (ruido de navegación, publicidad, etc.)
             for tag in soup(["script", "style", "form", "iframe"]): tag.decompose()
+
             irrelevant_selectors = [ 
-                '.c-cookie-banner', '.c-site-footer', '.SocialShare', '#site-footer',
+                # === 1. ESTRUCTURAS GLOBALES Y NAVEGACIÓN ===
+                'header', 'footer', 'nav', 'aside', '[role*="complementary"]', 
+                '#sidebar', '#footer', '#header', '#top-menu', '[data-testid*="footer"]', 
+                '.hero-section', '#skip-link', 'a[href="#main-content"]', 
+                
+                # === 2. PUBLICIDAD / PROMOS / COOKIES / PAYWALLS ===
+                '[class*="ad-"]', '[id*="ad-"]', '[class*="advert"]', '[class*="sponsor"]', 
+                '[id^="ezoic-"]', '#newsletter-form', '[class*="paywall"]', 
+                '[class*="cookie"]', '[id*="consent"]', '[id*="onetrust"]', 
+                '.c-cookie-banner', '.paywall-meter', '.g-ui-layer', 
+                
+                # === 3. METADATOS, REDES Y COMENTARIOS ===
+                '[class*="related"]', '[class*="suggested"]', '[class*="recommend"]', 
+                '[class*="next-story"]', 
                 '.article-meta', '.byline', '.metadata', '.author-info', '.date-info', 
-                '.paywall-meter', '.g-ui-layer', '.loading-bar', 
-                '.article__meta-container', '#article-tools', '.c-article-media-switcher', 
-                '.article-comments', 
-                '.css-1qxt0m5', '.e1pby31a0', '.e1pby31a1', 
-                '[data-testid="expanded-footer"]', 
-                '[data-testid*="paywall"]',
-                '[class*="paywall"]', 
-                '[class*="meter-bar"]',
-                '[class*="ad-"]', 
-                '#newsletter-form',
-                '#site-navigation',
-                '.StoryHeader__byline',
-                '.article-section-header', 
-                '.css-g2jrl', '.e1pby31a3', '.e1pby31a4',
-                '[class*="stk-block-columns"]',   
-                '[class*="ct-share-box"]',        
-                '[data-block*="hook"]',           
-                '[id^="ezoic-"]',                 
-                '.ct-breadcrumbs',                
-                '.hero-section',                  
-                'nav.wp-block-stackable-table-of-contents', 
+                '[class*="author-box"]', '[class*="share-bar"]', '[class*="social-media"]', 
+                '#comments', '.article-comments', '.SocialShare',
+                
+                # === 4. WIDGETS Y FORMULARIOS ===
+                '.reviews-section', '.guide-links', '.related-cities', 
+                '.language-selector', '.currency-selector', 
+                '[class*="selector"]', '[class*="options"]',
+                'input', 'form', 'button', 'iframe', 'script', # Etiquetas de formulario/código/media externa
             ]
             for selector in irrelevant_selectors:
                 for element in soup.select(selector):
@@ -926,5 +1040,3 @@ def analisis_final_ia(req: models.AIAnalysisRequest) -> Dict[str, Any]:
     """Punto de entrada para el análisis final de IA (Servicio de IA), incluyendo regeneración de secciones."""
     ai_service = AIService()
     return ai_service.analisis_final_ia(req)
-
-

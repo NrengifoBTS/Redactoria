@@ -28,7 +28,6 @@ class ScrapeResult(BaseModel):
 
 
 class ScrapeResponse(BaseModel):
-    # Este modelo es correcto y se alinea con la función execute_scraping
     query: str
     count: int
     results: List[ScrapeResult]
@@ -50,7 +49,7 @@ class AIAnalysisRequest(BaseModel):
     acento: Optional[str] = 'neutral'
     tono: Optional[str] = 'profesional'
     
-    # Campos para la Regeneración (FASE 5)
+    # Campos para la Regeneración 
     section_type: Optional[str] = Field(
         None, 
         description="Tipo de sección a regenerar: 'structure_section'." 

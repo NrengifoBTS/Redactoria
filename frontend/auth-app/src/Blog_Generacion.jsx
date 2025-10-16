@@ -31,6 +31,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
   // Resultados parseados para la vista
   const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
+  const mainTitle =
+    initialParams.titulo || datosFinales?.query || "Generación de Blog";
 
   // Estados para el flujo manual
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
@@ -40,11 +42,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   const [regenTextareaValue, setRegenTextareaValue] = useState("");
   const [titleSuggestions, setTitleSuggestions] = useState([]);
 
-  const PASTEL_COLORS = [
-    "#9EC6F3", // Azul claro
-    "#FFF1D5", // Verde menta claro
-    "#E6B2BA", // Amarillo pastel/Dorado
-  ];
   // =======================================================================
   // 3. FUNCIONES DE MANEJO DE PROCESOS (Scraping, Cancelación, Utilidades)
   // =======================================================================
@@ -80,6 +77,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     // Grupo 3: Título (el resto de la línea)
     const structuredRegex = /^\[(H\d+)\s*-\s*(\d+\.?\d*)]\s*(.*)/i;
 
+    const mediaRegex = /\s*\[MULTIMEDIA:\s*(VIDEO|FOTO|MAPA|GRAFICO)]\s*$/i;
+
     for (const line of lines) {
       const trimmedLine = line.trim();
       const matchStructured = trimmedLine.match(structuredRegex);
@@ -87,7 +86,18 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       if (matchStructured) {
         const level = matchStructured[1].toLowerCase(); // 'h2', 'h3', etc.
         const enumeration = matchStructured[2]; // '1.0', '1.1', etc. <-- ID ESTABLE
-        const text = matchStructured[3].trim();
+        let text = matchStructured[3].trim();
+
+        // --- NUEVA LÓGICA DE EXTRACCIÓN MULTIMEDIA ---
+        const mediaMatch = text.match(mediaRegex);
+        let multimediaType = null;
+
+        if (mediaMatch) {
+          // Extraer solo el tipo (VIDEO, FOTO, etc.)
+          multimediaType = mediaMatch[1].toUpperCase();
+          // Eliminar el marcador completo del texto del título
+          text = text.replace(mediaMatch[0], "").trim();
+        }
 
         structure.push({
           id: enumeration,
@@ -95,6 +105,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
           level: level,
           children: [],
           enumeration: enumeration,
+          multimedia: multimediaType, // AÑADIR EL NUEVO CAMPO
         });
       }
     }
@@ -182,7 +193,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       .filter((line) => line.length > 0);
     const consulta = lineasConsulta[0];
     const urls = lineasConsulta.slice(1);
-    const numResultados = urls.length > 0 ? urls.length : 1; //<--- En esta parte se debe cambiar para ver cuantas urls se van a usar
+    const numResultados = urls.length > 0 ? urls.length : 3; //<--- En esta parte se debe cambiar para ver cuantas urls se van a usar
 
     if (!consulta || numResultados < 1) {
       const msg =
@@ -413,9 +424,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       const structureMarkdown = final_structure_json?.structure_markdown || "";
 
       setTablaEstructuraFinal(structureMarkdown);
-
-      // 4. Ocultar el botón al finalizar exitosamente
-      setContenidoConsolidado(null);
 
       console.log("[IA] FASE 4 completada exitosamente.");
     } catch (err) {
@@ -848,35 +856,25 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                     <textarea
                       className="auto-expand"
                       rows="4"
-                      placeholder="Edita el título o escribe nuevas instrucciones para la IA (ej: 'Hazlo más enfocado en el factor costo')."
+                      placeholder="Edita el título o selecciona uno nuevo."
                       value={regenTextareaValue}
                       onChange={(e) => setRegenTextareaValue(e.target.value)}
                     />
 
                     {/* B. Panel de Sugerencias Generadas (Lateral) - Solo visible si hay sugerencias */}
                     {titleSuggestions.length > 0 && (
-                      <div className="suggestions-wrapper regen-side-panel">
-                        <div className="suggestions-container">
-                          {titleSuggestions.map((title, index) => {
-                            const colorIndex = index % PASTEL_COLORS.length; // 0, 1, 2, 0, 1, 2...
-                            const bubbleColor = PASTEL_COLORS[colorIndex];
-
-                            return (
-                              <button
-                                key={index}
-                                className="suggestion-bubble"
-                                onClick={() => handleSelectNewTitle(title)}
-                                title="Aplicar este título"
-                                style={{
-                                  backgroundColor: bubbleColor,
-                                  color: "#333",
-                                }}
-                              >
-                                {title}
-                              </button>
-                            );
-                          })}
-                        </div>
+                      <div className="regen-side-panel">
+                        <h3>Sugerencias de Título</h3>
+                        {titleSuggestions.length > 0 &&
+                          titleSuggestions.map((suggestion, index) => (
+                            <div
+                              key={index}
+                              className="suggestion-bubble"
+                              onClick={() => handleSelectNewTitle(suggestion)}
+                            >
+                              {suggestion}
+                            </div>
+                          ))}
                       </div>
                     )}
                   </div>
@@ -922,9 +920,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                     Panel de Edición y Regeneración de Ideas
                   </h2>
                   <p className="text-gray-500 result-text">
-                    Selecciona un **título (H2)** o **subtítulo (H3)** de la
-                    estructura de la derecha para **editarlo** o **regenerarlo**
-                    individualmente.
+                    Selecciona un título o subtítulo de la estructura de la
+                    derecha para editarlo o regenerarlo individualmente.
                   </p>
                 </div>
               )}
@@ -933,17 +930,45 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             {/* ---------------------------------------------------- */}
             {/* --- RESULTADOS DE ANÁLISIS IA --- */}
             {/* ---------------------------------------------------- */}
-            {resultadosDisponibles && <>{/* Aqui se agregan generaciones */}</>}
+            {resultadosDisponibles && (
+              <>
+                {/* AGREGAR AQUI GENERACIONES CON IA COMO TITULO,SUBTITULOS, INTRODUCCIONES Y DEMAS DE SER NECESARIO*/}
+              </>
+            )}
           </div>
 
           {/* ========================================================= */}
           {/* >>> COLUMNA DERECHA: PREVISUALIZACIÓN DE ESTRUCTURA FINAL <<< */}
           {/* ========================================================= */}
           <div className="generadores-derecha">
-            <h2 className="text-center">3. Estructura de Blog</h2>
+            {/* BOTÓN REGENERAR ESTRUCTURA (NUEVO) */}
+            {/* Solo se muestra si ya tenemos resultados disponibles o la tabla está llena */}
+            {(resultadosDisponibles || tablaEstructuraFinal) && (
+              <div style={{ marginBottom: "15px" }}>
+                <button
+                  onClick={generarAnalisisIA} // Llama a la función que contacta a la IA
+                  className="btn-regenerar"
+                  disabled={cargandoIA || !datosFinales}
+                  style={{ width: "100%" }}
+                >
+                  {cargandoIA
+                    ? "Generando Nueva Estructura..."
+                    : "Volver a Generar Estructura (IA)"}
+                </button>
+              </div>
+            )}
+            <h2 className="text-center">Estructura de Blog</h2>
             <section className="idea-generator">
+              <div className="card-body">
+                {/* NUEVO: Título Principal del Blog (H1) */}
+                <h1
+                  className="text-center"
+                  style={{ marginBottom: "25px", fontSize: "2rem" }}
+                >
+                  {mainTitle}
+                </h1>
+              </div>
               {tablaEstructuraFinal ? (
-                // Uso del componente interactivo StructureRenderer
                 <StructureRenderer
                   structure={parseMarkdownStructure(tablaEstructuraFinal)}
                   onSelect={handleSectionSelect}
@@ -951,6 +976,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 />
               ) : (
                 // Mantiene el placeholder
+
                 <pre className="structure-pre terminal-content">
                   Esperando la generación del Análisis...
                 </pre>

@@ -543,24 +543,48 @@ select {
 
 /* 2. Estilo base para las burbujas  */
 .suggestion-bubble {
-  border: 1px solid #ddd;
-  border-radius: 20px;
+  padding: 15px 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s, box-shadow 0.3s;
   cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  width: 100%;
-  text-align: center;
+  text-align: left;
+  font-size: 0.95rem;
+  line-height: 1.4;
   word-break: break-word;
-  padding: 8px 15px;
-  color: #333; /* Texto oscuro */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .suggestion-bubble:hover {
-  transform: translateY(-1px) scale(1.005);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
-  opacity: 0.9;
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* PRIMERA BURBUJA (Azul/Primary) */
+.regen-side-panel .suggestion-bubble:nth-child(2) {
+  background-color: #e6f0ff;
+  color: #0583ff;
+  border: 1px solid #0583ff;
+}
+
+/* SEGUNDA BURBUJA (Verde/Success) */
+.regen-side-panel .suggestion-bubble:nth-child(3) {
+  background-color: #e0f6f0;
+  color: #20c997;
+  border: 1px solid #20c997;
+}
+
+/* TERCERA BURBUJA (Morado/Secondary) */
+.regen-side-panel .suggestion-bubble:nth-child(4) {
+  background-color: #f5e6ff;
+  color: #9900ff;
+  border: 1px solid #9900ff;
+}
+
+/* CUARTA BURBUJA y siguientes (Gris claro/Neutro) */
+.regen-side-panel .suggestion-bubble:nth-child(n + 5) {
+  background-color: #f9fafb;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
 }
 
 /* ==========================================================
@@ -584,10 +608,13 @@ select {
 }
 
 .regen-side-panel {
-  flex-basis: 50%;
+  flex-basis: 50%; /* Asegura que ocupe la mitad del espacio */
   padding: 0;
   border: none;
   background-color: transparent;
+  display: flex; /* Asegura el layout de columna para las burbujas */
+  flex-direction: column;
+  gap: 15px; /* Espaciado entre las burbujas */
 }
 
 .suggestion-panel-title {
