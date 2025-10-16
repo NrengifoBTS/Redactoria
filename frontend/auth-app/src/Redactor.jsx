@@ -480,48 +480,77 @@ export default function Redactor() {
   const getTitleForIAGeneration = (selectedCell, block, tableData) => {
     const [row, col] = selectedCell.split('-').map(Number);
 
-    
-    if (block.type === 'fav_city') {
-      // Recopilar TODAS las ciudades del bloque
-      const favCityQuestions = [];
+    if (block.type === 'car_rental' || block.type === 'fleetcarrusel' || block.type === 'advicestipocarrusel') {
+      const carTypes = []; // En este caso serían "tipos de consejos"
       if (block.contentMapping) {
         Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
           if (field.startsWith('desc_') && field !== 'desc') {
             const [respRow] = cellKey.split('-').map(Number);
+            const typeRow = respRow - 1;
+            const typeContent = tableData[`${typeRow}-3`]?.content || '';
+            const fieldType = tableData[`${typeRow}-2`]?.content || '';
+            
+            if (typeContent && typeContent.trim() !== '' && 
+                (fieldType.includes('H3') || fieldType.includes('h3'))) {
+              carTypes.push(typeContent.trim());
+            }
+          }
+        });
+      }
+      
+      const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
+      
+      console.log('🚗 CAR_RENTAL/FLEET/ADVICES:', {
+        blockType: block.type,
+        itemsEncontrados: carTypes,
+        totalItems: carTypes.length
+      });
+      
+      return {
+        title: blockTitle,
+        type: 'car_rental_complete',
+        faqQuestions: [],
+        favCityQuestions: [],
+        carTypes: carTypes
+      };
+    }
+
+    
+    if (block.type === 'fav_city' || block.type === 'locationscarrusel') {
+      
+      const favCityQuestions = [];
+      if (block.contentMapping) {
+        Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
+          
+          if (field.startsWith('desc_') && field !== 'desc') {
+            const [respRow] = cellKey.split('-').map(Number);
             const questionRow = respRow - 1;
             const questionContent = tableData[`${questionRow}-3`]?.content || '';
+            
+            
             if (questionContent && questionContent.trim() !== '') {
               favCityQuestions.push(questionContent.trim());
             }
           }
         });
       }
-    
-    // SIEMPRE usar el título del bloque principal
-    const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
-    
-    console.log('🏙️ FAV_CITY COMPLETO:', {
-      blockTitle: blockTitle,
-      ciudadesEncontradas: favCityQuestions,
-      totalCiudades: favCityQuestions.length
-    });
-    
-    return {
-      title: blockTitle, // Título del bloque, no de la celda
-      type: 'fav_city_complete',
-      faqQuestions: [],
-      favCityQuestions: favCityQuestions, // Todas las ciudades
-      carTypes: []
-    };
-  }
+      
+      const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
+      
+      return {
+        title: blockTitle,
+        type: 'fav_city_complete',
+        faqQuestions: [],
+        favCityQuestions: favCityQuestions,
+        carTypes: []
+      };
+    }
     //
     if (block.type === 'faqs' || block.type === 'questions') {
-      console.log('🔍 CONTENTMAPPING:', block.contentMapping);
       
       const faqQuestions = [];
       if (block.contentMapping) {
         Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
-          console.log(`🔍 Procesando field: ${field}, cellKey: ${cellKey}`);
           
           // Buscar tanto faq_ como desc_ (excluyendo desc principal)
           if ((field.startsWith('faq_') || field.startsWith('desc_')) && field !== 'desc') {
@@ -529,23 +558,14 @@ export default function Redactor() {
             const questionRow = respRow - 1;
             const questionContent = tableData[`${questionRow}-3`]?.content || '';
             
-            console.log(`🔍 Question field encontrado: ${field}`);
-            console.log(`🔍   respRow: ${respRow}, questionRow: ${questionRow}`);
-            console.log(`🔍   questionContent: "${questionContent}"`);
-            
             if (questionContent && questionContent.trim() !== '') {
               faqQuestions.push(questionContent.trim());
-              console.log(`✅ Pregunta agregada: "${questionContent.trim()}"`);
             }
           }
         });
       }
-      
-      console.log('❓ FAQ/QUESTIONS:', {
-        blockType: block.type,
-        preguntasEncontradas: faqQuestions,
-        totalPreguntas: faqQuestions.length
-      });
+
+
   
       
       // Si es la descripción principal del bloque (desc)
@@ -586,6 +606,25 @@ export default function Redactor() {
         }
       }
     }
+
+    if (block.type === 'rentacar') {
+      const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
+      
+      console.log('🚗 RENTACAR:', {
+        blockTitle: blockTitle,
+        blockType: block.type
+      });
+      
+      return {
+        title: blockTitle,
+        type: 'rentacar_block',
+        faqQuestions: [],
+        favCityQuestions: [],
+        carTypes: []
+      };
+    }
+
+
 
     if (block.type === 'car_rental' || block.type === 'fleetcarrusel') {
       const carTypes = [];
@@ -1872,17 +1911,6 @@ export default function Redactor() {
                   </>
                 )}
               </button>
-              
-              <button 
-                style={tableStyles.resetButton}
-                onClick={resetToTemplate}
-                onMouseOver={e => e.target.style.backgroundColor = tableStyles.resetButtonHover.backgroundColor}
-                onMouseOut={e => e.target.style.backgroundColor = tableStyles.resetButton.backgroundColor}
-                title="Resetear a template original"
-              >
-                <RotateCcw size={16} />
-                <span>Reset</span>
-              </button>
 
               {/* BOTÓN DE EXPORTACIÓN CON TEMPLATE */}
               <button 
@@ -2045,18 +2073,10 @@ export default function Redactor() {
                 if (!selectedCell) return;
                 try {
                   const tema = currentLP.title;
-                  console.log('🔍 TODOS los blocksMetadata:', blocksMetadata);
-                  console.log('🔍 Bloque 5 en frontend:', blocksMetadata['5']);
                   // Obtener el título correcto según el contexto
                   const titleInfo = getTitleForIAGeneration(selectedCell, block, tableData);
                   const blockTitle = titleInfo.title;
                   const currentTemplate = getCurrentTemplate();
-                  console.log('🔥 FRONTEND - Bloque elegido:', {
-                        selectedCell: selectedCell,
-                        blockNumber: block?.number,
-                        blockType: block?.type,
-                        blockName: block?.name
-                      });
                                     
                   if (!blockTitle || blockTitle.trim() === '') {
                     if (titleInfo.type === 'faq_answer_empty') {
@@ -2120,8 +2140,8 @@ export default function Redactor() {
                     cellKey: selectedCell,
                     tema: tema,
                     faqQuestions: titleInfo.faqQuestions || [],
-                    favCityQuestions: titleInfo.favCityQuestions || [], // ← SIMPLIFICADO
-                    carTypes: titleInfo.carTypes || [], // ← SIMPLIFICADO
+                    favCityQuestions: titleInfo.favCityQuestions || [], 
+                    carTypes: titleInfo.carTypes || [], 
                     blockType: block.type,
                     templateInfo: currentTemplate
                   });
@@ -2179,25 +2199,37 @@ export default function Redactor() {
                       Object.entries(meta.contentMapping).forEach(([field, cellKey]) => {
                         let contentValue = content.structured_content[field];
                         
-                        
                         // Si no encuentra el campo exacto, buscar alternativas
                         if (contentValue === undefined) {
-                          // Si busca desc_X, probar con faq_X
-                          if (field.startsWith('desc_') ) {
+                          // desc_X ↔ faq_X
+                          if (field.startsWith('desc_')) {
                             const number = field.replace('desc_', '');
                             const altField = `faq_${number}`;
                             contentValue = content.structured_content[altField];
                             if (contentValue !== undefined) {
                               console.log(`✅ Campo '${field}' no encontrado, pero sí '${altField}'`);
                             }
-                          }
-                          // Si busca faq_X, probar con desc_X
-                          else if (field.startsWith('faq_')) {
+                          } else if (field.startsWith('faq_')) {
                             const number = field.replace('faq_', '');
                             const altField = `desc_${number}`;
                             contentValue = content.structured_content[altField];
                             if (contentValue !== undefined) {
                               console.log(`✅ Campo '${field}' no encontrado, pero sí '${altField}'`);
+                            }
+                          }
+                          
+                          // Mapeo especial para desc_1 → desc_h2, desc_2 → desc_h3
+                          if (contentValue === undefined) {
+                            if (field === 'desc_1') {
+                              contentValue = content.structured_content['desc_h2'];
+                              if (contentValue !== undefined) {
+                                console.log(`✅ Campo '${field}' no encontrado, usando 'desc_h2'`);
+                              }
+                            } else if (field === 'desc_2') {
+                              contentValue = content.structured_content['desc_h3'];
+                              if (contentValue !== undefined) {
+                                console.log(`✅ Campo '${field}' no encontrado, usando 'desc_h3'`);
+                              }
                             }
                           }
                         }

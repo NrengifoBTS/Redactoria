@@ -120,6 +120,17 @@ class IAService:
                     "ip_bra": extracted_fields.get("ip_bra", "")
                 }
                 
+            elif block_type == "rentacar":
+                # Bloque rentacar: tit, desc, desc_h2, desc_h3
+                result["structured_content"] = {
+                    "titulo": extracted_fields.get("tit", ""),
+                    "desc": extracted_fields.get("desc", ""),
+                    "desc_h2": extracted_fields.get("desc_h2", ""),
+                    "desc_h3": extracted_fields.get("desc_h3", "")
+    }
+                
+            
+                
             elif block_type == "reviews":
                 # Bloque reviews: tit, desc
                 result["structured_content"]= {
@@ -154,6 +165,20 @@ class IAService:
                 result["structured_content"] = {
                     "desc": extracted_fields.get("desc", "")
                 }
+                
+            elif block_type == "advicestipocarrusel":
+                # Bloque: desc
+                result["structured_content"] = {
+                    "desc": extracted_fields.get("desc", "")
+                }
+                
+            elif block_type == "advicestipocarrusel_additional":
+                # Procesar descripciones de consejos
+                result["structured_content"] = {}
+                for i in range(1, 7):  # desc_1 hasta desc_6
+                    desc_key = f"desc_{i}"
+                    if desc_key in extracted_fields:
+                        result["structured_content"][desc_key] = extracted_fields[desc_key]
                 
             elif block_type == "car_rental_additional" or block_type == "fleetcarrusel_additional":
                 # Procesar descripciones de tipos de autos
@@ -345,6 +370,27 @@ class IAService:
                     template_data = {}
                     raw_generated_content = generator.generate_reviews(titulo_limpio, template_data, nuevo_tema, ejemplos)
                     
+                elif block_type == "advicestipocarrusel":
+                    raw_generated_content = generator.generate_advicestipocarrusel(titulo_limpio, nuevo_tema, ejemplos)
+                    
+                    tipos_recibidos = request.car_types or []  # Reutilizamos car_types para los consejos
+                    tipos_validos = [t for t in tipos_recibidos if t and t.strip()]
+                    
+                    if tipos_validos:
+                        additional_content = generator.generate_advice_type(tipos_validos, nuevo_tema, ejemplos)
+                    else:
+                        logging.error("ADVICES: No se encontraron consejos válidos del frontend")
+                        tipos_default = [
+                            "Consejo sobre reservas", "Consejo sobre seguros", 
+                            "Consejo sobre combustible", "Consejo sobre documentación",
+                            "Consejo sobre inspección", "Consejo sobre devolución"
+                        ]
+                        additional_content = generator.generate_advice_type(tipos_default, nuevo_tema, ejemplos)
+                    
+                elif block_type == "rentacar":
+                    template_data = {}
+                    raw_generated_content = generator.generate_rentacar(titulo_limpio, template_data, nuevo_tema, ejemplos)
+                    
                 elif block_type == "faqs" or block_type == "questions":
                     raw_generated_content = generator.generate_faq(titulo_limpio, nuevo_tema, ejemplos)
                     
@@ -372,7 +418,7 @@ class IAService:
                         additional_content = generator.generate_car_type(tipos_autos_default, nuevo_tema, ejemplos)
                     
                     
-                elif block_type == "fav_city" or "locationscarrusel":
+                elif block_type == "fav_city" or block_type == "locationscarrusel":
                     template_data = {}
                     raw_generated_content = generator.generate_fav_city(titulo_limpio, template_data, nuevo_tema, ejemplos)
                     

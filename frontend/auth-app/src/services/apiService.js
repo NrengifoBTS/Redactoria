@@ -284,7 +284,7 @@ class ApiService {
   // Generar contenido con IA
   async generateIAContent(params) {
     try {
-      const { lpId, blockNumber, blockTitle, tema, cellKey, faqQuestions = [], favCityQuestions = [], blockType, carTypes = [], templateInfo  } = params;
+      const { lpId, blockNumber, blockTitle, tema, cellKey, faqQuestions = [], favCityQuestions = [], blockType, carTypes = [], templateInfo } = params;
       const payload = {
         cellKey,
         currentContent: "",
@@ -293,7 +293,8 @@ class ApiService {
         tit: blockTitle,
         tema,
         lpId,
-        faqQuestions
+        faqQuestions,
+        favCityQuestions
       };
 
       // Agregar info del template si existe

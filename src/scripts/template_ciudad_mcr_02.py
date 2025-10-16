@@ -5,7 +5,7 @@ def create_template():
     """Crear template para Ciudad"""
     
     # TOKEN - REEMPLAZA CON TU TOKEN
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NTc5ODM0ODB9.T4VFL5trpFS8EsC7kyUXzoKRkJBJe2ex8t3k24iMOuU"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjA2NjE5MDZ9.CsKgUFRBmfqFLgOOJXZAv-HZ33m0zPYdqg0wuqM0xgQ"
     
     # URL de tu API
     base_url = "http://192.168.1.11:8000"  
@@ -89,14 +89,19 @@ def create_template():
         "30-3": "Consejos sobre alquiler de autos en Miami",
         "31-2": "Descripción H2",
         "32-2": "h3",
+        "32-3": "Elige un comparador web de confianza",
         "33-2": "Descripción H3",
         "34-2": "h3",
+        "34-3": "Reserva con anticipación",
         "35-2": "Descripción H3",
         "36-2": "h3",
+        "36-3": "Suscríbete a nuestra plataforma",
         "37-2": "Descripción H3",
         "38-2": "h3",
+        "38-3": "Sé muy cuidadoso con el estado del vehículo",
         "39-2": "Descripción H3",
         "40-2": "h3",
+        "40-3": "Devuelve el auto a tiempo",
         "41-2": "Descripción H3",
         
         # Bloque 7
@@ -128,18 +133,25 @@ def create_template():
         "56-0": "locationscarrusel", 
         "56-1": "Bloque 8:",
         "56-2": "H2",
+        "56-3": "Alquiler de autos en las localidades mas importantes de Miami",
         "57-2": "descripción H2",
         "58-2": "h3",
+        "58-3": "Aeropuerto Internacional de Miami (MIA)",
         "59-2": "Descripción H3",
         "60-2": "h3",
+        "60-3": "Aeropuerto Ejecutivo de Miami",
         "61-2": "Descripción H3",
         "62-2": "h3",
+        "62-3": "Aeropuerto Opa Locka",
         "63-2": "Descripción H3",
         "64-2": "h3",
+        "64-3": "Puerto de Miami",
         "65-2": "Descripción H3",
         "66-2": "h3",
+        "66-3": "South Beach",
         "67-2": "Descripción H3",
         "68-2": "h3",
+        "68-3": "Downtown Miami",
         "69-2": "Descripción H3",
         
         # Bloque 9
@@ -375,7 +387,7 @@ def create_template():
             "titleRow": 30,
             "descRow": 31,
             "contentMapping": {
-                "desc": "30-3",    
+                "desc": "31-3",    
                 "desc_1": "33-3",         
                 "desc_2": "35-3",         
                 "desc_3": "37-3",         
@@ -421,7 +433,7 @@ def create_template():
             "name": "Bloque 9",
             "type": "locationscarrusel",
             "startRow": 70,
-            "endRow": 103,
+            "endRow": 104,
             "titleRow": 70,
             "descRow": 71,
             "contentMapping": {
@@ -448,14 +460,14 @@ def create_template():
         "10": {
             "name": "Bloque 10",
             "type": "rentacar",
-            "startRow": 104,
-            "endRow": 109,
-            "titleRow": 104,
-            "descRow": 105,
+            "startRow": 105,
+            "endRow": 110,
+            "titleRow": 105,
+            "descRow": 106,
             "contentMapping": {
-                "desc": "105-3",    
-                "desc_1": "107-3",         
-                "desc_2": "109-3"  
+                "desc": "106-3",    
+                "desc_1": "108-3",         
+                "desc_2": "110-3"  
             }
         }
     }

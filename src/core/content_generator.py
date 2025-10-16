@@ -366,6 +366,80 @@ class ContentGenerator:
         )
         return self.llm_client.generate(prompt_city, self.system_message) 
 
+    def generate_rentacar(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera la sección de rentacar (título, desc, desc_h2, desc_h3).
+        
+        Args:
+            tit_seo: Título SEO
+            template_data: Datos de la plantilla
+            nuevo_tema: Nuevo tema para generar contenido
+            ejemplos: Lista de ejemplos
+            
+        Returns:
+            Texto generado
+        """
+        # Extraer volúmenes de palabras de los ejemplos
+        vol_desc = ejemplos[0].get('vol_desc', '') if ejemplos else ''
+        vol_h2 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+        vol_h3 = ejemplos[0].get('vol_h3', '') if ejemplos else ''
+        
+        # Crear ejemplos para el prompt
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('tit', '')}, desc: {ejemplo.get('desc', '')}, desc_h2: {ejemplo.get('desc_h2', '')}, desc_h3: {ejemplo.get('desc_h3', '')}\n" 
+            for i, ejemplo in enumerate(ejemplos)]
+        )
+        
+        # Crear el prompt para rentacar
+        prompt = (
+            f"{ejemplos_texto}\n"
+            f"nuevo tema: {nuevo_tema}, tit: {tit_seo}\n"
+            f"reglas a tener en cuenta para desc: cantidad de palabras {vol_desc}, para desc_h2: cantidad de palabras {vol_h2}, para desc_h3: cantidad de palabras {vol_h3} mínimo a máximo.\n"
+            f"ahora genera el contenido, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: {tit_seo}|\n |desc: redaccion_principal|\n |desc_h2: redaccion_h2|\n |desc_h3: redaccion_h3|\n"
+        )
+        
+        # Llamar al LLM con tres pasadas
+        ini = self.llm_client.generate(prompt, self.system_message)
+        sec = self.llm_client.post_generate_uno(ini, regla=f"desc: {vol_desc}, desc_h2: {vol_h2}, desc_h3: {vol_h3}")
+        ter = self.llm_client.post_generate_dos(sec, regla=f"desc: {vol_desc}, desc_h2: {vol_h2}, desc_h3: {vol_h3}")
+        return ter
+
+    def generate_advicestipocarrusel(self, titulo_limpio: str, nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera contenido principal para el bloque de consejos
+        """
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('tit', '')}, desc: {ejemplo.get('desc', '')}\n" 
+            for i, ejemplo in enumerate(ejemplos)]
+        )
+        
+        prompt = (
+            f"{ejemplos_texto}\n"
+            f"nuevo tema: {nuevo_tema}, tit: {titulo_limpio}\n"
+            f"ahora genera el contenido, sigue esta estructura: <think> aquí pondrás tus pensamientos </think>\n |tit: {titulo_limpio}|\n |desc: redaccion_desc|\n"
+        )
+        
+        return self.llm_client.generate(prompt, self.system_message)
+
+    def generate_advice_type(self, advice_types: List[str], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera descripciones individuales para cada tipo de consejo
+        """
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: {ejemplo}\n" for i, ejemplo in enumerate(ejemplos[:3])]
+        ) if ejemplos else ""
+        
+        consejos_texto = "\n".join([f"desc_{i+1}: {consejo}" for i, consejo in enumerate(advice_types)])
+        
+        prompt = (
+            f"{ejemplos_texto}\n"
+            f"Tema: {nuevo_tema}\n"
+            f"{consejos_texto}\n\n"
+            f"Formato: |desc_1: texto...| |desc_2: texto...| etc."
+        )
+        
+        return self.llm_client.generate(prompt, self.system_message)
+
     def process_json(self, input_path: str, nuevo_tema: str, output_path: Optional[str] = None, secciones_ejemplos: Dict[str, List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Procesa un archivo JSON completo y genera nuevo contenido.
