@@ -235,6 +235,16 @@ select {
   width: 100%;
 }
 
+/* Ajuste del botón de eliminar */
+.btn-delete-structure {
+  opacity: 0.6; /* Lo hacemos sutil */
+  transition: opacity 0.2s;
+}
+
+.structure-item:hover .btn-delete-structure {
+  opacity: 1; /* Se resalta al pasar el mouse sobre el elemento de la lista */
+}
+
 /* Logs y Preview */
 .structure-pre {
   background-color: #f4f4f4;
@@ -476,13 +486,14 @@ select {
 /* Estilos base para cada título  */
 .structure-item {
   cursor: pointer;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease-in-out;
   line-height: 1.4;
   font-size: 0.95rem;
+
+  padding: 10px 15px;
+  margin-bottom: 5px;
+  position: relative;
 }
 
 /* Efecto Hover */
@@ -645,4 +656,20 @@ select {
 .btn-regenerar {
   background: linear-gradient(135deg, #00eba7, #dae085);
   color: #fff;
+}
+
+/* Nuevo estilo para el contenedor flex de texto y botón */
+.structure-content-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* Estilo para el área de texto dentro del li, para que sea clickeable y crezca */
+.structure-list li .structure-text-area {
+  display: flex; /* Para alinear ícono y texto */
+  align-items: center;
+  flex-grow: 1;
+  padding: 5px 0;
 }

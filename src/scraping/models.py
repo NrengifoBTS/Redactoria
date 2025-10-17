@@ -85,3 +85,6 @@ class TitleUpdateRequest(BaseModel):
     old_title: str
     new_title: str
     level: str = Field(..., description="Nivel del encabezado: 'h2' o 'h3'.")
+
+
+

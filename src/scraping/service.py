@@ -36,7 +36,7 @@ class AIService:
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            "temperature": temperature,
+            "temperature": 0.9,
             "stream": False
         }
         try:
@@ -103,55 +103,81 @@ class AIService:
         keywords_str = ', '.join([query])
         
         system_message = f"""
-        Eres un Estratega SEO de Marketing de alto nivel y un excelente redactor en el idioma '{idioma}' con acento '{acento}'.
-        Tu objetivo es generar la INTENCIÓN DE BÚSQUEDA y la ESTRUCTURA DE BLOG, adaptándote a:
-        - Tono de Voz: '{tono}'
-        - Acento Cultural: '{acento}'
-        - Técnica de Redacción: '{tecnica}'
-        - Idioma: {idioma}
-        Tu única respuesta debe ser el objeto JSON solicitado, sin explicaciones ni texto adicional.
-        """
+            Eres un Estratega SEO Senior y Arquitecto de Contenidos experto en planificación estructural para blogs tipo Skyscraper.
+
+            Tu función principal NO es redactar el texto final, sino diseñar la **estructura jerárquica completa del cuerpo del artículo**, optimizada para SEO, retención lectora y coherencia semántica.
+
+            Debes trabajar en el idioma '{idioma}', respetando el acento cultural '{acento}' y aplicando el tono de voz '{tono}', pero **solo como guía de enfoque**, no de estilo narrativo.
+
+            Tu salida debe ser un **objeto JSON limpio y válido**, que contenga la estructura final en el formato especificado, sin explicaciones ni texto adicional.
+
+            Recuerda:
+            - No redactas contenido, solo estructuras.
+            - No uses Markdown, URLs ni caracteres decorativos.
+            - Aplica los principios del contenido Skyscraper (profundidad, jerarquía, relevancia, cobertura completa del tema).
+            """
         
         prompt = f"""
-        --- MANDATOS SEO Y ESTRUCTURA OBLIGATORIOS ---
-        **1. TEMA CENTRAL/TÍTULO PROPORCIONADO (BASE):** '{title_base}'.
-        **2. Estructura Base:** '{categoria}'.
-        **3. Keywords de ENTRADA (Obligatorias):** '{keywords_str}'. Estas DEBEN ser integradas en la estructura de subtítulos.
-        ---
-        **CONSIGNA:** Basándote **únicamente y de forma exhaustiva** en el CONTEXTO CONSOLIDADO (de scraping, que contiene contenido de **MÚLTIPLES PÁGINAS ANALIZADAS**):
-        {consolidated_text}
-        1. Genera la **ESTRUCTURA COMPLETA Y DETALLADA del cuerpo del blog** en una lista línea por línea. La estructura debe ser:
-            - **Extremadamente detallada y exhaustiva** (Skyscraper Content).
-            - **Altamente jerárquica**, con un **MÍNIMO de 5 encabezados H2** bien diferenciados.
-            - **OBLIGATORIO** incluir encabezados H3 (subtítulos) para dar profundidad a la mayoría de los H2, demostrando un análisis completo del contexto consolidado.
-            - Integrar todos los puntos de datos, estadísticas, listas y las ideas únicas obtenidas de las MÚLTIPLES FUENTES.
-        2. Utiliza el siguiente formato estricto: **[H{{N}} - X.Y] Título del Encabezado**.
-           - **{{N}}** debe ser el nivel de encabezado HTML (ej. **2** para H2, **3** para H3).
-           - **X.Y** debe ser la numeración decimal jerárquica (ej. 1.0, 1.1, 2.0, 2.1, 3.0, 3.1, 3.1.1, etc.).
-           - **ESTRICTAMENTE NO UTILICES** la sintaxis Markdown (##, ###, *) ni otros símbolos.
-        2. REGLA CLAVE MULTIMEDIA: Basado en el análisis SEO del contexto consolidado, si un encabezado requiere o se beneficia de un elemento multimedia, DEBES incluir el marcador **[MULTIMEDIA: TIPO]** al final de la línea.
-            - TIPO debe ser uno de los siguientes: **VIDEO, FOTO, MAPA, GRAFICO**.
-            - Si no se requiere multimedia, la línea termina después del título.
-        ---
-        **REGLAS DE FORMATO ESTRICTAS Y PROHIBICIONES:**
-        - **PROHIBIDO** incluir secciones, títulos o subtítulos que contengan las palabras "Resumen" o "Conclusión" (o sus variantes en cualquier idioma).
-        -**PROHIBIDO** utilizar emojis, símbolos especiales o caracteres no alfanuméricos en los títulos de la estructura. Utiliza solo texto simple.
-        -**PROHIBIDO** Mencionar de cualquier manera las urls de donde se extrajo la informacion por ninigun motivo.
-        
+            --- CONTEXTO Y OBJETIVO ---
+            Eres un estratega SEO experto, creador de contenido tipo Skyscraper, especializado en blogs turísticos familiares.
+            Tu misión es diseñar una **estructura jerárquica completa y exhaustiva** del cuerpo del artículo titulado:
+            '{title_base}' (tema principal: '{query}').
 
-        **FORMATO DE SALIDA (JSON ESTRICTO REQUERIDO):**
-        {{
-            "structure_markdown": "Estructura detallada con formato [H{{N}} - X.Y] Título.",
-        }}
-        """
+            El texto que recibes a continuación proviene del **análisis consolidado de múltiples páginas líderes en Google**, por lo que contiene ideas clave, subtemas y datos comparativos:
+            ---
+            {consolidated_text}
+            ---
+
+            --- MANDATOS DE ESTRUCTURA ---
+            1. **OBJETIVO PRINCIPAL:** Crear la estructura más completa posible para un blog informativo, orientado a SEO y experiencia de usuario.
+            2. **TIPO DE CONTENIDO:** Guía tipo “Skyscraper” de alta profundidad.
+            3. **NIVELES JERÁRQUICOS:**
+            - Mínimo **8 H2** principales.
+            - Cada H2 debe tener al menos **3 H3**.
+            - Algunos H3 deben tener **H4** para ampliar detalles específicos (datos, consejos, ejemplos, comparativas).
+            - Todos los encabezados deben ser relevantes, únicos y semánticamente diferentes.
+            4. **INTEGRACIÓN DE MULTIMEDIA:** Inmediatamente después de cada encabezado (H2 o H3) que lo requiera, incluye una línea con el siguiente formato exacto:
+            [MULTIMEDIA: TIPO | Descripción SEO detallada para Alt Text]
+            Donde:
+            - TIPO = VIDEO, FOTO, MAPA o GRAFICO.
+            - La descripción SEO debe incluir palabras clave relevantes, contexto visual y atractivo informativo.
+            - Ejemplo correcto:
+                [H3 - 2.1] Mirador nocturno en ICON Park
+                [MULTIMEDIA: FOTO | Vista panorámica nocturna del skyline de Orlando con familias disfrutando de The Wheel]
+
+            5. **FORMATO DE SALIDA (OBLIGATORIO):**
+            - Cada línea corresponde a un encabezado.
+            - El formato exacto es:
+                [H{{N}} - X.Y] Título del Encabezado
+            - {{N}} indica el nivel HTML (2, 3 o 4).
+            - X.Y indica la jerarquía decimal (ejemplo: 1.0, 1.1, 1.1.1, etc.).
+            - No uses Markdown (##, ###, * o guiones).
+            - No uses emojis, símbolos ni URL visibles.
+
+            6. **PROHIBICIONES:**
+            - No incluyas secciones con “Resumen”, “Conclusión” o “Formulario”.
+            - No menciones URLs ni fuentes.
+            - No repitas encabezados ni temas redundantes.
+            - No uses texto decorativo ni numeraciones fuera del formato solicitado.
+
+            7. **AMPLIACIÓN CONTEXTUAL:**
+            Antes de listar los encabezados, el modelo debe razonar internamente y asegurarse de que:
+            - Cubre todos los enfoques detectados en el texto consolidado (histórico, cultural, logístico, experiencial, comparativo).
+            - Integra temas secundarios: gastronomía, transporte, horarios, seguridad, eventos especiales, actividades por zona, etc.
+            - Combina los enfoques de las distintas páginas en una estructura unificada y optimizada.
+
+            --- FORMATO FINAL EXCLUSIVO ---
+            Devuelve **solo** el siguiente objeto JSON, sin texto adicional:
+            {{
+            "structure_markdown": "Estructura detallada con formato [H{{N}} - X.Y] Título."
+            }}
+            """
         
-        # CAMBIO CRÍTICO: Aumento de temperatura para mayor creatividad y detalle.
-        response_json_str = self._llm_generate(prompt, system_message=system_message, temperature=0.8) 
+        response_json_str = self._llm_generate(prompt, temperature=1.0) 
         
         try:
             return self.limpieza_extraccion_json(response_json_str)
         except Exception as e:
-            # Manejo de error para la estructura final
             return {
                 "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e}]"
             }
@@ -239,6 +265,7 @@ class AIService:
             
             # --- NUEVA REGENERACIÓN DE SECCIÓN DE ESTRUCTURA (Devuelve List[str]) ---
             elif req.section_type == 'structure_section': 
+                
                 # Verifica que se hayan enviado los datos necesarios desde el frontend
                 if not req.regenerate_data or 'section_text' not in req.regenerate_data or 'full_structure_markdown' not in req.regenerate_data:
                     raise ValueError("Faltan datos requeridos para la regeneración de la sección de estructura: section_text y full_structure_markdown.")
