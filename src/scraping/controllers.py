@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from typing import Dict, Any 
 from . import models, service
-from .models import AIAnalysisRequest, TitleUpdateRequest
+from .models import AIAnalysisRequest, TitleUpdateRequest, PeticionGeneracionContenido
 
 
 # --- ROUTER DE SCRAPING  ---
@@ -46,3 +46,17 @@ def update_title_and_persist(req: TitleUpdateRequest):
         raise http_e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo al actualizar el título: {str(e)}")
+
+#Generar contenido con IA     
+@router_ai.post("/generate_content", response_model=Dict[str, str])
+def generar_contenido_seccion(req: PeticionGeneracionContenido):
+    """
+    Genera el contenido de la sección de un blog (H2, H3, H4) usando IA.
+    """
+    try:
+        # Llama a la nueva función de servicio en español
+        return service.generar_contenido_seccion_ia(req)
+    except HTTPException as http_e:
+        raise http_e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fallo en el controlador de generación de contenido: {str(e)}")

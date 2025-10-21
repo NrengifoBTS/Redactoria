@@ -9,6 +9,8 @@ from datetime import datetime
 from . import models 
 from pydantic import BaseModel
 import urllib3
+from fastapi import HTTPException
+from .models import PeticionGeneracionContenido
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -237,9 +239,60 @@ class AIService:
              # Si el parseo JSON falla (ej. si el modelo no genera JSON), devolver el texto crudo como una lista de 1.
             return [raw_response.strip()]
         
+    def generar_contenido_seccion(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
+        """
+        Lógica pura para la generación de contenido de una sección específica (H2, H3, H4).
+        """
+        
+        # 1. Extracción y Validación manual de datos desde regenerate_data
+        if not req.regenerate_data:
+             raise HTTPException(status_code=400, detail="regenerate_data es requerido para la generación de contenido.")
+             
+        try:
+            # Asume que estos campos vienen en regenerate_data
+            section_title = req.regenerate_data['section_title']
+            section_level = req.regenerate_data['section_level']
+            full_structure_markdown = req.regenerate_data['full_structure_markdown']
+        except KeyError as e:
+            raise HTTPException(status_code=400, detail=f"Falta el campo requerido en regenerate_data: {e}")
+
+        # 2. Construcción del Prompt
+        prompt = f"""
+        Eres un escritor experto en SEO y un especialista en el tema '{req.query}'.
+        Tu tarea es generar el contenido detallado para la sección con el título: '{section_title}',
+        que pertenece al nivel de encabezado '{section_level}'.
+        
+        SOLO DEVUELVE EL TEXTO DEL CONTENIDO DE LA SECCIÓN SOLICITADA, SIN AÑADIR EL TÍTULO DE LA SECCIÓN NI NINGÚN OTRO ENCABEZADO.
+        El contenido debe ser en español.
+
+        CONTEXTO DE LA ESTRUCTURA DEL BLOG (usa esto para mantener el flujo):
+        {full_structure_markdown}
+
+        REFERENCIA DE CONTENIDO DEL SCRAPING (usa esto como fuente primaria de información y para asegurar la factualidad):
+        {req.consolidated_content}
+
+        Genera el contenido en formato de texto enriquecido usando Markdown (párrafos, listas, negritas) de manera coherente.
+        """
+        
+        try:
+            # LLAMADA AL MÉTODO INTERNO CON self.
+            generated_content = self._llm_generate(
+                prompt=prompt,
+                system_message="Eres un escritor SEO experto que genera contenido detallado para secciones de blogs, manteniendo la coherencia con el contexto provisto.",
+                temperature=0.7 
+            )
+
+            # Retorno para que el frontend sepa que es contenido
+            return {"generated_content": generated_content, "section_type": "content_generation"}
+        
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Fallo en la generación de contenido por IA: {str(e)}")
+
     # --- AQUI SE DECIDE Y SE REALIZA LA GENERACION COMPLETA O REGENERACION DE UNA SOLA SECCION 
+    # service.py (dentro de tu clase de servicio, ej. AnalysisOrchestrator)
+
     def analisis_final_ia(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
-        """Punto de entrada para el análisis final de IA, incluyendo regeneración de secciones."""
+        """Punto de entrada para el análisis final de IA, incluyendo regeneración de secciones (Títulos y Contenido)."""
 
         consolidated_text = req.consolidated_content
         query = req.query
@@ -260,18 +313,17 @@ class AIService:
 
             # --- MANEJO DE SECCIONES PROHIBIDAS ---
             if req.section_type in ['keywords', 'titles']:
-                # Se devuelve un error o se ignora si se intenta regenerar una sección prohibida.
+                # Se devuelve un error si se intenta regenerar una sección prohibida.
                 raise ValueError(f"La regeneración de '{req.section_type}' está deshabilitada ya que se usan los datos proporcionados por el dashboard.")
             
-            # --- NUEVA REGENERACIÓN DE SECCIÓN DE ESTRUCTURA (Devuelve List[str]) ---
+            # --- 1. REGENERACIÓN DE TÍTULOS (ESTRUCTURA) ---
             elif req.section_type == 'structure_section': 
                 
-                # Verifica que se hayan enviado los datos necesarios desde el frontend
+                # Validación de datos para regeneración de estructura
                 if not req.regenerate_data or 'section_text' not in req.regenerate_data or 'full_structure_markdown' not in req.regenerate_data:
                     raise ValueError("Faltan datos requeridos para la regeneración de la sección de estructura: section_text y full_structure_markdown.")
 
-                # Llama al método regenerar_titulos, que ahora devuelve List[str]
-                # Nota: 'content' es una lista de strings (las sugerencias)
+                # Llama al método regenerar_titulos, que debe devolver List[str]
                 content: List[str] = self.regenerar_titulos(
                     consolidated_text=consolidated_text,
                     full_structure_markdown=req.regenerate_data['full_structure_markdown'],
@@ -283,30 +335,50 @@ class AIService:
                     query=query
                 )
             
-            # --- BLOQUE DE RETORNO DE REGENERACIÓN (MODIFICADO) ---
+            # --- 2. NUEVA GENERACIÓN DE CONTENIDO (CUERPO DE TEXTO) ---
+            elif req.section_type == 'content_generation':
+    
+                # 1. Llama al nuevo método, replicando el patrón de self.
+                try:
+                    # Llama a la nueva función especializada de la misma clase.
+                    content_result = self.generar_contenido_seccion(req)
+                    
+                    # El método ya retorna el diccionario {"generated_content": ..., "section_type": ...}
+                    return content_result 
+                
+                except HTTPException as e:
+                    # Re-lanza excepciones HTTP específicas
+                    raise e
+                except Exception as e:
+                    # Captura cualquier error inesperado
+                    raise HTTPException(status_code=500, detail=f"Error en la delegación de generación de contenido: {str(e)}")
+
+            # --- BLOQUE DE RETORNO DE REGENERACIÓN (DESPACHADOR DE RESPUESTAS) ---
             if content is not None:
                 
-                # ** CAMBIO CRÍTICO **
-                # Si 'content' es una lista, se asume que son las sugerencias y se retornan inmediatamente.
+                # ** Retorno de Títulos (Lista de Strings) **
                 if req.section_type == 'structure_section' and isinstance(content, list):
-                    # La clave es 'regenerated_suggestions', que el frontend espera.
+                    # La clave 'regenerated_suggestions' la espera el frontend para las 3 opciones.
                     return {"regenerated_suggestions": content, "section_type": req.section_type}
                 
-                # LÓGICA DE LIMPIEZA DE CONTENIDO SIMPLE (Si 'content' fuera un string)
-                # Esto mantiene la compatibilidad con otras secciones que regeneran un solo string.
+                # ** Retorno de Contenido (String único) **
+                elif req.section_type == 'content_generation' and isinstance(content, str):
+                    # La clave 'generated_content' la espera el frontend para el cuerpo del texto.
+                    return {"generated_content": content, "section_type": req.section_type}
+                
+                # LÓGICA DE LIMPIEZA Y RETORNO DE FALLBACK (Para contenido simple/otros tipos)
                 if isinstance(content, str):
                     content = content.replace('\r\n', '\n').replace('\r', '\n')
                     content = re.sub(r'[^\S\n]+', ' ', content)
                     content = '\n'.join([line.strip() for line in content.split('\n') if line.strip()])
                     content = content.strip()
                     
-                # Retorno de contenido simple (si no es structure_section o si la función devolvió un string de fallback)
                 return {"regenerated_content": content, "section_type": req.section_type}
-            
+                
             else:
                 raise ValueError(f"No se pudo generar contenido para el tipo de sección: {req.section_type}")
 
-        # --- LÓGICA DE GENERACIÓN INICIAL DE ESTRUCTURA COMPLETA ---
+        # --- LÓGICA DE GENERACIÓN INICIAL DE ESTRUCTURA COMPLETA (Si no hay section_type) ---
         analysis_result = self.generar_estructura_seo_final(
             consolidated_text=consolidated_text,
             query=query,
@@ -342,7 +414,6 @@ class AIService:
         return {
             "final_structure_json": analysis_result,
         }
-    
 
 # --- 2. CLASE ContentExtractor: Lógica de Scraping y Fallback ---
 class ContentExtractor:
@@ -393,7 +464,6 @@ class ContentExtractor:
 
     @staticmethod
     def is_relevant_src(src: str | None) -> bool:
-        """Verifica si una URL de fuente multimedia (src) es relevante, excluyendo URLs cortas, data URIs, rastreadores y publicidad."""
         if not src or len(src) < 10 or src.startswith('data:image') or src.startswith('#'):
             return False
         if any(s in src.lower() for s in ['adserve', 'sponsors', 'tracker', 'g-recaptcha', 'pixel', 'comments-area']):
@@ -407,26 +477,44 @@ class ContentExtractor:
         if not text: return ""
         return ContentExtractor.NOISE_PATTERNS.sub(' ', text).strip()
 
-
     @staticmethod
-    def _get_media_info(tag: Tag) -> Dict[str, str] | None: # <<-- CORRECCIÓN APLICADA AQUÍ
-        """Extrae la URL de origen y el texto descriptivo (alt/caption) de un elemento multimedia, manejando atributos de carga perezosa (lazy loading)."""
+    def _get_media_info(tag: Tag) -> Dict[str, str] | None: 
+        """
+        Extrae la URL de origen y el texto descriptivo (alt/caption) de un elemento multimedia, 
+        manejando atributos de carga perezosa, miniaturas de YouTube y contenedores genéricos.
+        """
 
-        PRIMARY_MEDIA_TAGS = ['img', 'picture', 'iframe', 'video', 'figure', 'source'] 
+        PRIMARY_MEDIA_TAGS = ['img', 'picture', 'iframe', 'video', 'figure', 'source']
         
-        if not tag.name in PRIMARY_MEDIA_TAGS and not tag.has_attr('class'): return None
+        # Lista ampliada de atributos de Lazy-Loading y URLs de fondo
+        LAZY_ATTRIBUTES = [
+            'data-src', 'data-original', 'data-url', 'data-lazy-src', 'data-image-src', 
+            'srcset', 'data-srcset', 'data-iframe-src', 'data-lazyload', 'data-large-file',
+            'data-bg-src', 'data-bg', 'data-srcset-mobile' 
+        ]
+        
+        # --- FILTRO DE ENTRADA PERMISIVO ---
+        is_media_tag = tag.name in PRIMARY_MEDIA_TAGS
+        # Detección de la miniatura precargada de YouTube (clase específica)
+        is_youtube_div = tag.name == 'div' and 'ytp-cued-thumbnail-overlay' in tag.get('class', [])
+        # Detección de contenedores genéricos con atributos de carga perezosa
+        is_lazy_container = tag.name in ['div', 'span', 'section'] and any(tag.get(attr) for attr in LAZY_ATTRIBUTES)
+
+        if not is_media_tag and not is_youtube_div and not is_lazy_container:
+            return None
         
         src = tag.get('src')
         
-        if not src and tag.name in ['img', 'picture', 'video', 'iframe', 'source']:
-            LAZY_ATTRIBUTES = ['data-src', 'data-original', 'data-url', 'data-lazy-src', 'data-image-src', 
-                            'srcset', 'data-srcset', 'data-iframe-src', 'data-lazyload', 'data-large-file']
+        # --------------------------------------------------------------------------
+        # 1. LÓGICA DE CARGA PEREZOSA (data-*)
+        # --------------------------------------------------------------------------
+        if not src or (is_lazy_container and not src): 
             for attr in LAZY_ATTRIBUTES:
-
                 if tag.get(attr):
                     src_value = tag.get(attr)
-
-                    if attr in ['srcset', 'data-srcset'] and src_value:
+                    
+                    # Manejo de srcset/data-srcset
+                    if attr in ['srcset', 'data-srcset', 'data-srcset-mobile'] and src_value:
                         try:
                             last_pair = src_value.split(',')[-1].strip()
                             src = last_pair.split(' ')[0]
@@ -435,26 +523,88 @@ class ContentExtractor:
                     else: 
                         src = src_value
                     if src: break
+            
+        # --------------------------------------------------------------------------
+        # 2. DETECCIÓN DE IMÁGENES/VIDEOS EN ATRIBUTO 'STYLE' (Fallo común en blogs)
+        # --------------------------------------------------------------------------
+        if not src and tag.get('style'):
+            style_attr = tag.get('style')
+            
+            # 2a. Búsqueda de background-image: url(...)
+            style_match_img = re.search(r'background-image:\s*url\s*\(["\']?(.+?)["\']?\)', style_attr, re.I)
+            if style_match_img:
+                src = style_match_img.group(1)
+            
+            # 2b. Detección de miniatura de YouTube por estilo si falló la clase
+            elif 'ytp-cued-thumbnail-overlay-image' in tag.get('class', []):
+                match_url = re.search(r'url\("?(.+?)"?\)', style_attr)
+                if match_url:
+                    thumb_url = match_url.group(1).replace('"', '')
+                    id_match = re.search(r'/vi/([a-zA-Z0-9_-]+)/', thumb_url)
+                    if id_match:
+                        src = f"https://www.youtube.com/embed/{id_match.group(1)}"
 
+
+        # --------------------------------------------------------------------------
+        # 3. DETECCIÓN POR CLASE YOUTUBE (Si el src aún está vacío y es el div)
+        # --------------------------------------------------------------------------
+        if is_youtube_div and not src:
+            try:
+                image_div = tag.find('div', class_='ytp-cued-thumbnail-overlay-image')
+                if image_div:
+                    style_attr = image_div.get('style', '')
+                    match_url = re.search(r'url\("?(.+?)"?\)', style_attr)
+                    
+                    if match_url:
+                        thumb_url = match_url.group(1).replace('"', '')
+                        id_match = re.search(r'/vi/([a-zA-Z0-9_-]+)/', thumb_url)
+                        if id_match:
+                            # Creamos la URL de embed del video
+                            src = f"https://www.youtube.com/embed/{id_match.group(1)}"
+            except:
+                pass 
+
+
+        # --------------------------------------------------------------------------
+        # 4. LÓGICA DE DETECCIÓN FINAL Y CLASIFICACIÓN
+        # --------------------------------------------------------------------------
         if src and ContentExtractor.is_relevant_src(src):
-            # Formateo de la información multimedia
+            
             media_type = 'Imagen'; alt_text = tag.get('alt', '')
-            if tag.name in ['iframe']: media_type = 'Video/Mapa'
-            if tag.name in ['video']: media_type = 'Video'
+            
+            # Clasificación para tags multimedia primarios
+            if tag.name in ['iframe'] and any(keyword in src for keyword in ['youtube.com', 'youtu.be', 'vimeo.com', 'maps.google.com']): 
+                media_type = 'Video/Mapa' 
+                alt_text = tag.get('title') or alt_text
+            elif tag.name == 'video' or any(ext in src.lower() for ext in ['.mp4', '.webm', '.ogg']): 
+                media_type = 'Video'
+            
+            # Clasificación para tags contenedores genéricos
+            elif tag.name in ['div', 'span', 'section'] or is_lazy_container:
+                if any(ext in src.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']):
+                    media_type = 'Imagen (Lazy/CSS)'
+                elif any(ext in src.lower() for ext in ['youtube.com', 'youtu.be', 'vimeo.com']):
+                    media_type = 'Video (Lazy/CSS)'
+                else:
+                    media_type = 'Otro Multimedia'
+
+
+            # Intenta obtener el pie de foto (caption)
             caption_text = ''
             search_scope = tag if tag.name == 'figure' else tag.find_parent('figure')
             
             if search_scope:
-                 caption_tag = search_scope.find(
-                     ['figcaption', 'span', 'p'], 
-                     class_=re.compile(r'caption|pie-de-foto|fig-caption|description|credit', re.I)
-                 ) 
-                 caption_text = caption_tag.get_text(strip=True) if caption_tag else ''
+                    caption_tag = search_scope.find(
+                        ['figcaption', 'span', 'p'], 
+                        class_=re.compile(r'caption|pie-de-foto|fig-caption|description|credit', re.I)
+                    ) 
+                    caption_text = caption_tag.get_text(strip=True) if caption_tag else ''
 
             source_text = caption_text if caption_text else alt_text if alt_text else f"Multimedia de tipo {media_type}"
+            
             return {'type': media_type, 'url': src, 'description': source_text, 'alt': alt_text, 'caption': caption_text} 
+        
         return None
-
 
     @staticmethod
     def get_article_main_heading(soup: BeautifulSoup) -> str:
@@ -507,13 +657,13 @@ class ContentExtractor:
         
         if mode == 'robust' or (mode == 'simple' and not temp_content_area):
             
-            # Selectores de contenedores de artículo (LISTA AMPLIADA y AGRESIVA para alta cobertura)
+            # Selectores de contenedores de artículo 
             article_container_selectors = [
                 'div[itemprop*="articleBody"]', '.entry-content', '.post-content', 
                 '.article-body', '.post-body', '.article-main-content', '.td-post-content', 
                 '.post-inner', '.content-wrap', '.single-post-content', 
                 
-                # Selectores Agresivos (para casos como Japonpedia):
+                # Selectores Agresivos
                 '[class*="content"]', '[class*="single"]', '.post', '.article',
                 '.main-content', '#main-content-area', '.main-area',
                 
@@ -547,16 +697,18 @@ class ContentExtractor:
         # ----------------------------------------------------------------------
 
         if temp_content_area:
-            # Lista de etiquetas esenciales que SI deben sobrevivir (Lista Blanca)
-            essential_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'li', 'a', 'strong', 'em', 'blockquote', 'img', 'figure', 'ul', 'ol', 'video', 'table', 'span', 'br']
+            # Lista de etiquetas esenciales que SI deben sobrevivir 
+            essential_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'li', 'a', 'strong', 'em', 'blockquote', 'img', 'figure', 'ul', 'ol', 'video', 'table', 'span', 'br', 'iframe']
             
             for element in temp_content_area.find_all(True):
                 is_noise = False
                 
                 # Criterio C.1: Eliminación por Lista Blanca y Vacío (Protege el contenido esencial)
                 if element.name not in essential_tags:
+                    # Busca sii el elemento tiene un hijo multimedia 
+                    has_media_child = element.find(['img', 'figure', 'iframe', 'video', 'picture'], recursive=False)
                     # Si no es un tag esencial y NO tiene texto significativo
-                    if len(element.get_text(strip=True)) < 50: 
+                    if len(element.get_text(strip=True)) < 50 and not has_media_child: 
                         is_noise = True
 
                 # Criterio C.2: Heurística de Contenedor de Ruido (Clases y Densidad de Enlaces)
@@ -749,7 +901,7 @@ class ContentExtractor:
             soup = BeautifulSoup(response.content, "html.parser")
             
             # Limpieza de etiquetas y selectores irrelevantes (ruido de navegación, publicidad, etc.)
-            for tag in soup(["script", "style", "form", "iframe"]): tag.decompose()
+            for tag in soup(["script", "style", "form"]): tag.decompose()
 
             irrelevant_selectors = [ 
                 # === 1. ESTRUCTURAS GLOBALES Y NAVEGACIÓN ===
@@ -774,7 +926,7 @@ class ContentExtractor:
                 '.reviews-section', '.guide-links', '.related-cities', 
                 '.language-selector', '.currency-selector', 
                 '[class*="selector"]', '[class*="options"]',
-                'input', 'form', 'button', 'iframe', 'script', # Etiquetas de formulario/código/media externa
+                'input', 'form', 'button', 'script', # Etiquetas de formulario/código/media externa
             ]
             for selector in irrelevant_selectors:
                 for element in soup.select(selector):

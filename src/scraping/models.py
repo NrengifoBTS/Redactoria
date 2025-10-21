@@ -35,6 +35,18 @@ class ScrapeResponse(BaseModel):
     consolidated_content: Optional[str] = None 
     log: Optional[List[str]] = None
 
+class PeticionGeneracionContenido(BaseModel):
+    """
+    Modelo para la petición de generación de contenido de una sección específica.
+    """
+    # Se mantienen los nombres en inglés aquí por convención de API/JSON
+    project_id: str = Field(..., alias="projectId")
+    query: str
+    section_title: str = Field(..., description="Título del H2/H3/H4 a generar contenido.")
+    section_level: str = Field(..., description="Nivel del encabezado (H2, H3, H4).")
+    full_structure_markdown: str = Field(..., description="Estructura completa del blog para contexto.")
+    consolidated_content: str = Field(..., description="Contenido consolidado del scraping para referencia.")
+
 class AIAnalysisRequest(BaseModel):
     """Modelo para la petición de análisis IA bajo demanda."""
     query: str
@@ -48,6 +60,8 @@ class AIAnalysisRequest(BaseModel):
     tecnica: Optional[str] = 'SEO'
     acento: Optional[str] = 'neutral'
     tono: Optional[str] = 'profesional'
+
+    max_length: int = Field(default=500, description="Límite aproximado de caracteres para la respuesta de la IA.")
     
     # Campos para la Regeneración 
     section_type: Optional[str] = Field(
@@ -85,6 +99,3 @@ class TitleUpdateRequest(BaseModel):
     old_title: str
     new_title: str
     level: str = Field(..., description="Nivel del encabezado: 'h2' o 'h3'.")
-
-
-
