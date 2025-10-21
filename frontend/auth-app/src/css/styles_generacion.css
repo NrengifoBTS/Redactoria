@@ -304,37 +304,28 @@ select {
    LAYOUT Y ESTILOS ESPECÍFICOS DE LAS CARDS DE CONFIGURACIÓN
    ========================================================== */
 
-/* Contenedor de las 3 tarjetas de Configuración (Debajo de URLs) */
-.config-cards-wrapper {
-  display: flex;
-  gap: 20px;
-  padding: 0 20px 20px 20px;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  margin: 0 auto;
-}
-
-/* Reglas para que las tarjetas de configuración ocupen un tercio del ancho */
 .config-cards-wrapper .analysis-result {
-  flex: 1 1 300px;
-  min-width: 250px;
-  /* Ajustes visuales para que sean tarjetas de información más compactas (Override del padding de 40px) */
-  padding: 25px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  flex: 1 1 100%;
+  min-width: 100%;
 }
 
-.config-cards-wrapper .analysis-result:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
-/* Contenedor de las Tarjetas de Resumen (Query, Intención, Keywords) */
-.summary-cards-container {
-  display: flex;
+.config-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  padding: 20px;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+@media (max-width: 1200px) {
+  .config-detail-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .config-detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ==========================================================
@@ -822,4 +813,16 @@ select {
 }
 .toast-warning {
   background-color: #f59e0b;
+}
+
+.structure-buttons-group button:hover {
+  /* ESTILOS PARA FLECHAS DE MOVIMIENTO (Mover Arriba/Abajo) */
+  background-color: #e6fff3; /* Fondo verde muy claro */
+  color: #00eba7; /* Color del icono: Verde Esmeralda (Éxito) */
+}
+
+/* El estilo de Eliminar (Rojo) se mantiene y sobrescribe lo anterior cuando aplica */
+.structure-buttons-group .btn-delete-section:hover {
+  color: #dc3545; /* Rojo de peligro */
+  background-color: #f8d7da; /* Fondo rojo muy claro */
 }

@@ -453,7 +453,7 @@ class AIService:
         )
 
         # LIMPIEZA Y NORMALIZACIÓN DE LA ESTRUCTURA COMPLETA (Se mantiene sin cambios)
-        MARKDOWN_KEY = 'full_structure_markdown' 
+        MARKDOWN_KEY = 'structure_markdown' 
 
         if MARKDOWN_KEY in analysis_result and isinstance(analysis_result[MARKDOWN_KEY], str):
             markdown_to_clean = analysis_result[MARKDOWN_KEY]
