@@ -228,7 +228,7 @@ def create_template():
         "4": {
             "name": "Bloque 4",
             "type": "fleetcarrusel",
-            "startRow": 23,
+            "startRow": 23    ,
             "endRow": 36,
             "titleRow": 23,
             "descRow": 24,

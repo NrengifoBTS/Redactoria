@@ -366,7 +366,7 @@ class IAService:
                     template_data = {}
                     raw_generated_content = generator.generate_agencies(titulo_limpio, template_data, nuevo_tema, ejemplos)
                     
-                elif block_type == "reviews":
+                elif block_type == "reviews" or block_type == "rentcompanies":
                     template_data = {}
                     raw_generated_content = generator.generate_reviews(titulo_limpio, template_data, nuevo_tema, ejemplos)
                     
@@ -551,7 +551,7 @@ class IAService:
             system_message = f"""
             Eres un traductor de marketing digital.
             Tu trabajo es redactar el contenido de español al siguiente idioma {target_lang_name} con tono comercial, persuasivo y nativo.
-            Responde solo con el texto traducido, sin explicaciones adicionales.
+            Responde solo con el texto traducido, manten las etiquetas html no generes adicionlas o cambies(puedes quitar las etiqutas para traducir y luego ponerlas segun corresponde manteniendo la logica que se tiene en español) ,sin explicaciones adicionales.
             
             Ejemplos de traducción de beneficios al portugués:
             - Seguro de Viaje Gratis: Seguro Viagem Grátis
