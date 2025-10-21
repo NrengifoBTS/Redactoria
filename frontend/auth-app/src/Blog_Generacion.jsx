@@ -44,6 +44,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
   // --- ESTADOS para CONTENIDO ---
   const [sectionContentValue, setSectionContentValue] = useState("");
+  const [wordLimit, setWordLimit] = useState(300);
+  const [contentType, setContentType] = useState("ia_libre");
 
   // --- Estado para la Notificación Toast ---
   const [toast, setToast] = useState(null);
@@ -296,8 +298,30 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     // 1. Establece la sección seleccionada para activar el panel de edición
     setSelectedSectionForRegen(section);
 
-    // 2. Establecer el texto de edición
+    // 2. Establecer el texto de edición (Título)
     setRegenTextareaValue(section.text);
+
+    // 3. Establecer el texto de contenido (Contenido)
+    // Se busca el contenido en el Markdown para asegurar la persistencia.
+    const fullStructureObject = parseMarkdownStructure(tablaEstructuraFinal);
+    const { level, enumeration } = section;
+    const idH2 = enumeration.split(".")[0];
+    const h2Padre = fullStructureObject.find(
+      (item) => item.enumeration === idH2
+    );
+    let contentToEdit = "";
+
+    if (h2Padre) {
+      if (level === "h2") {
+        contentToEdit = h2Padre.content || "";
+      } else if (level === "h3") {
+        const h3Objetivo = h2Padre.children.find(
+          (item) => item.enumeration === enumeration
+        );
+        contentToEdit = h3Objetivo?.content || "";
+      }
+    }
+    setSectionContentValue(contentToEdit);
   };
 
   // Funcion para guardar los titulos
@@ -405,6 +429,18 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
+  // NUEVA FUNCIÓN: Cancelar Edición de Contenido
+  const cancelarEdicionContenido = () => {
+    // 1. Limpieza de UI
+    setSelectedSectionForRegen(null);
+    setSectionContentValue("");
+    setRegenTextareaValue("");
+    setTitleSuggestions([]);
+
+    // 2. Notificación
+    showToast("Edición de contenido cancelada.", "info");
+  };
+
   /**
    * Mueve una sección (H2 con hijos o H3) dentro de la estructura anidada.
    * @param {Object} sectionToMove - La sección (H2 o H3) a mover.
@@ -418,8 +454,10 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
     if (isH2) {
       // LÓGICA DE MOVIMIENTO DE H2 (Mueve toda la sección, incluyendo hijos)
+      // 🔑 CORRECCIÓN: Usar uniqueId en lugar de id (ya que id no se genera)
       const currentIndex = newStructure.findIndex(
-        (item) => item.id === sectionToMove.id
+        // (item) => item.id === sectionToMove.id // ANTERIOR
+        (item) => item.uniqueId === sectionToMove.uniqueId // CORREGIDO
       );
       if (currentIndex === -1) return;
 
@@ -448,10 +486,14 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       if (!parentH2) return;
 
       const h3Children = parentH2.children;
-      const h3CurrentId = sectionToMove.id;
+      // 🔑 CORRECCIÓN: Usar uniqueId en lugar de id
+      // const h3CurrentId = sectionToMove.id; // ANTERIOR
+      const h3CurrentId = sectionToMove.uniqueId; // CORREGIDO
 
+      // 🔑 CORRECCIÓN: Usar uniqueId en lugar de id
       const currentIndex = h3Children.findIndex(
-        (item) => item.id === h3CurrentId
+        // (item) => item.id === h3CurrentId // ANTERIOR
+        (item) => item.uniqueId === h3CurrentId // CORREGIDO
       );
       if (currentIndex === -1) return;
 
@@ -894,12 +936,19 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       return;
     }
 
+    // Validar límite de palabras
+    const finalWordLimit = Math.min(Math.max(wordLimit, 100), 1000);
+    if (wordLimit !== finalWordLimit) {
+      setWordLimit(finalWordLimit); // Corregir el estado si estaba fuera de rango
+      showToast(`Límite de palabras ajustado a ${finalWordLimit}.`, "warning");
+    }
+
     setCargandoIA(true);
     setError(null);
 
     const levelDisplay = selectedSectionForRegen.level.toUpperCase();
     showToast(
-      `Solicitando contenido para el ${levelDisplay}... Esto puede tomar un momento.`,
+      `Solicitando contenido para el ${levelDisplay} con límite de ${finalWordLimit} palabras...`,
       "info"
     );
 
@@ -916,12 +965,13 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       // Tipo de sección que activa la delegación en el backend
       section_type: "content_generation",
 
-      // --- OBJETO regenerate_data CORREGIDO ---
+      // --- Aqui se envian los datos para la regeneracion de contenido  ---
       regenerate_data: {
         section_title: selectedSectionForRegen.text,
         section_level: selectedSectionForRegen.level,
-        // ¡CLAVE! Incluir la estructura completa para el contexto de la IA
         full_structure_markdown: tablaEstructuraFinal,
+        word_limit: finalWordLimit,
+        content_type: contentType,
       },
     };
 
@@ -1670,6 +1720,106 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   seleccionada.
                 </p>
 
+                {/* NUEVO: Límite de Palabras */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: "10px",
+                    gap: "10px",
+                  }}
+                >
+                  <label htmlFor="word-limit" style={{ fontWeight: "bold" }}>
+                    Límite de Palabras (100-1000):
+                  </label>
+                  <input
+                    id="word-limit"
+                    type="number"
+                    min="100"
+                    max="1000"
+                    value={wordLimit}
+                    onChange={(e) =>
+                      setWordLimit(parseInt(e.target.value) || 100)
+                    }
+                    disabled={cargandoIA}
+                    style={{
+                      width: "80px",
+                      padding: "5px",
+                      borderRadius: "4px",
+                      border: "1px solid #ccc",
+                    }}
+                  />
+                </div>
+                {/* FIN NUEVO: Límite de Palabras */}
+                {/* INICIO: Seleccion de formato */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: "10px",
+                    gap: "10px",
+                  }}
+                >
+                  <label htmlFor="content-type" style={{ fontWeight: "bold" }}>
+                    Tipo de Formato:
+                  </label>
+                  <select
+                    id="content-type"
+                    value={contentType}
+                    onChange={(e) => setContentType(e.target.value)}
+                    disabled={cargandoIA}
+                    style={{
+                      padding: "5px",
+                      borderRadius: "4px",
+                      border: "1px solid #ccc",
+                      flexGrow: 1,
+                    }}
+                  >
+                    <option value="ia_libre">
+                      IA Libre (Estructura Creativa)
+                    </option>
+
+                    {/* Opciones Específicas */}
+                    <option value="parrafo_narrativo">
+                      Párrafos / Texto Narrativo
+                    </option>
+                    <option value="lista_pasos">
+                      Lista de Pasos (Guía o Tutorial)
+                    </option>
+                    <option value="lista_caracteristicas">
+                      Lista de Características/Ventajas/Desventajas
+                    </option>
+                    <option value="resumen_conciso">
+                      Resumen Ejecutivo o Conclusión
+                    </option>
+                    <option value="definicion_detallada">
+                      Definición o Concepto Profundo
+                    </option>
+                    <option value="casos_texto">
+                      Casos de Uso o Ejemplos Ilustrativos
+                    </option>
+                    <option value="comparacion_corta">
+                      Comparación Corta / Alternativas
+                    </option>
+                    <option value="analisis_critico">
+                      Análisis Crítico / Proyección
+                    </option>
+                    <option value="pro_y_contra">
+                      Pros y Contras / Vista Balanceada
+                    </option>
+                    <option value="datos_estadisticos">
+                      Datos, Estadísticas y Tendencias
+                    </option>
+                    <option value="mito_vs_realidad">
+                      Mito vs. Realidad / Desmentir Errores
+                    </option>
+                    <option value="linea_tiempo">
+                      Línea de Tiempo / Evolución Histórica
+                    </option>
+                  </select>
+                </div>
+                {/* FIN : Seleccion de formato */}
+
                 <div
                   className="regen-input-area"
                   style={{ marginBottom: "10px" }}
@@ -1687,14 +1837,14 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 <div className="idea-buttons">
                   <button
                     onClick={guardarContenidoLocal}
-                    className="btn-generate "
+                    className="btn-generate"
                     style={{ flexGrow: 1 }}
                     disabled={cargandoIA}
                   >
                     <i className="uil uil-save"></i> Guardar Contenido Local
                   </button>
                   <button
-                    onClick={generarContenidoIA} // <-- Llamada correcta
+                    onClick={generarContenidoIA}
                     className="btn-regenerar btn-content-regen"
                     disabled={cargandoIA || !contenidoConsolidado}
                   >
@@ -1709,6 +1859,15 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                       : "Generar Contenido (IA)"}
                   </button>
                 </div>
+                {/* NUEVO: Botón de Cancelar Edición de Contenido */}
+                <button
+                  onClick={cancelarEdicionContenido}
+                  className="btn-generate btn-cancel"
+                  style={{ marginTop: "10px", width: "100%", height: "45px" }}
+                  disabled={cargandoIA}
+                >
+                  <i className="uil uil-times"></i> Cancelar Edición
+                </button>
               </section>
             )}
 
@@ -1730,7 +1889,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             {(resultadosDisponibles || tablaEstructuraFinal) && (
               <div style={{ marginBottom: "15px" }}>
                 <button
-                  onClick={generarAnalisisIA} // Llama a la función que contacta a la IA
+                  onClick={generarAnalisisIA}
                   className="btn-regenerar"
                   disabled={cargandoIA || !datosFinales}
                   style={{ width: "100%" }}

@@ -22,8 +22,8 @@ class AIService:
     incluyendo resúmenes de bloques y análisis final.
     """
 
-    #MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions" #<-- Compu Alda
-    MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
+    MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions" #<-- Compu Alda
+    #MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
     MODEL_NAME = "openai/gpt-oss-20b"
     DEFAULT_SYSTEM_MESSAGE = "Eres un analista SEO profesional y experimentado. Tu única tarea es generar el contenido solicitado de manera concisa y directa, sin añadir explicaciones ni texto adicional."
 
@@ -38,7 +38,7 @@ class AIService:
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            "temperature": 0.9,
+            "temperature":temperature ,
             "stream": False
         }
         try:
@@ -175,7 +175,7 @@ class AIService:
             }}
             """
         
-        response_json_str = self._llm_generate(prompt, temperature=1.0) 
+        response_json_str = self._llm_generate(prompt, temperature=0.4) 
         
         try:
             return self.limpieza_extraccion_json(response_json_str)
@@ -225,7 +225,7 @@ class AIService:
         """
         
         system_msg = f'Eres un Estratega SEO y Redactor Creativo. Tu única tarea es generar un array JSON de 3 opciones, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
-        raw_response = self._llm_generate(prompt, system_msg, temperature=0.7)
+        raw_response = self._llm_generate(prompt, system_msg, temperature=0.4)
 
         try:
             suggestions = self.limpieza_extraccion_json(raw_response)
@@ -244,49 +244,111 @@ class AIService:
         Lógica pura para la generación de contenido de una sección específica (H2, H3, H4).
         """
         
-        # 1. Extracción y Validación manual de datos desde regenerate_data
+        # 1. Validación de Datos
         if not req.regenerate_data:
              raise HTTPException(status_code=400, detail="regenerate_data es requerido para la generación de contenido.")
              
         try:
-            # Asume que estos campos vienen en regenerate_data
+            # Campos base requeridos desde el frontend (Blog_Generacion.jsx)
             section_title = req.regenerate_data['section_title']
             section_level = req.regenerate_data['section_level']
             full_structure_markdown = req.regenerate_data['full_structure_markdown']
+            required_keywords: List[str] = req.regenerate_data.get('required_keywords', []) 
+            word_limit: int = req.regenerate_data.get('word_limit', None) 
+            content_type: str = req.regenerate_data.get('content_type', 'parrafo_narrativo')
+
         except KeyError as e:
+            # Captura errores si los campos fundamentales faltan
             raise HTTPException(status_code=400, detail=f"Falta el campo requerido en regenerate_data: {e}")
 
-        # 2. Construcción del Prompt
+        # 2. Construcción de Instrucciones Dinámicas para el Prompt
+
+        keyword_instruction = ""
+        if required_keywords and isinstance(required_keywords, list):
+            keywords_str = ', '.join(required_keywords)
+            # **INSTRUCCIÓN CLAVE CONTRA LA REDUNDANCIA:**
+            keyword_instruction = f"""
+            INSTRUCCIÓN CLAVE DE SEO: Debes incluir las siguientes palabras clave en el texto: **{keywords_str}**.
+            Es FUNDAMENTAL que te enfoques **únicamente** en el contexto de la sección '{section_title}' ({section_level}),
+            evitando estrictamente temas y palabras clave que pertenezcan a otros H2/H3 de la estructura general para evitar la redundancia y el canibalismo semántico.
+            """
+
+        word_limit_instruction = ""
+        if word_limit and isinstance(word_limit, int) and 100 <= word_limit <= 1000:
+            word_limit_instruction = f"INSTRUCCIÓN DE EXTENSIÓN: El contenido debe tener una extensión aproximada de **{word_limit}** palabras."
+        elif word_limit:
+            # Mensaje si el límite no es válido (aunque el frontend ya lo validará)
+             word_limit_instruction = "El contenido debe ser de tamaño medio a largo."
+
+        format_instruction = ""
+        
+        if content_type == "lista_pasos":
+            format_instruction = "El contenido debe ser una **lista numerada detallada** (1., 2., 3...) de pasos o instrucciones. Cada paso debe ser conciso, claro y estar en una línea separada."
+        elif content_type == "lista_caracteristicas":
+            format_instruction = "El contenido debe presentarse como una **lista con viñetas** (usando `*` o `-`) que enumere y describa brevemente ventajas, desventajas, características o elementos clave."
+        elif content_type == "resumen_conciso":
+            format_instruction = "El contenido debe ser un **párrafo único y conciso** (no más de 4-5 frases) que sirva como un resumen ejecutivo, una conclusión o un punto clave, con un lenguaje directo y persuasivo."
+        elif content_type == "definicion_detallada":
+            format_instruction = "El contenido debe iniciar con el término o frase en **negrita**, seguido de una definición clara y párrafos explicativos que profundicen en el concepto, su historia o su relevancia."
+        elif content_type == "casos_texto":
+            format_instruction = "El contenido debe enfocarse en proporcionar **múltiples ejemplos o casos de uso prácticos** que ilustren el tema. Cada ejemplo debe estar claramente separado, con su título en negrita y su descripción en un párrafo."
+        elif content_type == "comparacion_corta":
+            format_instruction = "El contenido debe ser una **comparación punto por punto** entre 2 o 3 elementos clave (ej. Producto A vs. Producto B). Usa negritas para destacar los nombres de los elementos y viñetas para contrastar sus características de manera clara."
+        elif content_type == "analisis_critico":
+            format_instruction = "El contenido debe ser un **análisis estructurado en párrafos** con una introducción clara del problema o tema, un desarrollo del argumento central y una proyección o recomendación clara al final. Debe ser objetivo, sintético y basado en hechos."
+        elif content_type == "pro_y_contra":
+            format_instruction = "El contenido debe estar dividido en dos secciones claras: **Pros (Ventajas)** y **Contras (Desventajas)**. Cada sección debe usar una lista con viñetas para enumerar y describir brevemente cada punto de manera equilibrada y separada."
+        elif content_type == "datos_estadisticos":
+            format_instruction = "El contenido debe enfocarse en presentar **datos, cifras y estadísticas** relevantes. Cada dato debe ser presentado en una línea separada, comenzando por el valor numérico en **negrita**, seguido de su explicación o contexto. No uses tablas, solo texto y listas."
+        elif content_type == "mito_vs_realidad":
+            format_instruction = "El contenido debe usar un formato de **Mito vs. Realidad** para desmentir conceptos erróneos. Cada punto debe tener una línea para el **Mito (en negrita)** y la siguiente línea para la **Realidad (en formato de párrafo explicativo)**."
+        elif content_type == "linea_tiempo":
+            format_instruction = "El contenido debe ser una **línea de tiempo cronológica**. Utiliza una lista numerada donde cada punto represente un hito o evento en la secuencia temporal, incluyendo el año o la fecha al inicio de cada punto en **negrita**."
+        else: 
+            format_instruction = "Tu tarea es generar el contenido utilizando el **formato que consideres más apropiado** (párrafos, listas, negritas, etc.) para el tema de la sección. Debes elegir la estructura que mejor comunique la información de manera clara, creativa y efectiva para el lector."
+
+
+        # 3. Construcción del Prompt Principal (Inyectando las instrucciones)
         prompt = f"""
         Eres un escritor experto en SEO y un especialista en el tema '{req.query}'.
         Tu tarea es generar el contenido detallado para la sección con el título: '{section_title}',
         que pertenece al nivel de encabezado '{section_level}'.
         
         SOLO DEVUELVE EL TEXTO DEL CONTENIDO DE LA SECCIÓN SOLICITADA, SIN AÑADIR EL TÍTULO DE LA SECCIÓN NI NINGÚN OTRO ENCABEZADO.
-        El contenido debe ser en español.
+        El contenido debe ser en idioma '{req.idioma}' con acento '{req.acento}' y tono '{req.tono}'.
+
+        {keyword_instruction}
+        {word_limit_instruction}
+
+        --- INSTRUCCIÓN DE FORMATO EXCLUSIVO ---
+        {format_instruction}  <-- Colocado aquí para mayor peso
+        --- FIN INSTRUCCIÓN DE FORMATO ---
 
         CONTEXTO DE LA ESTRUCTURA DEL BLOG (usa esto para mantener el flujo):
         {full_structure_markdown}
 
         REFERENCIA DE CONTENIDO DEL SCRAPING (usa esto como fuente primaria de información y para asegurar la factualidad):
         {req.consolidated_content}
-
-        Genera el contenido en formato de texto enriquecido usando Markdown (párrafos, listas, negritas) de manera coherente.
+        
+        Asegúrate de que la salida respete estrictamente la INSTRUCCIÓN DE FORMATO provista.
         """
-        
-        try:
-            # LLAMADA AL MÉTODO INTERNO CON self.
-            generated_content = self._llm_generate(
-                prompt=prompt,
-                system_message="Eres un escritor SEO experto que genera contenido detallado para secciones de blogs, manteniendo la coherencia con el contexto provisto.",
-                temperature=0.7 
-            )
 
-            # Retorno para que el frontend sepa que es contenido
-            return {"generated_content": generated_content, "section_type": "content_generation"}
         
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Fallo en la generación de contenido por IA: {str(e)}")
+        # 4. Llamada al LLM y Procesamiento
+        # (Aquí se usaría su función _llm_generate)
+        generated_content = self._llm_generate(
+            prompt=prompt,
+            system_message="Eres un escritor SEO profesional.",
+            temperature=0.6
+        )
+
+        return {
+            "generated_content": generated_content,
+            "success": True,
+            "log": "Contenido generado exitosamente."
+        }
+
+
 
     # --- AQUI SE DECIDE Y SE REALIZA LA GENERACION COMPLETA O REGENERACION DE UNA SOLA SECCION 
     # service.py (dentro de tu clase de servicio, ej. AnalysisOrchestrator)
