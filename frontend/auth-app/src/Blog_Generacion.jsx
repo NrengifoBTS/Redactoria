@@ -37,30 +37,10 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   //--- Estados para el flujo manual ---
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [cargandoIA, setCargandoIA] = useState(false);
+  const [seccionRegenerando, setSeccionRegenerando] = useState(null);
   const [selectedSectionForRegen, setSelectedSectionForRegen] = useState(null);
   const [regenTextareaValue, setRegenTextareaValue] = useState("");
-  const [seccionRegenerando, setSeccionRegenerando] = useState(null); // <-- Define 'setSeccionRegenerando'
-  const [titleSuggestions, setTitleSuggestions] = useState([]); // <-- Define 'setTitleSuggestions'
-
-  // --- ESTADOS para CONTENIDO ---
-  const [sectionContentValue, setSectionContentValue] = useState("");
-
-  // --- Estado para la Notificación Toast ---
-  const [toast, setToast] = useState(null);
-
-  /**
-   * Muestra una notificación temporal.
-   * @param {string} message - El mensaje a mostrar.
-   * @param {string} type - Tipo: 'success', 'error', 'info', 'warning'.
-   */
-  const showToast = (message, type = "info") => {
-    setToast({ message, type });
-
-    // Ocultar el toast después de 3 segundos
-    setTimeout(() => {
-      setToast(null);
-    }, 3000);
-  };
+  const [titleSuggestions, setTitleSuggestions] = useState([]);
 
   /**
    * Convierte la estructura de objeto anidada (H2 con H3 hijos) de vuelta a una cadena de Markdown.
@@ -73,13 +53,15 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     let h2Counter = 0;
 
     structure.forEach((h2Item) => {
-      // --- 1. LÓGICA DE H2 ---
+      // 1. Reenumerar H2
       h2Counter++;
       const h2Enumeration = h2Counter.toString();
+
+      // Construir línea H2
       const h2Line = `[H2 - ${h2Enumeration}] ${h2Item.text.trim()}`;
       markdownLines.push(h2Line);
 
-      // 1.1. Agregar Multimedia si existe en H2
+      // 2. Agregar Multimedia si existe en H2
       if (h2Item.multimedia && h2Item.multimediaDescription) {
         markdownLines.push(
           `[MULTIMEDIA: ${
@@ -88,25 +70,17 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         );
       }
 
-      // 1.2. AGREGAR BLOQUE DE CONTENIDO H2 (¡La clave para la persistencia!)
-      if (h2Item.content && h2Item.content.trim()) {
-        // Se usa \n para asegurar que [CONTENIDO] quede en una línea nueva separada
-        markdownLines.push("\n[CONTENIDO]");
-        // Añadimos el contenido limpio (el texto en sí)
-        markdownLines.push(h2Item.content.trim());
-        markdownLines.push(""); // Línea vacía para separación visual
-      }
-
-      // --- 2. LÓGICA DE H3 ---
+      // 3. Procesar H3 hijos
       let h3Counter = 0;
       h2Item.children.forEach((h3Item) => {
         h3Counter++;
         const h3Enumeration = `${h2Enumeration}.${h3Counter}`;
 
+        // Construir línea H3
         const h3Line = `[H3 - ${h3Enumeration}] ${h3Item.text.trim()}`;
         markdownLines.push(h3Line);
 
-        // 2.1. Agregar Multimedia si existe en H3
+        // 4. Agregar Multimedia si existe en H3
         if (h3Item.multimedia && h3Item.multimediaDescription) {
           markdownLines.push(
             `[MULTIMEDIA: ${
@@ -114,70 +88,15 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             } | ${h3Item.multimediaDescription.trim()}]`
           );
         }
-
-        // 2.2. AGREGAR BLOQUE DE CONTENIDO H3
-        if (h3Item.content && h3Item.content.trim()) {
-          markdownLines.push("\n[CONTENIDO]");
-          markdownLines.push(h3Item.content.trim());
-          markdownLines.push(""); // Línea vacía para separación
-        }
       });
-
-      // 3. Separador final para bloques H2
-      // Añadir una línea vacía final (si no hay ya una)
-      if (markdownLines[markdownLines.length - 1] !== "") {
-        markdownLines.push("");
-      }
     });
 
-    // Eliminamos cualquier línea vacía al inicio o al final del resultado
     return markdownLines.join("\n").trim();
   };
 
   // ==============================================================================================================================================
-  // 3. FUNCIONES DE MANEJO DE PROCESOS (Scraping, Cancelación, Utilidades, Agregar)
+  // 3. FUNCIONES DE MANEJO DE PROCESOS (Scraping, Cancelación, Utilidades)
   // ==============================================================================================================================================
-
-  // ---Funcion para la regeneracion de titulos ---
-  const handleSelectNewTitle = (newTitle) => {
-    if (!selectedSectionForRegen || !tablaEstructuraFinal) return;
-
-    // Obtener datos estables de la sección seleccionada
-    const level = selectedSectionForRegen.level.toUpperCase();
-    const enumeration = selectedSectionForRegen.enumeration;
-    const currentMarkdown = tablaEstructuraFinal;
-
-    // 1. Crear el patrón RegEx para reemplazar la línea completa usando la enumeración estable
-    // Se escapa el punto (`.`) en la enumeración (ej. 2.2).
-    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
-
-    // RegEx que apunta al prefijo de la línea usando el nivel y la enumeración
-    const targetRegex = new RegExp(
-      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
-      "m" // Bandera 'm' para multilínea
-    );
-
-    // 2. Construcción de la nueva línea completa (prefijo + nuevo título de la burbuja)
-    // newTitle NO incluye la enumeración (la burbuja solo tiene el texto)
-    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
-
-    // 3. Ejecutar el reemplazo
-    const newStructure = currentMarkdown.replace(targetRegex, newFullLine);
-
-    // 4. Actualizar estados
-    setTablaEstructuraFinal(newStructure);
-    setTitleSuggestions([]);
-
-    setSelectedSectionForRegen((prevSection) => ({
-      ...prevSection,
-      text: newTitle,
-    }));
-
-    // Poner el nuevo título completo en el textarea para edición continua
-    setRegenTextareaValue(newTitle);
-
-    console.log(`[IA - REEMPLAZO] Título reemplazado por: ${newTitle}`);
-  };
 
   const toggleCardVisibility = (cardName) => {
     setCardVisibility((prev) => ({
@@ -201,112 +120,131 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   const parseMarkdownStructure = (markdown) => {
     if (!markdown) return [];
 
-    // Asumimos pre-procesamiento de JSON si aplica...
     let finalStructureString = markdown;
+
     try {
-      const parsedJson = JSON.parse(markdown);
-      if (parsedJson.full_structure_markdown) {
-        finalStructureString = parsedJson.full_structure_markdown;
+      const jsonObject = JSON.parse(markdown);
+      if (jsonObject && jsonObject.structure_markdown) {
+        finalStructureString = jsonObject.structure_markdown;
       }
     } catch (e) {
-      // No es JSON, asumimos que es Markdown plano.
+      // Si falla (porque ya es un string plano), no hacemos NADA.
+      // Esto corrige el bug al evitar el console.error/warning.
     }
 
+    // Dividimos por saltos de línea para procesar encabezados y multimedia por separado
     const lines = finalStructureString.split("\n");
-    const structure = [];
-    let lastH2 = null;
-    let itemActual = null; // Referencia al H2 o H3 actual para adjuntar propiedades
+    const structure = []; // Array principal (solo H2s)
+    let lastH2 = null; // Para rastrear el H2 padre actual
 
     // 1. RegEx para capturar ENCABEZADOS: [H{N} - X.Y] Título del Encabezado
-    const structuredRegex = /^\[(H\d+)\s*-\s*([\d.]*)[\]>]\s*(.*)/i; // 2. RegEx para capturar la línea de MULTIMEDIA
+    const structuredRegex = /^\[(H\d+)\s*-\s*(\d+\.?\d*)]\s*(.*)/i;
+
+    // 2. RegEx para capturar la línea de MULTIMEDIA
     const separateMediaRegex =
       /^\[MULTIMEDIA:\s*(VIDEO|FOTO|MAPA|GRAFICO)\s*\|\s*(.*?)\]\s*$/i;
-    // 3. RegEx para el marcador de CONTENIDO
-    const contentStartRegex = /^\[CONTENIDO\]\s*$/i;
-
-    // Variable de estado para la lectura multilínea
-    let leyendoContenido = false;
 
     for (const line of lines) {
       const trimmedLine = line.trim();
       const matchStructured = trimmedLine.match(structuredRegex);
       const matchMedia = trimmedLine.match(separateMediaRegex);
-      const matchContentStart = trimmedLine.match(contentStartRegex);
 
       if (matchStructured) {
-        // --- 1. ENCABEZADO (H2/H3) ---
-        leyendoContenido = false; // Detener lectura de contenido anterior
-
+        // Es una línea de encabezado (H2, H3). Crea un nuevo elemento.
         const level = matchStructured[1].toLowerCase();
         const enumeration = matchStructured[2];
         const text = matchStructured[3].trim();
         const newItem = {
-          level,
-          enumeration,
-          text,
+          id: enumeration, // ID base (usaremos un ID más robusto para H3 después)
+          text: text, // <-- SÓLO TEXTO PURO (Soluciona duplicación)
+          level: level,
+          enumeration: enumeration,
           multimedia: null,
           multimediaDescription: null,
-          content: null, // <--- CLAVE: Inicializar la propiedad content
-          children: [],
-          uniqueId: `${level}-${enumeration}`,
         };
 
         if (level === "h2") {
+          newItem.children = []; // Inicializar array de hijos para H2
           structure.push(newItem);
-          lastH2 = newItem;
-          itemActual = newItem;
+          lastH2 = newItem; // Establecer este H2 como el padre actual
         } else if (level === "h3" && lastH2) {
+          // Es un H3 y tenemos un H2 padre. Lo añadimos a los hijos.
+          newItem.id = `${lastH2.enumeration}-${enumeration}`; // ID robusto (e.g., "1-1.1")
           lastH2.children.push(newItem);
-          itemActual = newItem;
-        } else {
-          itemActual = null;
         }
-      } else if (matchMedia && itemActual) {
-        // --- 2. MULTIMEDIA ---
-        leyendoContenido = false; // Detener lectura de contenido
-        itemActual.multimedia = matchMedia[1].toUpperCase();
-        itemActual.multimediaDescription = matchMedia[2].trim();
-      } else if (matchContentStart && itemActual) {
-        // --- 3. INICIO DE BLOQUE DE CONTENIDO ---
-        leyendoContenido = true;
-        itemActual.content = ""; // Inicializar la propiedad para acumular el texto
-      } else if (leyendoContenido && itemActual) {
-        // --- 4. LEYENDO CONTENIDO MULTILÍNEA ---
-        // Acumular la línea completa (sin trim) para preservar formato/espacios.
-        // Añadimos un salto de línea antes, excepto si es la primera línea que se agrega.
-        itemActual.content +=
-          (itemActual.content.length > 0 ? "\n" : "") + line;
+      } else if (matchMedia) {
+        // Es una línea de multimedia. Adjunta al ÚLTIMO encabezado creado.
+        const multimediaType = matchMedia[1].toUpperCase();
+        const multimediaDescription = matchMedia[2].trim();
+
+        let itemToAttach = null;
+
+        if (lastH2) {
+          // Adjuntar al último H3 si existe, o al H2 si no hay H3.
+          const lastH3 = lastH2.children[lastH2.children.length - 1];
+          itemToAttach = lastH3 || lastH2;
+        } else if (structure.length > 0) {
+          itemToAttach = structure[structure.length - 1];
+        }
+
+        if (itemToAttach) {
+          itemToAttach.multimedia = multimediaType;
+          itemToAttach.multimediaDescription = multimediaDescription;
+        }
       }
-      // Si la línea es vacía o no coincide con un marcador, simplemente se omite.
     }
-
-    // Limpieza final de contenido: eliminar saltos de línea y espacios en blanco al inicio/final
-    structure.forEach((h2) => {
-      if (h2.content) h2.content = h2.content.trim();
-      h2.children.forEach((h3) => {
-        if (h3.content) h3.content = h3.content.trim();
-      });
-    });
-
     return structure;
   };
 
   // Funcion que Maneja la selección del título en el StructureRenderer
-  const handleSectionSelect = (section, event) => {
-    // 1. Establece la sección seleccionada para activar el panel de edición
+  const handleSectionSelect = (section) => {
+    // Establece la sección seleccionada para activar el panel de edición
     setSelectedSectionForRegen(section);
 
-    // 2. Establecer el texto de edición
-    setRegenTextareaValue(section.text);
+    let textToEdit = section.text;
+
+    // 1. Crear una expresión regular para encontrar el prefijo [H2 - X] o [H3 - X.Y]
+    // Usamos el nivel y la enumeración específicos para ser precisos.
+    const enumeration = section.enumeration.replace(/\./g, "\\."); // Escapar puntos
+
+    // Este patrón busca: [H2 - X] o [H3 - X.Y] al inicio de la línea.
+    const prefixRegex = new RegExp(
+      `^\\s*\\[${section.level.toUpperCase()}\\s*-\\s*${enumeration}\\]\\s*`,
+      "i"
+    );
+
+    // 2. Obtener la línea de Markdown completa de la sección
+    // Esto es necesario para manejar la línea de multimedia.
+    const lines = tablaEstructuraFinal.split("\n");
+    let fullSectionLine = "";
+
+    // Encontrar la línea que contiene el prefijo
+    for (const line of lines) {
+      if (line.match(prefixRegex)) {
+        fullSectionLine = line;
+        break;
+      }
+    }
+
+    // 3. Obtener el texto del título PURO (eliminando el prefijo)
+    // Usamos la línea completa que encontramos y le quitamos el prefijo
+    if (fullSectionLine) {
+      // Reemplaza el prefijo (ej: "[H2 - 1] ") por nada, dejando solo el título
+      textToEdit = fullSectionLine.replace(prefixRegex, "").trim();
+    }
+
+    // 5. Establecer el texto de edición sin el número de sección
+    setRegenTextareaValue(textToEdit);
+
+    // Limpiar sugerencias antiguas
+    setTitleSuggestions([]);
   };
 
-  // Funcion para guardar los titulos
   const handleGuardarCambiosTitulo = () => {
     // 1. Validaciones
     if (!selectedSectionForRegen || !regenTextareaValue) {
-      showToast(
-        "ERROR: No se ha seleccionado una sección o el nuevo título está vacío.",
-        "error"
+      console.error(
+        "ERROR: No se ha seleccionado una sección o el nuevo título está vacío."
       );
       return;
     }
@@ -334,9 +272,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
     // 4. Verificación y Actualización
     if (newStructureString === currentMarkdown) {
-      showToast(
-        "ERROR CRÍTICO: Falló la sustitución. La RegEx no encontró el título con los marcadores de nivel.",
-        "error"
+      console.error(
+        "ERROR CRÍTICO: Falló la sustitución. La RegEx no encontró el título con los marcadores de nivel."
       );
     } else {
       setTablaEstructuraFinal(newStructureString);
@@ -346,62 +283,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       }));
 
       setRegenTextareaValue(newTitle);
-      showToast(" Edición local del título guardada exitosamente.", "success");
-    }
-  };
 
-  //Funcion para guardar el contenido de los titulos o subtitulos
-  const guardarContenidoLocal = () => {
-    if (!selectedSectionForRegen) {
-      showToast(
-        "ERROR: No hay una sección seleccionada para guardar el contenido.",
-        "error"
-      );
-      return;
-    }
-
-    const nuevoContenido = sectionContentValue.trim();
-
-    // 1. Obtener la estructura actual como objeto
-    let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
-    const { level, enumeration } = selectedSectionForRegen;
-
-    // 2. Encontrar y actualizar el objeto en el array anidado
-    const idH2 = enumeration.split(".")[0];
-    const h2Padre = nuevaEstructura.find((item) => item.enumeration === idH2);
-
-    if (h2Padre) {
-      if (level === "h2") {
-        h2Padre.content = nuevoContenido;
-      } else if (level === "h3") {
-        const h3Objetivo = h2Padre.children.find(
-          (item) => item.enumeration === enumeration
-        );
-        if (h3Objetivo) {
-          h3Objetivo.content = nuevoContenido;
-        }
-      }
-    }
-
-    // 3. Convertir la estructura modificada de vuelta a Markdown
-    // USA EL NOMBRE REAL DE TU FUNCIÓN DE ESCRITURA
-    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
-
-    // 4. ACTUALIZAR EL ESTADO PRINCIPAL (¡Esto fuerza la actualización de la vista!)
-    setTablaEstructuraFinal(nuevoMarkdown);
-
-    // 5. Limpieza de UI
-    setSelectedSectionForRegen(null);
-    setSectionContentValue("");
-    setRegenTextareaValue("");
-
-    if (!nuevoContenido) {
-      showToast("Contenido de la sección borrado localmente.", "success");
-    } else {
-      showToast(
-        " Contenido de la sección guardado localmente y actualizado.",
-        "success"
-      );
+      console.log("Sustitución local exitosa.");
     }
   };
 
@@ -476,190 +359,49 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     setTablaEstructuraFinal(newMarkdown);
   };
 
-  /**
-   * Maneja acciones de Mover y Eliminar, mostrando un toast de confirmación.
-   */
-  const handleSectionAction = (action, section, direction = null) => {
-    switch (action) {
-      case "move":
-        handleMoveSection(section, direction);
-        showToast(
-          `Sección ${section.enumeration} movida ${
-            direction === "UP" ? "hacia arriba" : "hacia abajo"
-          } correctamente.`,
-          "info"
-        );
-        break;
-      case "delete":
-        // Usar window.confirm para acciones destructivas
-        if (
-          window.confirm(
-            ` ¿Estás seguro de que quieres ELIMINAR la sección ${section.enumeration}: "${section.text}" y todas sus subsecciones?`
-          )
-        ) {
-          eliminarSeccion(section);
-          showToast(
-            `Sección ${section.enumeration} eliminada correctamente.`,
-            "success"
-          );
-        }
-        break;
-      default:
-        console.warn("Acción de sección no reconocida:", action);
-    }
-  };
-
   // ---Funcion para eliminar una seccion
   const eliminarSeccion = (sectionToDelete) => {
-    // Validar si hay algo para eliminar
     if (!sectionToDelete || !tablaEstructuraFinal) {
-      showToast("Error: No hay sección seleccionada para eliminar.", "error");
       return;
     }
 
-    // Convertir el Markdown a la estructura de objetos para manipularla
-    let parsedStructure = parseMarkdownStructure(tablaEstructuraFinal);
-    let newStructure = [];
-    const targetId = sectionToDelete.uniqueId;
-    const level = sectionToDelete.level;
+    const { level, id, enumeration } = sectionToDelete;
+    let newStructure = parseMarkdownStructure(tablaEstructuraFinal);
+
+    if (selectedSectionForRegen?.id === id) {
+      setSelectedSectionForRegen(null);
+      setRegenTextareaValue("");
+      setTitleSuggestions([]);
+    }
 
     if (level === "h2") {
-      // 1.  ELIMINAR H2: Simplemente filtramos el array principal para excluir el H2.
-      // Esto elimina automáticamente todos los H3 que estaban anidados dentro.
-      newStructure = parsedStructure.filter(
-        (item) => item.uniqueId !== targetId
-      );
+      // Caso H2: Borra toda la sección (H2 + H3 hijos)
+      newStructure = newStructure.filter((item) => item.id !== id);
     } else if (level === "h3") {
-      // 2. ELIMINAR H3: Debemos encontrar el H2 padre y filtrar solo sus hijos.
+      // Caso H3: Borra solo el H3 de su H2 padre
+      const h2IdMatch = enumeration.split(".")[0];
+      const parentH2 = newStructure.find(
+        (item) => item.enumeration === h2IdMatch
+      );
 
-      // 2a. Obtener la enumeración del H2 padre (Ej: si H3 es "1.2", el padre es "1").
-      const parentH2Enumeration = sectionToDelete.enumeration.split(".")[0];
-
-      // 2b. Mapear la estructura para encontrar y modificar SOLO el H2 padre
-      newStructure = parsedStructure.map((h2Item) => {
-        if (h2Item.enumeration === parentH2Enumeration) {
-          // Hemos encontrado el H2 padre:
-
-          // Filtramos su array de hijos para EXCLUIR el H3 que coincide con el ID.
-          const newChildren = h2Item.children.filter(
-            (h3Item) => h3Item.uniqueId !== targetId
-          );
-
-          // Retornamos un NUEVO objeto H2 (inmutabilidad) con los hijos filtrados
-          return { ...h2Item, children: newChildren };
-        }
-
-        // Si no es el H2 padre, lo dejamos sin cambios.
-        return h2Item;
-      });
-    } else {
-      showToast("Nivel de sección no reconocido para eliminación.", "error");
-      return;
+      if (parentH2) {
+        // Filtra los hijos, eliminando el H3 con el ID coincidente
+        parentH2.children = parentH2.children.filter((item) => item.id !== id);
+      }
     }
 
-    // 3. Actualizar el estado
+    // 2. Convertir la estructura anidada modificada de vuelta a Markdown
+    // La función de conversión se encarga de reenumerar implícitamente
     const newMarkdown = convertStructureToMarkdown(newStructure);
+
+    // 3. Actualizar estado
     setTablaEstructuraFinal(newMarkdown);
-    setSelectedSectionForRegen(null); // Limpiar la selección
-    showToast(
-      `Sección eliminada correctamente. La estructura ha sido re-enumerada.`,
-      "success"
+
+    console.log(
+      `[ELIMINACIÓN] Sección ${level.toUpperCase()} ${enumeration} eliminada y estructura reenumerada.`
     );
   };
 
-  // --- Funcion para agregar secciones de H2
-  const agregarSeccionH2 = () => {
-    // 1. Obtener la estructura actual (Array Anidado)
-    const estructuraActual = parseMarkdownStructure(tablaEstructuraFinal);
-
-    // 2. Crear un ID y un texto temporal. La numeración real se corrige en convertStructureToMarkdown.
-    const nuevoIdH2 = `nuevo-${Date.now()}`;
-    const nuevoTextoH2 = "Nuevo Título de Sección (H2)";
-
-    // 3. Crear el objeto de la nueva sección H2
-    const nuevoElementoH2 = {
-      id: nuevoIdH2,
-      text: nuevoTextoH2,
-      level: "h2",
-      enumeration: "0", // Temporal
-      multimedia: null,
-      multimediaDescription: null,
-      children: [], // Es un H2, debe tener un array de hijos
-    };
-
-    // 4. Agregar el nuevo H2 al final del array principal
-    const nuevaEstructura = [...estructuraActual, nuevoElementoH2];
-
-    // 5. Convertir la nueva estructura anidada de vuelta a Markdown y actualizar el estado.
-    // ESTA FUNCIÓN SE ENCARGA DE REENUMERAR todo correctamente.
-    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
-    setTablaEstructuraFinal(nuevoMarkdown);
-
-    showToast(
-      " Sección H2 añadida exitosamente al final de la estructura.",
-      "success"
-    );
-  };
-
-  // --- Funcion para agregar subsecciones de H3 en el H2
-  const agregarSubseccionH3 = () => {
-    // 1. Validar la selección
-    if (!selectedSectionForRegen || !tablaEstructuraFinal) {
-      showToast(
-        "ERROR: Debe seleccionar una sección H2 o H3 para añadir un subtítulo.",
-        "error"
-      );
-      return;
-    }
-
-    // 2. Obtener la estructura actual como objeto
-    let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
-    const { enumeration } = selectedSectionForRegen;
-
-    // 3. Determinar la enumeración del padre H2.
-    // Si la enumeración es "1" o "2", idH2Padre es "1" o "2".
-    // Si la enumeración es "1.2", idH2Padre es "1".
-    const idH2Padre = enumeration.split(".")[0];
-
-    // 4. 🔎 Encontrar el H2 padre en el array principal.
-    const h2Padre = nuevaEstructura.find(
-      (item) => item.enumeration === idH2Padre
-    );
-
-    if (!h2Padre) {
-      showToast(
-        "ERROR: No se pudo encontrar la sección H2 padre para agregar el H3.",
-        "error"
-      );
-      return;
-    }
-
-    // 5. Crear el nuevo H3
-    const newH3 = {
-      level: "h3",
-      uniqueId: `h3-${Date.now()}`, // ID Único
-      text: "Nueva Subsección H3",
-      multimedia: null,
-      multimediaDescription: null,
-      content: null,
-    };
-
-    // 6. Insertar el nuevo H3 en la lista de hijos del H2 padre
-    // La función convertStructureToMarkdown se encargará de re-enumerar
-    h2Padre.children.push(newH3);
-
-    // 7. Convertir la estructura modificada de vuelta a Markdown y actualizar el estado
-    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
-    setTablaEstructuraFinal(nuevoMarkdown);
-
-    // Opcional: Deseleccionar la sección o seleccionar la nueva.
-    // setSelectedSectionForRegen(newH3);
-
-    showToast(
-      "Subsección H3 agregada. Se ha re-enumerado la estructura.",
-      "success"
-    );
-  };
   // --- Función Principal de Scraping ---
   const ejecutarScraping = async () => {
     // 1. Resetear estados al iniciar
@@ -670,6 +412,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     setContenidoConsolidado(null);
     setSelectedSectionForRegen(null);
     setRegenTextareaValue("");
+    setTitleSuggestions([]);
 
     console.clear();
     console.log("[SCRAPING] Iniciando nueva ejecución de scraping...");
@@ -685,7 +428,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       .filter((line) => line.length > 0);
     const consulta = lineasConsulta[0];
     const urls = lineasConsulta.slice(1);
-    const numResultados = urls.length > 0 ? urls.length : 3;
+    const numResultados = urls.length > 0 ? urls.length : 3; //<--- En esta parte se debe cambiar para ver cuantas urls se van a usar
 
     if (!consulta || numResultados < 1) {
       const msg =
@@ -805,6 +548,47 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
+  // ---Funcion para la regeneracion de titulos ---
+  const handleSelectNewTitle = (newTitle) => {
+    if (!selectedSectionForRegen || !tablaEstructuraFinal) return;
+
+    // Obtener datos estables de la sección seleccionada
+    const level = selectedSectionForRegen.level.toUpperCase();
+    const enumeration = selectedSectionForRegen.enumeration;
+    const currentMarkdown = tablaEstructuraFinal;
+
+    // 1. Crear el patrón RegEx para reemplazar la línea completa usando la enumeración estable
+    // Se escapa el punto (`.`) en la enumeración (ej. 2.2).
+    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
+
+    // RegEx que apunta al prefijo de la línea usando el nivel y la enumeración
+    const targetRegex = new RegExp(
+      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
+      "m" // Bandera 'm' para multilínea
+    );
+
+    // 2. Construcción de la nueva línea completa (prefijo + nuevo título de la burbuja)
+    // newTitle NO incluye la enumeración (la burbuja solo tiene el texto)
+    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
+
+    // 3. Ejecutar el reemplazo
+    const newStructure = currentMarkdown.replace(targetRegex, newFullLine);
+
+    // 4. Actualizar estados
+    setTablaEstructuraFinal(newStructure);
+    setTitleSuggestions([]);
+
+    setSelectedSectionForRegen((prevSection) => ({
+      ...prevSection,
+      text: newTitle,
+    }));
+
+    // Poner el nuevo título completo en el textarea para edición continua
+    setRegenTextareaValue(newTitle);
+
+    console.log(`[IA - REEMPLAZO] Título reemplazado por: ${newTitle}`);
+  };
+
   // ==============================================================================================================================================
   // 4. FUNCIONES DE ANÁLISIS Y REGENERACIÓN DE IA
   // ==============================================================================================================================================
@@ -874,126 +658,10 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
       setTablaEstructuraFinal(structureMarkdown);
 
-      showToast("✨ Estructura generada por IA exitosamente.", "success");
+      console.log("[IA] FASE 4 completada exitosamente.");
     } catch (err) {
       console.error("[IA] Error al generar análisis de IA:", err);
       setError(`Error en la generación de IA: ${err.message}. Revise logs.`);
-    } finally {
-      setCargandoIA(false);
-    }
-  };
-
-  // Funcion generacion de contenido
-  const generarContenidoIA = async () => {
-    // Aseguramos que haya una sección seleccionada y el contenido consolidado para la IA
-    if (!selectedSectionForRegen || !contenidoConsolidado) {
-      showToast(
-        "ERROR: Faltan datos clave (Sección o Contenido Consolidado).",
-        "error"
-      );
-      return;
-    }
-
-    setCargandoIA(true);
-    setError(null);
-
-    const levelDisplay = selectedSectionForRegen.level.toUpperCase();
-    showToast(
-      `Solicitando contenido para el ${levelDisplay}... Esto puede tomar un momento.`,
-      "info"
-    );
-
-    // 1. CONSTRUCCIÓN DEL PAYLOAD PARA EL BACKEND
-    const payload = {
-      // Campos requeridos por AIAnalysisRequest
-      query: datosFinales.query,
-      consolidated_content: contenidoConsolidado,
-      keywords: datosFinales.keywords || [],
-      idioma: datosFinales.idioma,
-      acento: datosFinales.acento,
-      tono: datosFinales.tono,
-
-      // Tipo de sección que activa la delegación en el backend
-      section_type: "content_generation",
-
-      // --- OBJETO regenerate_data CORREGIDO ---
-      regenerate_data: {
-        section_title: selectedSectionForRegen.text,
-        section_level: selectedSectionForRegen.level,
-        // ¡CLAVE! Incluir la estructura completa para el contexto de la IA
-        full_structure_markdown: tablaEstructuraFinal,
-      },
-    };
-
-    try {
-      // 2. LLAMADA A LA API
-      const response = await fetch(URL_API_IA, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Error HTTP: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      // 3. PROCESAMIENTO E INTEGRACIÓN DEL RESULTADO
-      if (result.generated_content) {
-        const nuevoContenido = result.generated_content.trim();
-        const { level, enumeration } = selectedSectionForRegen;
-
-        // 3.1. Obtener la estructura actual (Objeto)
-        // USAMOS parseMarkdownStructure para leer el Markdown existente
-        let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
-
-        // 3.2. Encontrar y actualizar la sección con el nuevo contenido
-        const idH2 = enumeration.split(".")[0];
-        const h2Padre = nuevaEstructura.find(
-          (item) => item.enumeration === idH2
-        );
-
-        if (h2Padre) {
-          if (level === "h2") {
-            h2Padre.content = nuevoContenido;
-          } else if (level === "h3") {
-            const h3Objetivo = h2Padre.children.find(
-              (item) => item.enumeration === enumeration
-            );
-            if (h3Objetivo) {
-              h3Objetivo.content = nuevoContenido;
-            }
-          }
-        }
-
-        // 3.3. Convertir la estructura modificada de vuelta a Markdown
-        // USAMOS convertStructureToMarkdown para escribir el nuevo Markdown
-        const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
-
-        // 3.4. ACTUALIZAR EL ESTADO (¡Esto actualiza la vista del blog!)
-        setTablaEstructuraFinal(nuevoMarkdown);
-
-        // 3.5. Mostrar el contenido en el editor para revisión
-        setSectionContentValue(nuevoContenido);
-
-        showToast(
-          "✨ Contenido generado por IA y aplicado al editor.",
-          "success"
-        );
-      } else {
-        throw new Error(
-          "Respuesta de IA inesperada. No se encontró el contenido."
-        );
-      }
-    } catch (err) {
-      console.error("Error al generar contenido con IA:", err);
-      setError(`Error al generar contenido: ${err.message}`);
-      showToast(
-        ` Error al solicitar contenido a la IA: ${err.message}`,
-        "error"
-      );
     } finally {
       setCargandoIA(false);
     }
@@ -1148,7 +816,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     structure,
     onSelect,
     selectedSection,
-    onAction, // Prop unificado para acciones (move/delete)
+    onDelete,
+    onMove,
   }) => {
     if (!structure || structure.length === 0) {
       return (
@@ -1159,147 +828,130 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
 
     return (
-      // La lista principal <ul>
+      // clase única para el contenedor de la lista
       <ul className="structure-list">
-        {structure.map((item) => {
+        {structure.map((item, index) => {
           const isH2 = item.level === "h2";
 
-          // Retorna el <li> que contiene todos los elementos de la sección
           return (
-            <li
-              // 🔑 CORRECCIÓN KEY: Se mueve la key al <li>, que es el elemento raíz de la iteración.
-              key={item.uniqueId || item.enumeration}
-              className={`
-                            structure-item
-                            ${isH2 ? "structure-item-h2" : "structure-item-h3"}
-                            ${
-                              selectedSection?.uniqueId === item.uniqueId
-                                ? "structure-item-selected"
-                                : ""
-                            }
-                        `}
-              title={`Haga click en el texto para editar este ${item.level.toUpperCase()}`}
-            >
-              {/* CONTENEDOR PRINCIPAL DEL TEXTO Y BOTONES */}
-              <div className="structure-content-wrapper">
-                {/* Área que maneja la selección al hacer click en el texto */}
-                <div
-                  className="structure-text-area"
-                  onClick={(e) => onSelect(item, e)}
-                  style={{ flexGrow: 1, cursor: "pointer" }}
-                >
-                  {/* 1. Ícono para distinguir H2 y H3 visualmente */}
-                  <span className="structure-icon-wrapper">
-                    {isH2 ? (
-                      <i className="uil uil-align-left-h structure-icon-h2"></i>
-                    ) : (
-                      <i className="uil uil-corner-down-right structure-icon-h3"></i>
-                    )}
-                  </span>
-                  {/* 2. Enumeración y Texto del encabezado */}
-                  <span style={{ fontWeight: "bold", marginRight: "8px" }}>
-                    {item.enumeration}
-                  </span>
-                  {item.text}
-                </div>
-                {/* GRUPO DE BOTONES DE ACCIÓN (Mover/Eliminar) */}
-                <div className="structure-buttons-group">
-                  {/* Mover Arriba */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAction("move", item, "UP");
-                    }}
-                    className="btn-move-up"
-                    title="Mover Arriba"
+            <React.Fragment key={item.id}>
+              <li
+                // clases específicas para la jerarquía y la selección
+                className={`
+                  structure-item
+                  ${isH2 ? "structure-item-h2" : "structure-item-h3"}
+                  ${
+                    selectedSection?.id === item.id
+                      ? "structure-item-selected"
+                      : ""
+                  }
+                `}
+                title={`Haga click en el texto para editar o regenerar este ${item.level.toUpperCase()}`}
+              >
+                <div className="structure-content-wrapper">
+                  {/* Contenedor que maneja la selección (click en el texto) */}
+                  <div
+                    className="structure-text-area"
+                    onClick={() => onSelect(item)}
+                    style={{ flexGrow: 1, cursor: "pointer" }}
                   >
-                    <i className="uil uil-arrow-up"></i>
-                  </button>
-                  {/* Mover Abajo */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAction("move", item, "DOWN");
+                    {/* 1. Ícono para distinguir H2 y H3 visualmente */}
+                    <span className="structure-icon-wrapper">
+                      {isH2 ? (
+                        <i className="uil uil-align-left-h structure-icon-h2"></i>
+                      ) : (
+                        <i className="uil uil-corner-down-right structure-icon-h3"></i>
+                      )}
+                    </span>
+                    {/* 2. Enumeración y Texto del encabezado (AQUÍ ESTABA EL ERROR) */}
+                    <span style={{ fontWeight: "bold", marginRight: "8px" }}>
+                      {item.enumeration}
+                    </span>
+                    {item.text}
+                  </div>
+                  <div className="structure-buttons-group">
+                    {/* 3. BOTONES DE MOVIMIENTO (NUEVOS) */}
+                    <button
+                      className="btn-move-structure"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMove(item, "UP");
+                      }}
+                      title={`Mover ${item.level.toUpperCase()} hacia arriba`}
+                    >
+                      <i className="uil uil-arrow-up"></i>
+                    </button>
+                    <button
+                      className="btn-move-structure"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMove(item, "DOWN");
+                      }}
+                      title={`Mover ${item.level.toUpperCase()} hacia abajo`}
+                    >
+                      <i className="uil uil-arrow-down"></i>
+                    </button>
+
+                    {/* 4. Botón de ELIMINAR */}
+                    <button
+                      className="btn-delete-structure"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Evita que se active el onSelect del área de texto
+                        onDelete(item); // Llama a la función de eliminación
+                      }}
+                      title={`Eliminar este ${item.level.toUpperCase()} y su contenido anidado`}
+                      style={{
+                        marginLeft: "10px",
+                        padding: "5px 8px",
+                        backgroundColor: "#dc3545",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        flexShrink: 0, // Evita que el botón se comprima
+                      }}
+                    >
+                      <i className="uil uil-trash-alt"></i>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 5. Bloque de recomendación SEO (DIV) en línea SEPARADA */}
+                {item.multimediaDescription && (
+                  <div
+                    className="multimedia-recommendation-seo"
+                    style={{
+                      marginTop: "10px",
+                      padding: "8px 12px",
+                      borderLeft: "4px solid #f29727",
+                      backgroundColor: "#fff8f0",
+                      fontSize: "0.9em",
+                      color: "#333",
                     }}
-                    className="btn-move-down"
-                    title="Mover Abajo"
                   >
-                    <i className="uil uil-arrow-down"></i>
-                  </button>
-                  {/* Eliminar */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAction("delete", item);
-                    }}
-                    className="btn-delete-section"
-                    title="Eliminar Sección"
-                  >
-                    <i className="uil uil-trash-alt"></i>
-                  </button>
-                </div>
-              </div>
+                    <i
+                      className="uil uil-search-alt"
+                      style={{ marginRight: "8px", color: "#f29727" }}
+                    ></i>
+                    <strong>RECOMENDACIÓN SEO ({item.multimedia}):</strong>{" "}
+                    {item.multimediaDescription}
+                  </div>
+                )}
+              </li>
 
-              {/* 📝 CORRECCIÓN VISUAL: Bloque de previsualización del CONTENIDO */}
-              {item.content && item.content.trim() && (
-                <div
-                  className="content-preview-block"
-                  style={{
-                    marginTop: "10px",
-                    padding: "8px 12px",
-                    borderLeft: "4px solid #10a2f4", // Color distintivo
-                    backgroundColor: "#f0f8ff",
-                    fontSize: "0.9em",
-                    color: "#333",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                  title="Contenido generado. Haga clic para editar."
-                >
-                  <i
-                    className="uil uil-file-alt"
-                    style={{ marginRight: "8px", color: "#10a2f4" }}
-                  ></i>
-                  <strong>CONTENIDO:</strong>{" "}
-                  {item.content.trim().substring(0, 150)}
-                  {item.content.trim().length > 150 ? "..." : ""}
-                </div>
-              )}
-
-              {/* 5. Bloque de recomendación SEO (DIV) */}
-              {item.multimediaDescription && (
-                <div
-                  className="multimedia-recommendation-seo"
-                  style={{
-                    marginTop: "10px",
-                    padding: "8px 12px",
-                    borderLeft: "4px solid #f29727",
-                    backgroundColor: "#fff8f0",
-                    fontSize: "0.9em",
-                    color: "#333",
-                  }}
-                >
-                  <i
-                    className="uil uil-search-alt"
-                    style={{ marginRight: "8px", color: "#f29727" }}
-                  ></i>
-                  <strong>RECOMENDACIÓN SEO ({item.multimedia}):</strong>{" "}
-                  {item.multimediaDescription}
-                </div>
-              )}
-
-              {/* 🚀 CORRECCIÓN ESTRUCTURA: RECURSIVIDAD para H3s ANIDADA dentro del <li> de H2. */}
+              {/* 6. RECURSIVIDAD para renderizar H3s */}
               {isH2 && item.children && item.children.length > 0 && (
-                <div style={{ marginLeft: "25px", marginTop: "10px" }}>
+                <div style={{ marginLeft: "25px" }}>
                   <StructureRenderer
-                    structure={item.children} // Llama al componente con los hijos
+                    structure={item.children} // Llamada recursiva con el array de hijos
                     onSelect={onSelect}
                     selectedSection={selectedSection}
-                    onAction={onAction}
+                    onDelete={onDelete}
+                    onMove={onMove}
                   />
                 </div>
               )}
-            </li>
+            </React.Fragment>
           );
         })}
       </ul>
@@ -1307,44 +959,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   };
 
   // =======================================================================
-  // 6. NUEVO COMPONENTE: ToastNotification
-  // =======================================================================
-
-  const ToastNotification = ({ toast }) => {
-    if (!toast) return null;
-
-    let toastClass = "";
-    let icon = "uil-info-circle";
-
-    switch (toast.type) {
-      case "success":
-        toastClass = "toast-success";
-        icon = "uil-check-circle";
-        break;
-      case "error":
-        toastClass = "toast-error";
-        icon = "uil-times-circle";
-        break;
-      case "warning":
-        toastClass = "toast-warning";
-        icon = "uil-exclamation-triangle";
-        break;
-      default: // info
-        toastClass = "toast-info";
-        icon = "uil-info-circle";
-        break;
-    }
-
-    return (
-      <div className={`toast-notification ${toastClass}`}>
-        <i className={`uil ${icon}`}></i>
-        <span>{toast.message}</span>
-      </div>
-    );
-  };
-
-  // =======================================================================
-  // 7. VARIABLES DE RENDERIZACIÓN (Derivación de Estado)
+  // 6. VARIABLES DE RENDERIZACIÓN (Derivación de Estado)
   // =======================================================================
 
   // Variables para simplificar el render
@@ -1360,12 +975,11 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   const resultadosDisponibles = objetoEstructuraFinal && estructuraMarkdown;
 
   // =======================================================================
-  // 8. RENDER (JSX)
+  // 7. RENDER (JSX)
   // =======================================================================
 
   return (
     <>
-      <ToastNotification toast={toast} /> {/* Renderizar la notificación */}
       <div className="blog-generation-page">
         {/* Header */}
         <header className="navbar">
@@ -1529,7 +1143,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         {/* Contenedores Principales (Izquierda y Derecha) */}
         <div className="generadores-container">
           {/* ========================================================= */}
-          {/* >> COLUMNA IZQUIERDA: Edición de Título, Análisis IA <<< */}
+          {/* >> COLUMNA IZQUIERDA: Intención, Intro, Conclusión, JSON <<< */}
           {/* ========================================================= */}
           <div className="generadores-izquierda">
             {/* ---------------------------------------------------- */}
@@ -1654,66 +1268,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             </section>
 
             {/* ---------------------------------------------------- */}
-            {/* --- 4. EDITOR / GENERACIÓN DE CONTENIDO DE SECCIÓN --- */}
-            {/* ---------------------------------------------------- */}
-            {selectedSectionForRegen && (
-              <section
-                className="analysis-result fade-in"
-                style={{ marginTop: "20px" }}
-              >
-                <h2 className="analysis-title">
-                  Editar Contenido: {selectedSectionForRegen.text} (
-                  {selectedSectionForRegen.level.toUpperCase()})
-                </h2>
-                <p className="result-text">
-                  Genera o edita el cuerpo de texto para la sección
-                  seleccionada.
-                </p>
-
-                <div
-                  className="regen-input-area"
-                  style={{ marginBottom: "10px" }}
-                >
-                  <textarea
-                    className="auto-expand"
-                    rows="10"
-                    placeholder="Edita o genera aquí el contenido detallado de la sección..."
-                    value={sectionContentValue}
-                    onChange={(e) => setSectionContentValue(e.target.value)}
-                    disabled={cargandoIA}
-                  />
-                </div>
-
-                <div className="idea-buttons">
-                  <button
-                    onClick={guardarContenidoLocal}
-                    className="btn-generate "
-                    style={{ flexGrow: 1 }}
-                    disabled={cargandoIA}
-                  >
-                    <i className="uil uil-save"></i> Guardar Contenido Local
-                  </button>
-                  <button
-                    onClick={generarContenidoIA} // <-- Llamada correcta
-                    className="btn-regenerar btn-content-regen"
-                    disabled={cargandoIA || !contenidoConsolidado}
-                  >
-                    {cargandoIA && (
-                      <i
-                        className="uil uil-spinner uil-spin"
-                        style={{ marginRight: "5px" }}
-                      ></i>
-                    )}
-                    {cargandoIA
-                      ? "Generando Contenido..."
-                      : "Generar Contenido (IA)"}
-                  </button>
-                </div>
-              </section>
-            )}
-
-            {/* ---------------------------------------------------- */}
-            {/* --- RESULTADOS DE ANÁLISIS IA (Bloque Vacio) --- */}
+            {/* --- RESULTADOS DE ANÁLISIS IA --- */}
             {/* ---------------------------------------------------- */}
             {resultadosDisponibles && (
               <>
@@ -1726,7 +1281,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
           {/* >>> COLUMNA DERECHA: PREVISUALIZACIÓN DE ESTRUCTURA FINAL <<< */}
           {/* ========================================================= */}
           <div className="generadores-derecha">
-            {/* BOTÓN REGENERAR ESTRUCTURA */}
+            {/* BOTÓN REGENERAR ESTRUCTURA (NUEVO) */}
+            {/* Solo se muestra si ya tenemos resultados disponibles o la tabla está llena */}
             {(resultadosDisponibles || tablaEstructuraFinal) && (
               <div style={{ marginBottom: "15px" }}>
                 <button
@@ -1751,40 +1307,13 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 >
                   {mainTitle}
                 </h1>
-                {/* INICIO: CONTENEDOR DE BOTONES DE AÑADIR */}
-                <div
-                  className="add-section-controls"
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    gap: "15px",
-                    marginBottom: "25px",
-                  }}
-                >
-                  {/* Botón para Añadir H2 */}
-                  <button onClick={agregarSeccionH2} className="btn-add-h2">
-                    <i className="uil uil-plus-circle"></i> Agregar Sección H2
-                  </button>
-
-                  {/* Botón para Añadir H3 */}
-                  <button
-                    onClick={agregarSubseccionH3}
-                    className="btn-add-h3"
-                    disabled={!selectedSectionForRegen || !tablaEstructuraFinal}
-                  >
-                    <i className="uil uil-plus-circle"></i> Agregar Subsección
-                    H3
-                  </button>
-                </div>
-                {/* FIN: CONTENEDOR DE BOTONES DE AÑADIR */}
               </div>
-              {/* Componente MenuContextual Eliminado */}
-
               {tablaEstructuraFinal ? (
                 <StructureRenderer
                   structure={parseMarkdownStructure(tablaEstructuraFinal)}
                   onSelect={handleSectionSelect}
-                  onAction={handleSectionAction} // <-- Llamada unificada para mover y eliminar
+                  onDelete={eliminarSeccion}
+                  onMove={handleMoveSection}
                   selectedSection={selectedSectionForRegen}
                 />
               ) : (

@@ -158,7 +158,7 @@ const ModalCreacionBlog = ({ onClose, onGenerateSubmit }) => {
 };
 
 // -----------------------------------------------------------------------------
-// Componente Principal App
+// Componente Principal App (Ahora actúa como Controlador de Vistas)
 // -----------------------------------------------------------------------------
 const App = () => {
   // Estado para controlar la visibilidad del modal
@@ -305,7 +305,7 @@ const App = () => {
   const Footer = () => <footer className="footer"></footer>;
   // --- Fin de Componentes y Datos Internos ---
 
-  // --- Lógica de Renderizado Condicional
+  // *** PUNTO CLAVE: Lógica de Renderizado Condicional ***
   if (isGenerating && generationParams) {
     // 1. Si isGenerating es true, renderiza la vista de generación
     return (
