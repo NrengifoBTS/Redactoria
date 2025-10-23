@@ -8,7 +8,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   // =======================================================================
   const referenciaUrls = useRef(null);
   const referenciaControladorAborto = useRef(null);
-  const finalContentRef = useRef(null);
 
   // =======================================================================
   // 2. DATO INICIAL Y ESTADOS CLAVE
@@ -32,7 +31,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
   //--- Resultados parseados para la vista ---
   const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
-
   const mainTitle =
     initialParams.titulo || datosFinales?.query || "Generación de Blog";
 
@@ -42,7 +40,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   const [selectedSectionForRegen, setSelectedSectionForRegen] = useState(null);
   const [regenTextareaValue, setRegenTextareaValue] = useState("");
   const [seccionRegenerando, setSeccionRegenerando] = useState(null); // <-- Define 'setSeccionRegenerando'
-  const [titleSuggestions, setTitleSuggestions] = useState([]);
+  const [titleSuggestions, setTitleSuggestions] = useState([]); // <-- Define 'setTitleSuggestions'
 
   // --- ESTADOS para CONTENIDO ---
   const [sectionContentValue, setSectionContentValue] = useState("");
@@ -51,11 +49,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
   // --- Estado para la Notificación Toast ---
   const [toast, setToast] = useState(null);
-
-  // Estados para el modal de hipervínculo
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
-  const [linkSelection, setLinkSelection] = useState(null);
-  const [linkUrl, setLinkUrl] = useState("");
 
   /**
    * Muestra una notificación temporal.
@@ -143,101 +136,9 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     return markdownLines.join("\n").trim();
   };
 
-  const renderFinalBlogHtml = (structure) => {
-    let html = `<h1>${mainTitle}</h1>`;
-
-    structure.forEach((h2Item) => {
-      // H2 Title: Renderiza como H2 (Editable)
-      html += `<h2 data-level="${h2Item.enumeration}">${
-        h2Item.enumeration
-      }. ${h2Item.text.trim()}</h2>`;
-
-      // H2 Content
-      if (h2Item.content && h2Item.content.trim()) {
-        // Reemplazar saltos de línea por párrafos (<p>) para una mejor edición y estructura
-        const contentHtml = h2Item.content
-          .trim()
-          .split("\n")
-          .map((line) => `<p>${line}</p>`)
-          .join("");
-        html += `<div class="content-block h2-content">${contentHtml}</div>`;
-      }
-
-      // H3 Children
-      h2Item.children.forEach((h3Item) => {
-        // H3 Title: Renderiza como H3 (Editable)
-        html += `<h3 data-level="${h3Item.enumeration}">${
-          h3Item.enumeration
-        }. ${h3Item.text.trim()}</h3>`;
-
-        // H3 Content
-        if (h3Item.content && h3Item.content.trim()) {
-          const contentHtml = h3Item.content
-            .trim()
-            .split("\n")
-            .map((line) => `<p>${line}</p>`)
-            .join("");
-          html += `<div class="content-block h3-content">${contentHtml}</div>`;
-        }
-      });
-    });
-
-    return `<div id="final-blog-content">${html}</div>`;
-  };
-
   // ==============================================================================================================================================
   // 3. FUNCIONES DE MANEJO DE PROCESOS (Scraping, Cancelación, Utilidades, Agregar)
   // ==============================================================================================================================================
-
-  const handleContentMouseUp = () => {
-    // Solo permitir edición si el contenido final existe.
-    if (!tablaEstructuraFinal) return;
-
-    const selection = window.getSelection();
-    const selectedText = selection.toString();
-
-    // 1. Verificar si hay una selección de texto y si el cursor está dentro del contenedor editable
-    if (
-      selectedText.length > 0 &&
-      finalContentRef.current &&
-      finalContentRef.current.contains(selection.anchorNode)
-    ) {
-      // 2. Guardar el objeto Range de la selección
-      setLinkSelection(selection.getRangeAt(0));
-      setLinkUrl(""); // Resetear URL
-      setIsLinkModalOpen(true); // Abrir el modal
-    } else {
-      // Si no hay selección, asegurar que el modal se cierre
-      setIsLinkModalOpen(false);
-      setLinkSelection(null);
-      setLinkUrl("");
-    }
-  };
-
-  // Función para insertar el hipervínculo usando la selección guardada
-  const insertLink = () => {
-    if (linkSelection && linkUrl) {
-      // 1. Restaura la selección guardada
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(linkSelection);
-
-      // 2. Ejecuta el comando de inserción de enlace (document.execCommand es la forma más simple en este contexto)
-      const normalizedUrl = linkUrl.startsWith("http")
-        ? linkUrl
-        : `https://${linkUrl}`;
-      document.execCommand("createLink", false, normalizedUrl);
-
-      // 3. Limpieza y notificación
-      setIsLinkModalOpen(false);
-      setLinkUrl("");
-      setLinkSelection(null);
-      showToast("Hipervínculo insertado exitosamente.", "success");
-
-      // Opcional: Aquí deberías leer el HTML actualizado del finalContentRef.current.innerHTML
-      // y guardarlo en el estado de tu blog (si aplicas persistencia del contenido editado)
-    }
-  };
 
   // ---Funcion para la regeneracion de titulos ---
   const handleSelectNewTitle = (newTitle) => {
@@ -1310,17 +1211,13 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     return (
       // La lista principal <ul>
       <ul className="structure-list">
-        {structure.map((item, index) => {
+        {structure.map((item) => {
           const isH2 = item.level === "h2";
-
-          // --- LÓGICA DE VISIBILIDAD PARA EL NIVEL ACTUAL (H2s o H3s si se llama recursivamente) ---
-          const totalSiblings = structure.length;
-          const canMoveUp = index > 0;
-          const canMoveDown = index < totalSiblings - 1;
 
           // Retorna el <li> que contiene todos los elementos de la sección
           return (
             <li
+              // 🔑 CORRECCIÓN KEY: Se mueve la key al <li>, que es el elemento raíz de la iteración.
               key={item.uniqueId || item.enumeration}
               className={`
                             structure-item
@@ -1357,30 +1254,28 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 </div>
                 {/* GRUPO DE BOTONES DE ACCIÓN (Mover/Eliminar) */}
                 <div className="structure-buttons-group">
-                  {/* Botón Mover Arriba - CONDICIONAL para H2 */}
-                  {canMoveUp && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAction("move", item, "UP");
-                      }}
-                      title="Mover Arriba"
-                    >
-                      <i className="uil uil-arrow-up"></i>
-                    </button>
-                  )}
-                  {/* Botón Mover Abajo - CONDICIONAL para H2 */}
-                  {canMoveDown && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAction("move", item, "DOWN");
-                      }}
-                      title="Mover Abajo"
-                    >
-                      <i className="uil uil-arrow-down"></i>
-                    </button>
-                  )}
+                  {/* Mover Arriba */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAction("move", item, "UP");
+                    }}
+                    className="btn-move-up"
+                    title="Mover Arriba"
+                  >
+                    <i className="uil uil-arrow-up"></i>
+                  </button>
+                  {/* Mover Abajo */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAction("move", item, "DOWN");
+                    }}
+                    className="btn-move-down"
+                    title="Mover Abajo"
+                  >
+                    <i className="uil uil-arrow-down"></i>
+                  </button>
                   {/* Eliminar */}
                   <button
                     onClick={(e) => {
@@ -1577,7 +1472,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         {/* --- SECCIÓN: TARJETAS DE CONFIGURACIÓN INICIAL (INPUTS) --- */}
         {/* ========================================================= */}
         <div className="config-cards-wrapper">
-          {/* Esta es la única sección consolidada */}
+          {/* Card 1: Temas y Keywords */}
           <section className="analysis-result info-card">
             <h2
               className="analysis-title"
@@ -1591,7 +1486,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
               onClick={() => toggleCardVisibility("temasKeywords")}
             >
               <div>
-                <i className="uil uil-tag-alt"></i> Preconfiguracion
+                <i className="uil uil-tag-alt"></i> Temas y Keywords
               </div>
               <i
                 className={`uil ${
@@ -1601,46 +1496,82 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 }`}
               ></i>
             </h2>
-
             {cardVisibility.temasKeywords && (
-              // Esta <section> interna puede eliminarse o mantener su clase si no causa problemas.
-              // Si la eliminas, el contenido subiría al <section className="analysis-result info-card"> principal.
-              // Para simplificar, la dejaré como está en tu ejemplo, aunque tienes dos <section> anidadas.
-              <section className="analysis-result">
-                {/* ⚠️ ESTE ES EL NUEVO CONTENEDOR CON EL LAYOUT DE COLUMNAS */}
-                <div className="config-detail-grid">
-                  {/* Este div será la primera columna */}
-                  <div className="analysis-detail">
-                    <span className="analysis-title">Título Base:</span>
-                    <p>{initialParams.titulo || "N/A"}</p>
+              <div className="analysis-detail">
+                <span className="analysis-title">Título Base:</span>
+                <p>{initialParams.titulo || "N/A"}</p>
 
-                    <span className="analysis-title">
-                      Keywords Secundarias:
-                    </span>
-                    <p className="keywords-output">
-                      {initialParams.keywords || "N/A"}
-                    </p>
-                  </div>
+                <span className="analysis-title">Keywords Secundarias:</span>
+                <p className="keywords-output">
+                  {initialParams.keywords || "N/A"}
+                </p>
+              </div>
+            )}
+          </section>
 
-                  {/* Este div será la segunda columna */}
-                  <div className="analysis-detail">
-                    <span className="analysis-title">Tono:</span>
-                    <p>{initialParams.tono || "N/A"}</p>
-                    <span className="analysis-title">Acento:</span>
-                    <p>{initialParams.acento || "N/A"}</p>
-                    <span className="analysis-title">Técnica:</span>
-                    <p>{initialParams.tecnica || "N/A"}</p>
-                  </div>
+          {/* Card 2: Estilo y Tono */}
+          <section className="analysis-result info-card">
+            <h2
+              className="analysis-title"
+              style={{
+                borderBottomColor: "#20c997",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+              onClick={() => toggleCardVisibility("estiloTono")}
+            >
+              <div>
+                <i className="uil uil-palette"></i> Estilo y Tono
+              </div>
+              <i
+                className={`uil ${
+                  cardVisibility.estiloTono ? "uil-angle-up" : "uil-angle-down"
+                }`}
+              ></i>
+            </h2>
+            {cardVisibility.estiloTono && (
+              <div className="analysis-detail">
+                <span className="analysis-title">Tono:</span>
+                <p>{initialParams.tono || "N/A"}</p>
+                <span className="analysis-title">Acento:</span>
+                <p>{initialParams.acento || "N/A"}</p>
+                <span className="analysis-title">Técnica:</span>
+                <p>{initialParams.tecnica || "N/A"}</p>
+              </div>
+            )}
+          </section>
 
-                  {/* Este div será la tercera columna */}
-                  <div className="analysis-detail">
-                    <span className="analysis-title">Idioma:</span>
-                    <p>{initialParams.idioma || "N/A"}</p>
-                    <span className="analysis-title">Proyecto:</span>
-                    <p>{initialParams.categoria || "N/A"}</p>
-                  </div>
-                </div>{" "}
-              </section>
+          {/* Card 3: Metadatos/Contexto */}
+          <section className="analysis-result info-card">
+            <h2
+              className="analysis-title"
+              style={{
+                borderBottomColor: "#00eba7",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+              onClick={() => toggleCardVisibility("contexto")}
+            >
+              <div>
+                <i className="uil uil-globe"></i> Contexto
+              </div>
+              <i
+                className={`uil ${
+                  cardVisibility.contexto ? "uil-angle-up" : "uil-angle-down"
+                }`}
+              ></i>
+            </h2>
+            {cardVisibility.contexto && (
+              <div className="analysis-detail">
+                <span className="analysis-title">Idioma:</span>
+                <p>{initialParams.idioma || "N/A"}</p>
+                <span className="analysis-title">Proyecto:</span>
+                <p>{initialParams.categoria || "N/A"}</p>
+              </div>
             )}
           </section>
         </div>
@@ -1914,8 +1845,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   </button>
                   <button
                     onClick={generarContenidoIA}
-                    className="btn-generate btn-regenerar"
-                    style={{ flexGrow: 1 }}
+                    className="btn-regenerar btn-content-regen"
                     disabled={cargandoIA || !contenidoConsolidado}
                   >
                     {cargandoIA && (
@@ -2024,142 +1954,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 </pre>
               )}
             </section>
-
-            {/* Placeholder de la estructura principal para contexto */}
-            <div className="main-content">
-              <div className="container-fluid">
-                {/* =======================================================================
-              FINAL: SECCIÓN DE VISUALIZACIÓN Y EDICIÓN DEL BLOG CONSOLIDADO (NUEVA)
-              ======================================================================= */}
-                <section
-                  className="final-blog-view-container"
-                  style={{
-                    margin: "20px 0",
-                    padding: "10px",
-                    backgroundColor: "#f9f9f9",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <h2>Vista Final del Blog (Editable)</h2>
-                  <p>
-                    Selecciona cualquier parte del texto o título y **suelta el
-                    mouse** para insertar un hipervínculo.
-                  </p>
-
-                  <div
-                    ref={finalContentRef}
-                    className="final-content-editor-area"
-                    // CLAVE: Atributo para hacer el contenido editable
-                    contentEditable={tablaEstructuraFinal ? "true" : "false"}
-                    onMouseUp={handleContentMouseUp} // Detector de selección de texto
-                    // Renderiza el contenido final usando la función creada
-                    dangerouslySetInnerHTML={{
-                      __html: tablaEstructuraFinal
-                        ? renderFinalBlogHtml(
-                            parseMarkdownStructure(tablaEstructuraFinal)
-                          )
-                        : "<p>Ejecuta el análisis IA para generar la estructura y el contenido.</p>",
-                    }}
-                    style={{
-                      border: "1px solid #ddd",
-                      padding: "20px",
-                      borderRadius: "5px",
-                      minHeight: "400px",
-                      marginTop: "10px",
-                      lineHeight: "1.6",
-                      cursor: tablaEstructuraFinal ? "text" : "default",
-                      opacity: tablaEstructuraFinal ? 1 : 0.9,
-                      backgroundColor: tablaEstructuraFinal ? "#fff" : "#eee",
-                      overflowY: "auto",
-                      // Estilos para los elementos hijos dentro del contentEditable
-                      WebkitUserModify: "read-write-plaintext-only", // Sugerencia para navegadores basados en WebKit
-                    }}
-                  />
-                </section>
-              </div>
-            </div>
-
-            {/* =======================================================================
-          MODAL/INPUT PARA INSERCIÓN DE HIPERVÍNCULO (NUEVO)
-          ======================================================================= */}
-            {isLinkModalOpen && linkSelection && (
-              <div
-                style={{
-                  position: "fixed",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  background: "white",
-                  padding: "25px",
-                  border: "1px solid #007bff",
-                  boxShadow: "0 4px 20px rgba(0, 123, 255, 0.3)",
-                  zIndex: 9999,
-                  borderRadius: "8px",
-                }}
-                className="link-insert-modal"
-              >
-                <h4>🔗 Insertar Hipervínculo</h4>
-                <p style={{ marginBottom: "15px", fontSize: "0.9em" }}>
-                  Texto seleccionado:{" "}
-                  <strong>
-                    "{linkSelection.toString().substring(0, 30)}..."
-                  </strong>
-                </p>
-                <input
-                  type="url"
-                  placeholder="URL (ej: https://ejemplo.com)"
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    marginBottom: "15px",
-                    boxSizing: "border-box",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
-                  }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: "10px",
-                  }}
-                >
-                  <button
-                    onClick={() => {
-                      setIsLinkModalOpen(false);
-                      setLinkUrl("");
-                      setLinkSelection(null);
-                    }}
-                    style={{
-                      background: "#f4f4f4",
-                      color: "#333",
-                      border: "1px solid #ccc",
-                      padding: "8px 15px",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={insertLink}
-                    disabled={!linkUrl}
-                    style={{
-                      background: "#007bff",
-                      color: "white",
-                      border: "none",
-                      padding: "8px 15px",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Insertar Enlace
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

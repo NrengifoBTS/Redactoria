@@ -8,12 +8,8 @@ from typing import Generator, List, Dict, Any, Optional, Union
 from datetime import datetime
 from . import models 
 from pydantic import BaseModel
-import urllib3
-from fastapi import HTTPException
-from .models import PeticionGeneracionContenido
 
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # --- 1. CLASE AIService: Control y Generación de IA ---
 
 class AIService:
@@ -22,23 +18,24 @@ class AIService:
     incluyendo resúmenes de bloques y análisis final.
     """
 
-    MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions" #<-- Compu Alda
-    #MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
+    #MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions" #<-- Compu Alda
+    MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
     MODEL_NAME = "openai/gpt-oss-20b"
     DEFAULT_SYSTEM_MESSAGE = "Eres un analista SEO profesional y experimentado. Tu única tarea es generar el contenido solicitado de manera concisa y directa, sin añadir explicaciones ni texto adicional."
 
     def __init__(self):
         pass
 
-    # LLAMADA A LM STUDIO
+
     def _llm_generate(self, prompt: str, system_message: str = DEFAULT_SYSTEM_MESSAGE, temperature: float = 0.4) -> str:
+        """Función auxiliar para llamar al LLM."""
         data = {
             "model": self.MODEL_NAME,
             "messages": [
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            "temperature":temperature ,
+            "temperature": temperature,
             "stream": False
         }
         try:
@@ -48,8 +45,9 @@ class AIService:
         except Exception as e:
             return f"[Error: {e}]"
 
-    # PARSEO DE FORMATO JSON DE LA RESPUESTA IA 
-    def limpieza_extraccion_json(self, json_string: str) -> Dict[str, Any]:
+
+    def _parse_json_result(self, json_string: str) -> Dict[str, Any]:
+        """Aísla y parsea un objeto JSON de una respuesta de la IA de manera robusta."""
         clean_json = re.sub(r'```json\s*|```', '', json_string, flags=re.IGNORECASE).strip()
         try:
             return json.loads(clean_json)
@@ -62,35 +60,31 @@ class AIService:
             raise
 
 
-    # --- ANALISIS DE BLOQUES CON IA ---
-    def analizar_bloque_contenido(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str) -> str:
-        """
-        Realiza un análisis profundo de un bloque de contenido para extraer
-        puntos clave y elementos estructurales, en lugar de un resumen conciso.
-        """
+    # --- Funciones de IA de Fase 3 (Análisis por Bloque) ---
+
+    def generate_chunk_summary(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str) -> str:
+        """Genera un resumen conciso para un bloque de contenido."""
         media_text = ""
         if media_info:
             media_descriptions = [f"- {m['type']} (Descripción: {m.get('description') or m.get('alt') or m.get('caption')})" for m in media_info]
             media_text = "\n\nElementos Multimedia Asociados (Primeros 5 de la URL):\n" + "\n".join(media_descriptions[:5]) + ("\n..." if len(media_descriptions) > 5 else "")
 
-        # Mantenemos la estructura de contexto del prompt
         prompt = f"Basándote en el ARTÍCULO CONSOLIDADO, el cual contiene MÚLTIPLES SECCIONES ESTRUCTURADAS, bajo el título '{heading}' y relacionado con el tema '{query}':\n---\n{chunk}\n{media_text}\n---\n\n"
         
-        # NUEVAS INSTRUCCIONES: Más abiertas y orientadas a la estructura
-        prompt += f"Realiza un **ANÁLISIS ESTRUCTURAL EXHAUSTIVO** del bloque de contenido anterior. Tu tarea es **extraer todos los puntos clave, datos únicos y subtítulos implícitos** que contribuyan a una estructura de blog de alta calidad para el tema '{query}'. No obvies información crucial. Analiza también la relevancia de la multimedia (si aplica). **Devuelve el análisis en forma de lista de puntos clave detallados.**"
+        prompt += f"Analiza todas las secciones. Identifica los **puntos clave principales y el propósito general del artículo**. Menciona la relevancia de la multimedia en el artículo (si aplica). Devuelve un resumen conciso y directo de 3 a 5 oraciones."
         
-        # NUEVO SYSTEM_MSG: Cambia el rol a un consultor de estructura.
-        system_msg = "Eres un consultor de contenido y analista estructural experto. Tu única tarea es analizar la información proporcionada y devolver **únicamente** una lista detallada y estructurada (usando markdown, puntos o numeración) con los puntos clave y elementos estructurales extraídos. No generes una introducción, conclusión o resumen. Sé exhaustivo y mantén la calidad informativa. Incluendo menciona en donde debe ir algun tipo de contenido multimedia analizando las paginas"
-        
+        system_msg = "Eres un analista de texto que procesa la estructura completa de un artículo. Devuelve **solo** el resumen conciso."
         return self._llm_generate(prompt, system_msg)
 
     
-    # --- GENERA EL ESQUEMA COMPLETO DEL BLOG
+    # --- Funciones de IA de Fase 4 (Análisis Final - MODIFICADAS) ---
 
-    def generar_estructura_seo_final(self, 
+    def generate_full_contextual_structure(self, 
                                           consolidated_text: str, 
                                           query: str, 
                                           title_base: str, 
+                                          main_keyword: str, 
+                                          principal_keywords: List[str],
                                           categoria: str,
                                           idioma: str,
                                           tecnica: str,
@@ -99,93 +93,117 @@ class AIService:
                                          ) -> Dict[str, Any]:
         """
         Genera la estructura final de blog, intención, introducción y conclusión, 
-        utilizando los parámetros de entrada.
+        utilizando los parámetros de entrada (SIN GENERAR TÍTULOS NI KEYWORDS).
         """
         
-        keywords_str = ', '.join([query])
+        keywords_str = ', '.join([main_keyword] + principal_keywords)
         
         system_message = f"""
-            Eres un Estratega SEO Senior y Arquitecto de Contenidos experto en planificación estructural para blogs tipo Skyscraper.
-
-            Tu función principal NO es redactar el texto final, sino diseñar la **estructura jerárquica completa del cuerpo del artículo**, optimizada para SEO, retención lectora y coherencia semántica.
-
-            Debes trabajar en el idioma '{idioma}', respetando el acento cultural '{acento}' y aplicando el tono de voz '{tono}', pero **solo como guía de enfoque**, no de estilo narrativo.
-
-            Tu salida debe ser un **objeto JSON limpio y válido**, que contenga la estructura final en el formato especificado, sin explicaciones ni texto adicional.
-
-            Recuerda:
-            - No redactas contenido, solo estructuras.
-            - No uses Markdown, URLs ni caracteres decorativos.
-            - Aplica los principios del contenido Skyscraper (profundidad, jerarquía, relevancia, cobertura completa del tema).
-            """
+        Eres un Estratega SEO de Marketing de alto nivel y un excelente redactor en el idioma '{idioma}' con acento '{acento}'.
+        Tu objetivo es generar la INTENCIÓN DE BÚSQUEDA y la ESTRUCTURA DE BLOG, adaptándote a:
+        - Tono de Voz: '{tono}'
+        - Acento Cultural: '{acento}'
+        - Técnica de Redacción: '{tecnica}'
+        - Idioma: {idioma}
+        Tu única respuesta debe ser el objeto JSON solicitado, sin explicaciones ni texto adicional.
+        """
         
         prompt = f"""
-            --- CONTEXTO Y OBJETIVO ---
-            Eres un estratega SEO experto, creador de contenido tipo Skyscraper, especializado en blogs turísticos familiares.
-            Tu misión es diseñar una **estructura jerárquica completa y exhaustiva** del cuerpo del artículo titulado:
-            '{title_base}' (tema principal: '{query}').
-
-            El texto que recibes a continuación proviene del **análisis consolidado de múltiples páginas líderes en Google**, por lo que contiene ideas clave, subtemas y datos comparativos:
-            ---
-            {consolidated_text}
-            ---
-
-            --- MANDATOS DE ESTRUCTURA ---
-            1. **OBJETIVO PRINCIPAL:** Crear la estructura más completa posible para un blog informativo, orientado a SEO y experiencia de usuario.
-            2. **TIPO DE CONTENIDO:** Guía tipo “Skyscraper” de alta profundidad.
-            3. **NIVELES JERÁRQUICOS:**
-            - Mínimo **8 H2** principales.
-            - Cada H2 debe tener al menos **3 H3**.
-            - Algunos H3 deben tener **H4** para ampliar detalles específicos (datos, consejos, ejemplos, comparativas).
-            - Todos los encabezados deben ser relevantes, únicos y semánticamente diferentes.
-            4. **INTEGRACIÓN DE MULTIMEDIA:** Inmediatamente después de cada encabezado (H2 o H3) que lo requiera, incluye una línea con el siguiente formato exacto:
-            [MULTIMEDIA: TIPO | Descripción SEO detallada para Alt Text]
-            Donde:
-            - TIPO = VIDEO, FOTO, MAPA o GRAFICO.
-            - La descripción SEO debe incluir palabras clave relevantes, contexto visual y atractivo informativo.
-            - Ejemplo correcto:
-                [H3 - 2.1] Mirador nocturno en ICON Park
-                [MULTIMEDIA: FOTO | Vista panorámica nocturna del skyline de Orlando con familias disfrutando de The Wheel]
-
-            5. **FORMATO DE SALIDA (OBLIGATORIO):**
-            - Cada línea corresponde a un encabezado.
-            - El formato exacto es:
-                [H{{N}} - X.Y] Título del Encabezado
-            - {{N}} indica el nivel HTML (2, 3 o 4).
-            - X.Y indica la jerarquía decimal (ejemplo: 1.0, 1.1, 1.1.1, etc.).
-            - No uses Markdown (##, ###, * o guiones).
-            - No uses emojis, símbolos ni URL visibles.
-
-            6. **PROHIBICIONES:**
-            - No incluyas secciones con “Resumen”, “Conclusión” o “Formulario”.
-            - No menciones URLs ni fuentes.
-            - No repitas encabezados ni temas redundantes.
-            - No uses texto decorativo ni numeraciones fuera del formato solicitado.
-
-            7. **AMPLIACIÓN CONTEXTUAL:**
-            Antes de listar los encabezados, el modelo debe razonar internamente y asegurarse de que:
-            - Cubre todos los enfoques detectados en el texto consolidado (histórico, cultural, logístico, experiencial, comparativo).
-            - Integra temas secundarios: gastronomía, transporte, horarios, seguridad, eventos especiales, actividades por zona, etc.
-            - Combina los enfoques de las distintas páginas en una estructura unificada y optimizada.
-
-            --- FORMATO FINAL EXCLUSIVO ---
-            Devuelve **solo** el siguiente objeto JSON, sin texto adicional:
-            {{
-            "structure_markdown": "Estructura detallada con formato [H{{N}} - X.Y] Título."
-            }}
-            """
+        --- MANDATOS SEO Y ESTRUCTURA OBLIGATORIOS ---
         
-        response_json_str = self._llm_generate(prompt, temperature=0.4) 
+        **1. TEMA CENTRAL/TÍTULO PROPORCIONADO (BASE):** '{title_base}'.
+        **2. Estructura Base:** '{categoria}'.
+        
+        **3. Keywords de ENTRADA (Obligatorias):** '{keywords_str}'. Estas DEBEN ser integradas en la estructura de subtítulos.
+        
+        ---
+        
+        **CONSIGNA:** Basándote **únicamente** en el CONTEXTO CONSOLIDADO (de scraping):
+        {consolidated_text}
+        
+        1. Define la **Intención de Búsqueda Única**.
+        2. Genera una **Introducción** y una **Conclusión con CTA** (máximo 4 oraciones c/u), usando el tono y acento proporcionados.
+        3. Genera la **Estructura detallada del cuerpo del blog** en formato Markdown (## para H2 y ### para H3). DEBES usar el 'Título Base Deseado' y las 'Keywords de ENTRADA' como guía obligatoria.
+
+        ---
+        
+        **FORMATO DE SALIDA (JSON ESTRICTO REQUERIDO):**
+        {{
+            "search_intent": "Intención de búsqueda única (máx 15 palabras).",
+            "introduction": "Texto de la introducción.",
+            "structure_markdown": "Estructura Markdown de H2/H3.",
+            "conclusion_cta": "Texto de la conclusión con CTA."
+        }}
+        """
+        
+        response_json_str = self._llm_generate(prompt, system_message=system_message, temperature=0.4) 
         
         try:
-            return self.limpieza_extraccion_json(response_json_str)
+            return self._parse_json_result(response_json_str)
         except Exception as e:
+            # Manejo de error para la estructura final
             return {
-                "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e}]"
+                "search_intent": "ERROR: JSON Inválido",
+                "introduction": "Error de IA al generar introducción",
+                "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e}]",
+                "conclusion_cta": "Error de IA al generar conclusión"
             }
+  
+    # --- LÓGICA DE REGENERACIÓN ÚNICA (FASE 5 - MODIFICADA) ---
 
-    # --- LOGICA PARA REGENERAR SOLAMENTE UNA UNICA PARTE DE LA ESTRUCTURA EN ESTE CASO TITULOS Y SUBTITULOS--- 
-    def regenerar_titulos(self, 
+    def generate_single_intent(self, 
+                               consolidated_text: str, 
+                               query: str, 
+                               previous_content: Optional[List[str]] = None,
+                               idioma: str = "es", 
+                               acento: str = "neutral",
+                               tono: str = "profesional", 
+                               **kwargs
+                              ) -> str:
+        """Define solo la intención de búsqueda, adaptada a los parámetros de estilo."""
+        
+        exclusion_instruction = ""
+        if previous_content and isinstance(previous_content, list) and len(previous_content) > 0:
+            previous_str = "; ".join([item for item in previous_content if item])
+            if previous_str:
+                exclusion_instruction = f"***INSTRUCCIÓN DE UNICIDAD: NO DEBES generar NINGUNA de estas intenciones de búsqueda históricas: {previous_str}. Genera un resultado completamente diferente y nuevo.***\n"
+            
+        prompt = f"{exclusion_instruction}Analiza el siguiente CONTEXTO CONSOLIDADO:\n---\n{consolidated_text}\n---\n\nBasándote en el contenido consolidado para la query '{query}' y justifícala brevemente. Devuelve solo una breve descripcion de la intencion de busqueda."
+        system_msg = f'Eres un estratega SEO en idioma "{idioma}" con tono "{tono}". Devuelve **solo** la descripción breve y la justificación solicitada.'
+        return self._llm_generate(prompt, system_msg)
+
+    def generate_single_introduction(self, 
+                                    consolidated_text: str, 
+                                    query: str, 
+                                    previous_content: List[str] = None,
+                                    idioma: str = "es", 
+                                    acento: str = "neutral",
+                                    tono: str = "profesional", 
+                                    **kwargs
+                                   ) -> str:
+        """Genera una nueva introducción, adaptada a los parámetros de estilo."""
+        
+        history_prompt = ""
+        if previous_content and previous_content[-1] != 'Error de IA al generar introducción':
+            history_prompt = f"VERSIÓN ANTERIOR:\n{previous_content[-1]}\n"
+
+        prompt = (
+            f"Basándote en el CONTEXTO CONSOLIDADO (de 3 páginas) y el tema:\n"
+            f"---"
+            f"TEMA DEL BLOG: '{query}'\n"
+            f"{history_prompt}"
+            f"CONTEXTO: {consolidated_text}\n"
+            f"---"
+            f"Genera una **nueva, única y mejorada Introducción** para el artículo. Debe ser concisa (máximo 4 oraciones) y muy atractiva, resumiendo el tema.\n"
+            f"Devuelve **SOLO** el texto de la Introducción, sin etiquetas, comillas, ni texto adicional."
+        )
+
+        system_msg = f'Eres un redactor SEO experto. Tu única tarea es generar el texto de la Introducción solicitado, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
+        return self._llm_generate(prompt, system_msg, temperature=0.7) 
+
+    # --- LOGICA PARA REGENERAR SOLAMENTE UNA UNICA PARTE DE LA ESTRUCTURA --- 
+
+    def regenerate_structure_section(self, 
                                      consolidated_text: str, 
                                      full_structure_markdown: str,
                                      section_to_regenerate: str,
@@ -194,7 +212,7 @@ class AIService:
                                      acento: str = "neutral",
                                      tono: str = "profesional", 
                                      **kwargs
-                                    ) -> List[str]:
+                                    ) -> str:
         """
         Regenera UN ÚNICO título o subtítulo de la estructura del blog, usando el contexto completo.
         Devuelve SOLO el nuevo texto del título/subtítulo.
@@ -215,157 +233,36 @@ class AIService:
         TÍTULO ACTUAL: '{section_to_regenerate}'
         
         --- INSTRUCCIONES CLAVE ---
-        1. **Regeneración de Múltiples Elementos:** Tu única tarea es generar **EXACTAMENTE 3 nuevas y mejoradas versiones** para el título/subtítulo: '{section_to_regenerate}'. 
-        2. **Coherencia y Contexto:** Los nuevos títulos/subtítulos DEBEN encajar perfectamente en la 'Estructura Actual Completa'.
-        3. **Formato Estricto:** Devuelve **SOLO** un array JSON de 3 strings. NO incluyas el nivel jerárquico ([H2 - X.Y]) ni texto adicional.
-        
-        EJEMPLO DE SALIDA: ["Nueva Opción A", "Nueva Opción B", "Nueva Opción C"]
-        
+        1. **Regeneración de Un Único Elemento:** Tu única tarea es generar una **nueva y mejorada versión** para el título/subtítulo: '{section_to_regenerate}'. 
+        2. **Coherencia y Contexto:** El nuevo título/subtítulo DEBE encajar perfectamente en la 'Estructura Actual Completa' y ser relevante al 'Contenido de Scraping Consolidado'.
+        3. **Unicidad:** El nuevo título/subtítulo NO debe ser redundante con ningún otro título en la estructura.
+        4. **Formato Estricto:** Devuelve **SOLO** el nuevo texto del título/subtítulo (sin el ## o ### Markdown, sin comillas, sin texto adicional).
+
         {user_prompt_instruction}
         """
         
-        system_msg = f'Eres un Estratega SEO y Redactor Creativo. Tu única tarea es generar un array JSON de 3 opciones, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
-        raw_response = self._llm_generate(prompt, system_msg, temperature=0.4)
-
-        try:
-            suggestions = self.limpieza_extraccion_json(raw_response)
-            if isinstance(suggestions, list) and all(isinstance(s, str) for s in suggestions):
-                # Devolver la lista parseada
-                return suggestions 
-            else:
-                 # Si el formato no es List[str], devolver un fallback de texto crudo
-                return [raw_response.strip()]
-        except:
-             # Si el parseo JSON falla (ej. si el modelo no genera JSON), devolver el texto crudo como una lista de 1.
-            return [raw_response.strip()]
-        
-    def generar_contenido_seccion(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
-        """
-        Lógica pura para la generación de contenido de una sección específica (H2, H3, H4).
-        """
-        
-        # 1. Validación de Datos
-        if not req.regenerate_data:
-             raise HTTPException(status_code=400, detail="regenerate_data es requerido para la generación de contenido.")
-             
-        try:
-            # Campos base requeridos desde el frontend (Blog_Generacion.jsx)
-            section_title = req.regenerate_data['section_title']
-            section_level = req.regenerate_data['section_level']
-            full_structure_markdown = req.regenerate_data['full_structure_markdown']
-            required_keywords: List[str] = req.regenerate_data.get('required_keywords', []) 
-            word_limit: int = req.regenerate_data.get('word_limit', None) 
-            content_type: str = req.regenerate_data.get('content_type', 'parrafo_narrativo')
-
-        except KeyError as e:
-            # Captura errores si los campos fundamentales faltan
-            raise HTTPException(status_code=400, detail=f"Falta el campo requerido en regenerate_data: {e}")
-
-        # 2. Construcción de Instrucciones Dinámicas para el Prompt
-
-        keyword_instruction = ""
-        if required_keywords and isinstance(required_keywords, list):
-            keywords_str = ', '.join(required_keywords)
-            # **INSTRUCCIÓN CLAVE CONTRA LA REDUNDANCIA:**
-            keyword_instruction = f"""
-            INSTRUCCIÓN CLAVE DE SEO: Debes incluir las siguientes palabras clave en el texto: **{keywords_str}**.
-            Es FUNDAMENTAL que te enfoques **únicamente** en el contexto de la sección '{section_title}' ({section_level}),
-            evitando estrictamente temas y palabras clave que pertenezcan a otros H2/H3 de la estructura general para evitar la redundancia y el canibalismo semántico.
-            """
-
-        word_limit_instruction = ""
-        if word_limit and isinstance(word_limit, int) and 100 <= word_limit <= 1000:
-            word_limit_instruction = f"INSTRUCCIÓN DE EXTENSIÓN: El contenido debe tener una extensión aproximada de **{word_limit}** palabras."
-        elif word_limit:
-            # Mensaje si el límite no es válido (aunque el frontend ya lo validará)
-             word_limit_instruction = "El contenido debe ser de tamaño medio a largo."
-
-        format_instruction = ""
-        
-        if content_type == "lista_pasos":
-            format_instruction = "El contenido debe ser una **lista numerada detallada** (1., 2., 3...) de pasos o instrucciones. Cada paso debe ser conciso, claro y estar en una línea separada."
-        elif content_type == "lista_caracteristicas":
-            format_instruction = "El contenido debe presentarse como una **lista con viñetas** (usando `*` o `-`) que enumere y describa brevemente ventajas, desventajas, características o elementos clave."
-        elif content_type == "resumen_conciso":
-            format_instruction = "El contenido debe ser un **párrafo único y conciso** (no más de 4-5 frases) que sirva como un resumen ejecutivo, una conclusión o un punto clave, con un lenguaje directo y persuasivo."
-        elif content_type == "definicion_detallada":
-            format_instruction = "El contenido debe iniciar con el término o frase en **negrita**, seguido de una definición clara y párrafos explicativos que profundicen en el concepto, su historia o su relevancia."
-        elif content_type == "casos_texto":
-            format_instruction = "El contenido debe enfocarse en proporcionar **múltiples ejemplos o casos de uso prácticos** que ilustren el tema. Cada ejemplo debe estar claramente separado, con su título en negrita y su descripción en un párrafo."
-        elif content_type == "comparacion_corta":
-            format_instruction = "El contenido debe ser una **comparación punto por punto** entre 2 o 3 elementos clave (ej. Producto A vs. Producto B). Usa negritas para destacar los nombres de los elementos y viñetas para contrastar sus características de manera clara."
-        elif content_type == "analisis_critico":
-            format_instruction = "El contenido debe ser un **análisis estructurado en párrafos** con una introducción clara del problema o tema, un desarrollo del argumento central y una proyección o recomendación clara al final. Debe ser objetivo, sintético y basado en hechos."
-        elif content_type == "pro_y_contra":
-            format_instruction = "El contenido debe estar dividido en dos secciones claras: **Pros (Ventajas)** y **Contras (Desventajas)**. Cada sección debe usar una lista con viñetas para enumerar y describir brevemente cada punto de manera equilibrada y separada."
-        elif content_type == "datos_estadisticos":
-            format_instruction = "El contenido debe enfocarse en presentar **datos, cifras y estadísticas** relevantes. Cada dato debe ser presentado en una línea separada, comenzando por el valor numérico en **negrita**, seguido de su explicación o contexto. No uses tablas, solo texto y listas."
-        elif content_type == "mito_vs_realidad":
-            format_instruction = "El contenido debe usar un formato de **Mito vs. Realidad** para desmentir conceptos erróneos. Cada punto debe tener una línea para el **Mito (en negrita)** y la siguiente línea para la **Realidad (en formato de párrafo explicativo)**."
-        elif content_type == "linea_tiempo":
-            format_instruction = "El contenido debe ser una **línea de tiempo cronológica**. Utiliza una lista numerada donde cada punto represente un hito o evento en la secuencia temporal, incluyendo el año o la fecha al inicio de cada punto en **negrita**."
-        else: 
-            format_instruction = "Tu tarea es generar el contenido utilizando el **formato que consideres más apropiado** (párrafos, listas, negritas, etc.) para el tema de la sección. Debes elegir la estructura que mejor comunique la información de manera clara, creativa y efectiva para el lector."
+        system_msg = f'Eres un Estratega SEO y Redactor Creativo. Tu única tarea es regenerar **un único título o subtítulo**, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
+        return self._llm_generate(prompt, system_msg, temperature=0.7)
 
 
-        # 3. Construcción del Prompt Principal (Inyectando las instrucciones)
-        prompt = f"""
-        Eres un escritor experto en SEO y un especialista en el tema '{req.query}'.
-        Tu tarea es generar el contenido detallado para la sección con el título: '{section_title}',
-        que pertenece al nivel de encabezado '{section_level}'.
-        
-        SOLO DEVUELVE EL TEXTO DEL CONTENIDO DE LA SECCIÓN SOLICITADA, SIN AÑADIR EL TÍTULO DE LA SECCIÓN NI NINGÚN OTRO ENCABEZADO.
-        El contenido debe ser en idioma '{req.idioma}' con acento '{req.acento}' y tono '{req.tono}'.
-
-        {keyword_instruction}
-        {word_limit_instruction}
-
-        --- INSTRUCCIÓN DE FORMATO EXCLUSIVO ---
-        {format_instruction}  <-- Colocado aquí para mayor peso
-        --- FIN INSTRUCCIÓN DE FORMATO ---
-
-        CONTEXTO DE LA ESTRUCTURA DEL BLOG (usa esto para mantener el flujo):
-        {full_structure_markdown}
-
-        REFERENCIA DE CONTENIDO DEL SCRAPING (usa esto como fuente primaria de información y para asegurar la factualidad):
-        {req.consolidated_content}
-        
-        Asegúrate de que la salida respete estrictamente la INSTRUCCIÓN DE FORMATO provista.
-        """
-
-        
-        # 4. Llamada al LLM y Procesamiento
-        # (Aquí se usaría su función _llm_generate)
-        generated_content = self._llm_generate(
-            prompt=prompt,
-            system_message="Eres un escritor SEO profesional.",
-            temperature=0.6
-        )
-
-        return {
-            "generated_content": generated_content,
-            "success": True,
-            "log": "Contenido generado exitosamente."
-        }
-
-
-
-    # --- AQUI SE DECIDE Y SE REALIZA LA GENERACION COMPLETA O REGENERACION DE UNA SOLA SECCION 
-    # service.py (dentro de tu clase de servicio, ej. AnalysisOrchestrator)
-
-    def analisis_final_ia(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
-        """Punto de entrada para el análisis final de IA, incluyendo regeneración de secciones (Títulos y Contenido)."""
-
+    def run_final_ai_analysis(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
+        """Punto de entrada para el análisis final de IA (Servicio de IA), incluyendo regeneración de secciones."""
         consolidated_text = req.consolidated_content
         query = req.query
+        
+        # Se asume que estos campos existen en el modelo AIAnalysisRequest para la nueva lógica
+        # Aunque no estaban en el archivo original, son necesarios para el nuevo flujo
         title_base = getattr(req, 'title_base', query)
+        main_keyword = getattr(req, 'main_keyword', req.keywords[0] if req.keywords else query)
+        principal_keywords = getattr(req, 'principal_keywords', req.keywords[1:] if req.keywords and len(req.keywords) > 1 else [])
         categoria = getattr(req, 'categoria', 'blog')
         idioma = getattr(req, 'idioma', 'es')
         tecnica = getattr(req, 'tecnica', 'SEO')
         acento = getattr(req, 'acento', 'neutral')
         tono = getattr(req, 'tono', 'profesional')
         
-        # LÓGICA DE REGENERACIÓN 
+        
+        # LÓGICA DE REGENERACIÓN (FASE 5)
         if req.section_type:
             content = None
             previous_history = req.previous_content 
@@ -375,76 +272,77 @@ class AIService:
 
             # --- MANEJO DE SECCIONES PROHIBIDAS ---
             if req.section_type in ['keywords', 'titles']:
-                # Se devuelve un error si se intenta regenerar una sección prohibida.
+                # Se devuelve un error o se ignora si se intenta regenerar una sección prohibida.
                 raise ValueError(f"La regeneración de '{req.section_type}' está deshabilitada ya que se usan los datos proporcionados por el dashboard.")
+
+            # --- REGENERACIÓN DE INTENCIÓN ---
+            if req.section_type == 'search_intent': # Se asume 'search_intent' es el nuevo nombre
+                content = self.generate_single_intent(
+                    consolidated_text, 
+                    query, 
+                    previous_content=previous_history,
+                    idioma=idioma,
+                    acento=acento,
+                    tono=tono
+                )
+
+            # --- REGENERACIÓN DE INTRODUCCIÓN ---
+            elif req.section_type == 'introduction': 
+                content = self.generate_single_introduction(
+                    consolidated_text, 
+                    query, 
+                    previous_content=previous_history,
+                    idioma=idioma,
+                    acento=acento,
+                    tono=tono
+                )
             
-            # --- 1. REGENERACIÓN DE TÍTULOS (ESTRUCTURA) ---
+            # --- NUEVA REGENERACIÓN DE SECCIÓN DE ESTRUCTURA  ---
             elif req.section_type == 'structure_section': 
-                
-                # Validación de datos para regeneración de estructura
+                # Verifica que se hayan enviado los datos necesarios desde el frontend
                 if not req.regenerate_data or 'section_text' not in req.regenerate_data or 'full_structure_markdown' not in req.regenerate_data:
                     raise ValueError("Faltan datos requeridos para la regeneración de la sección de estructura: section_text y full_structure_markdown.")
 
-                # Llama al método regenerar_titulos, que debe devolver List[str]
-                content: List[str] = self.regenerar_titulos(
+                # Llama al nuevo método que usa la estructura completa como contexto
+                content = self.regenerate_structure_section(
                     consolidated_text=consolidated_text,
-                    full_structure_markdown=req.regenerate_data['full_structure_markdown'],
-                    section_to_regenerate=req.regenerate_data['section_text'],
-                    new_prompt=req.regenerate_data.get('new_prompt'),
+                    full_structure_markdown=req.regenerate_data['full_structure_markdown'], # Contexto completo
+                    section_to_regenerate=req.regenerate_data['section_text'], # Título a reemplazar
+                    new_prompt=req.regenerate_data.get('new_prompt'), # Prompt de edición/regeneración
                     idioma=idioma,
                     acento=acento,
                     tono=tono,
                     query=query
                 )
             
-            # --- 2. NUEVA GENERACIÓN DE CONTENIDO (CUERPO DE TEXTO) ---
-            elif req.section_type == 'content_generation':
-    
-                # 1. Llama al nuevo método, replicando el patrón de self.
-                try:
-                    # Llama a la nueva función especializada de la misma clase.
-                    content_result = self.generar_contenido_seccion(req)
-                    
-                    # El método ya retorna el diccionario {"generated_content": ..., "section_type": ...}
-                    return content_result 
-                
-                except HTTPException as e:
-                    # Re-lanza excepciones HTTP específicas
-                    raise e
-                except Exception as e:
-                    # Captura cualquier error inesperado
-                    raise HTTPException(status_code=500, detail=f"Error en la delegación de generación de contenido: {str(e)}")
-
-            # --- BLOQUE DE RETORNO DE REGENERACIÓN (DESPACHADOR DE RESPUESTAS) ---
+            # --- REGENERACIÓN DE OTRAS SECCIONES PERMITIDAS (Ej. conclusion_cta) ---
+            # elif req.section_type == 'conclusion_cta':
+            #    content = self.generate_single_conclusion_cta(consolidated_text, query, previous_content=previous_history)
+            
+            
             if content is not None:
+                # =========================================================
+                # >>> LIMPIEZA DEL CONTENIDO REGENERADO (REGENERACIÓN) <<<
+                # =========================================================
+                content = content.replace('\r\n', '\n').replace('\r', '\n')
+                content = re.sub(r'[^\S\n]+', ' ', content)
+                content = '\n'.join([line.strip() for line in content.split('\n') if line.strip()])
+                content = content.strip()
+                # =========================================================
                 
-                # ** Retorno de Títulos (Lista de Strings) **
-                if req.section_type == 'structure_section' and isinstance(content, list):
-                    # La clave 'regenerated_suggestions' la espera el frontend para las 3 opciones.
-                    return {"regenerated_suggestions": content, "section_type": req.section_type}
-                
-                # ** Retorno de Contenido (String único) **
-                elif req.section_type == 'content_generation' and isinstance(content, str):
-                    # La clave 'generated_content' la espera el frontend para el cuerpo del texto.
-                    return {"generated_content": content, "section_type": req.section_type}
-                
-                # LÓGICA DE LIMPIEZA Y RETORNO DE FALLBACK (Para contenido simple/otros tipos)
-                if isinstance(content, str):
-                    content = content.replace('\r\n', '\n').replace('\r', '\n')
-                    content = re.sub(r'[^\S\n]+', ' ', content)
-                    content = '\n'.join([line.strip() for line in content.split('\n') if line.strip()])
-                    content = content.strip()
-                    
+                # El frontend espera 'regenerated_content'
                 return {"regenerated_content": content, "section_type": req.section_type}
-                
             else:
-                raise ValueError(f"No se pudo generar contenido para el tipo de sección: {req.section_type}")
+                # Si llega aquí y no es prohibida, es inválida.
+                raise ValueError(f"Tipo de sección de regeneración no válido: {req.section_type}")
 
-        # --- LÓGICA DE GENERACIÓN INICIAL DE ESTRUCTURA COMPLETA (Si no hay section_type) ---
-        analysis_result = self.generar_estructura_seo_final(
+        # Flujo inicial de Análisis de Estructura COMPLETA (FASE 4)
+        analysis_result = self.generate_full_contextual_structure(
             consolidated_text=consolidated_text,
             query=query,
             title_base=title_base,
+            main_keyword=main_keyword,
+            principal_keywords=principal_keywords,
             categoria=categoria,
             idioma=idioma,
             tecnica=tecnica,
@@ -452,8 +350,11 @@ class AIService:
             tono=tono
         )
 
-        # LIMPIEZA Y NORMALIZACIÓN DE LA ESTRUCTURA COMPLETA (Se mantiene sin cambios)
-        MARKDOWN_KEY = 'full_structure_markdown' 
+        # =========================================================
+        # >>> FIX CRÍTICO: LIMPIEZA Y NORMALIZACIÓN DE LA ESTRUCTURA COMPLETA <<<
+        # (Esto aplica al flujo inicial de generación de estructura)
+        # =========================================================
+        MARKDOWN_KEY = 'full_structure_markdown' # Asumiendo esta es la clave con el texto Markdown. ¡Ajusta si es diferente!
 
         if MARKDOWN_KEY in analysis_result and isinstance(analysis_result[MARKDOWN_KEY], str):
             markdown_to_clean = analysis_result[MARKDOWN_KEY]
@@ -461,10 +362,11 @@ class AIService:
             # 1. Normalizar saltos de línea (\r\n y \r a \n)
             markdown_to_clean = markdown_to_clean.replace('\r\n', '\n').replace('\r', '\n')
 
-            # 2. Reemplazar caracteres de espacio no estándar y múltiples espacios
+            # 2. Reemplazar caracteres de espacio no estándar (tabs, espacios unicode) y múltiples espacios por un espacio simple.
+            # [^\S\n] = Cualquier espacio excepto el salto de línea.
             markdown_to_clean = re.sub(r'[^\S\n]+', ' ', markdown_to_clean) 
 
-            # 3. Eliminar líneas completamente vacías y limpiar espacios
+            # 3. Eliminar líneas completamente vacías y limpiar espacios al inicio/fin del bloque
             markdown_to_clean = '\n'.join([line.strip() for line in markdown_to_clean.split('\n') if line.strip()])
             
             # 4. Limpiar el string final.
@@ -472,18 +374,25 @@ class AIService:
             
             # 5. Guardar el resultado limpio en el diccionario
             analysis_result[MARKDOWN_KEY] = markdown_to_clean
-            
+        # =========================================================
+        
+        # Consolidar el resultado final, usando las keywords de entrada (req.keywords).
+        final_keywords_list = [main_keyword] + principal_keywords
+        
         return {
+            "search_intent": analysis_result.get("search_intent"),
+            "final_keywords": final_keywords_list,
             "final_structure_json": analysis_result,
         }
-
+    
 # --- 2. CLASE ContentExtractor: Lógica de Scraping y Fallback ---
+
 class ContentExtractor:
     """
     Clase encargada de la descarga, limpieza, extracción estructurada (Plan A/B)
     y la gestión de la lógica de fallback de scraping.
     """
-    # --- CONSTANTES Y PATRONES DE RUIDO ---
+    # --- Constantes y Patrones de Ruido ---
     EXCLUDED_HEADINGS = [
         'contenido relacionado', 'principales noticias', 'no te lo pierdas', 
         'lecturas más populares', 'más información', 'comentarios', 
@@ -491,17 +400,8 @@ class ContentExtractor:
         'te puede interesar', 'leer más', 'share', 'siguiente', 'anterior', 
         'ver también', 'suscríbete', 'regístrate', 'cierra sesión', 'publicidad', 
         'productos recomendados', 'Contenido relacionado', 'Temas relacionados',
-        'Lecturas más populares', 'patrocinado','opinión', 'redes sociales', 'directorio', 'aviso de privacidad', 
-        'términos y condiciones', 'nuestras redes', 'miembro del grupo de diarios de américa',
-        'código de ética', 'consultas', 'newsletters', 'juegos', 'podcast', 
-        'videos', 'publicidad', 'newsletter', 'lo más visto', 'lo más leído',
-        'contacto', 'acerca de', 'autor','te recomendamos', 'también te puede interesar', 'otras noticias', 
-        'más sobre este tema', 'otras historias', 'otras noticias de', 
-        'historias relacionadas', 'otras historias de', 'lo que te podría interesar',
-        'noticias de america latina', 'noticias internacional', 'lo más visto',
+        'Lecturas más populares', 'patrocinado' 
     ]
-
-    # ---PATRONES A EXCLUIR ---
     NOISE_PATTERNS = re.compile(
         r'Fuente\s+de\s+la\s+imagen[,\s]+(Getty\s+Images|Alamy)\s*|'
         r'Información\s+del\s+artículo\s+Autor[,\s]+Redacción\s+Título\s+del\s+autor[,\s]+BBC\s+Travel\s+[\d\s\w]+\s*|'
@@ -512,11 +412,11 @@ class ContentExtractor:
         re.UNICODE | re.I | re.M 
     )
 
-    # --- PETICION AL NAVEGADOR SIMULANDO UNA PETICION ---
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7",
             "Connection": "keep-alive", 
@@ -526,6 +426,7 @@ class ContentExtractor:
 
     @staticmethod
     def is_relevant_src(src: str | None) -> bool:
+        """Función anti ruido para la extraccion de elementos multmedia."""
         if not src or len(src) < 10 or src.startswith('data:image') or src.startswith('#'):
             return False
         if any(s in src.lower() for s in ['adserve', 'sponsors', 'tracker', 'g-recaptcha', 'pixel', 'comments-area']):
@@ -535,48 +436,27 @@ class ContentExtractor:
 
     @staticmethod
     def clean_text(text: str) -> str:
-        """Elimina el ruido patronizado (ej. créditos de imagen) y recorta los espacios extra del texto extraído."""
+        """ELIMINA O RECORTA LOS ESPACIOS SOBREANTES Y EL RUIDO PATRONIZADO."""
         if not text: return ""
         return ContentExtractor.NOISE_PATTERNS.sub(' ', text).strip()
 
+
     @staticmethod
-    def _get_media_info(tag: Tag) -> Dict[str, str] | None: 
-        """
-        Extrae la URL de origen y el texto descriptivo (alt/caption) de un elemento multimedia, 
-        manejando atributos de carga perezosa, miniaturas de YouTube y contenedores genéricos.
-        """
-
-        PRIMARY_MEDIA_TAGS = ['img', 'picture', 'iframe', 'video', 'figure', 'source']
-        
-        # Lista ampliada de atributos de Lazy-Loading y URLs de fondo
-        LAZY_ATTRIBUTES = [
-            'data-src', 'data-original', 'data-url', 'data-lazy-src', 'data-image-src', 
-            'srcset', 'data-srcset', 'data-iframe-src', 'data-lazyload', 'data-large-file',
-            'data-bg-src', 'data-bg', 'data-srcset-mobile' 
-        ]
-        
-        # --- FILTRO DE ENTRADA PERMISIVO ---
-        is_media_tag = tag.name in PRIMARY_MEDIA_TAGS
-        # Detección de la miniatura precargada de YouTube (clase específica)
-        is_youtube_div = tag.name == 'div' and 'ytp-cued-thumbnail-overlay' in tag.get('class', [])
-        # Detección de contenedores genéricos con atributos de carga perezosa
-        is_lazy_container = tag.name in ['div', 'span', 'section'] and any(tag.get(attr) for attr in LAZY_ATTRIBUTES)
-
-        if not is_media_tag and not is_youtube_div and not is_lazy_container:
-            return None
-        
+    def _get_media_info(tag: Tag) -> Dict[str, str] | None:
+        """Extrae la información multimedia, manejando lazy loading y etiquetas contenedoras."""
+        # Lógica para encontrar la URL de origen relevante y la descripción (alt/caption) del elemento multimedia.
+        PRIMARY_MEDIA_TAGS = ['img', 'picture', 'iframe', 'video', 'figure', 'source'] 
+        if not tag.name in PRIMARY_MEDIA_TAGS and not tag.has_attr('class'): return None
         src = tag.get('src')
         
-        # --------------------------------------------------------------------------
-        # 1. LÓGICA DE CARGA PEREZOSA (data-*)
-        # --------------------------------------------------------------------------
-        if not src or (is_lazy_container and not src): 
+        if not src and tag.name in ['img', 'picture', 'video', 'iframe', 'source']:
+            LAZY_ATTRIBUTES = ['data-src', 'data-original', 'data-url', 'data-lazy-src', 'data-image-src', 
+                            'srcset', 'data-srcset', 'data-iframe-src', 'data-lazyload', 'data-large-file']
             for attr in LAZY_ATTRIBUTES:
+                # Lógica para manejar atributos de carga perezosa (lazy loading)
                 if tag.get(attr):
                     src_value = tag.get(attr)
-                    
-                    # Manejo de srcset/data-srcset
-                    if attr in ['srcset', 'data-srcset', 'data-srcset-mobile'] and src_value:
+                    if attr in ['srcset', 'data-srcset'] and src_value:
                         try:
                             last_pair = src_value.split(',')[-1].strip()
                             src = last_pair.split(' ')[0]
@@ -585,243 +465,107 @@ class ContentExtractor:
                     else: 
                         src = src_value
                     if src: break
-            
-        # --------------------------------------------------------------------------
-        # 2. DETECCIÓN DE IMÁGENES/VIDEOS EN ATRIBUTO 'STYLE' (Fallo común en blogs)
-        # --------------------------------------------------------------------------
-        if not src and tag.get('style'):
-            style_attr = tag.get('style')
-            
-            # 2a. Búsqueda de background-image: url(...)
-            style_match_img = re.search(r'background-image:\s*url\s*\(["\']?(.+?)["\']?\)', style_attr, re.I)
-            if style_match_img:
-                src = style_match_img.group(1)
-            
-            # 2b. Detección de miniatura de YouTube por estilo si falló la clase
-            elif 'ytp-cued-thumbnail-overlay-image' in tag.get('class', []):
-                match_url = re.search(r'url\("?(.+?)"?\)', style_attr)
-                if match_url:
-                    thumb_url = match_url.group(1).replace('"', '')
-                    id_match = re.search(r'/vi/([a-zA-Z0-9_-]+)/', thumb_url)
-                    if id_match:
-                        src = f"https://www.youtube.com/embed/{id_match.group(1)}"
 
-
-        # --------------------------------------------------------------------------
-        # 3. DETECCIÓN POR CLASE YOUTUBE (Si el src aún está vacío y es el div)
-        # --------------------------------------------------------------------------
-        if is_youtube_div and not src:
-            try:
-                image_div = tag.find('div', class_='ytp-cued-thumbnail-overlay-image')
-                if image_div:
-                    style_attr = image_div.get('style', '')
-                    match_url = re.search(r'url\("?(.+?)"?\)', style_attr)
-                    
-                    if match_url:
-                        thumb_url = match_url.group(1).replace('"', '')
-                        id_match = re.search(r'/vi/([a-zA-Z0-9_-]+)/', thumb_url)
-                        if id_match:
-                            # Creamos la URL de embed del video
-                            src = f"https://www.youtube.com/embed/{id_match.group(1)}"
-            except:
-                pass 
-
-
-        # --------------------------------------------------------------------------
-        # 4. LÓGICA DE DETECCIÓN FINAL Y CLASIFICACIÓN
-        # --------------------------------------------------------------------------
         if src and ContentExtractor.is_relevant_src(src):
-            
+            # Formateo de la información multimedia
             media_type = 'Imagen'; alt_text = tag.get('alt', '')
-            
-            # Clasificación para tags multimedia primarios
-            if tag.name in ['iframe'] and any(keyword in src for keyword in ['youtube.com', 'youtu.be', 'vimeo.com', 'maps.google.com']): 
-                media_type = 'Video/Mapa' 
-                alt_text = tag.get('title') or alt_text
-            elif tag.name == 'video' or any(ext in src.lower() for ext in ['.mp4', '.webm', '.ogg']): 
-                media_type = 'Video'
-            
-            # Clasificación para tags contenedores genéricos
-            elif tag.name in ['div', 'span', 'section'] or is_lazy_container:
-                if any(ext in src.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']):
-                    media_type = 'Imagen (Lazy/CSS)'
-                elif any(ext in src.lower() for ext in ['youtube.com', 'youtu.be', 'vimeo.com']):
-                    media_type = 'Video (Lazy/CSS)'
-                else:
-                    media_type = 'Otro Multimedia'
-
-
-            # Intenta obtener el pie de foto (caption)
+            if tag.name in ['iframe']: media_type = 'Video/Mapa'
+            if tag.name in ['video']: media_type = 'Video'
             caption_text = ''
             search_scope = tag if tag.name == 'figure' else tag.find_parent('figure')
             
             if search_scope:
-                    caption_tag = search_scope.find(
-                        ['figcaption', 'span', 'p'], 
-                        class_=re.compile(r'caption|pie-de-foto|fig-caption|description|credit', re.I)
-                    ) 
-                    caption_text = caption_tag.get_text(strip=True) if caption_tag else ''
+                 caption_tag = search_scope.find(
+                     ['figcaption', 'span', 'p'], 
+                     class_=re.compile(r'caption|pie-de-foto|fig-caption|description|credit', re.I)
+                 ) 
+                 caption_text = caption_tag.get_text(strip=True) if caption_tag else ''
 
             source_text = caption_text if caption_text else alt_text if alt_text else f"Multimedia de tipo {media_type}"
-            
             return {'type': media_type, 'url': src, 'description': source_text, 'alt': alt_text, 'caption': caption_text} 
-        
         return None
+
 
     @staticmethod
     def get_article_main_heading(soup: BeautifulSoup) -> str:
-        """Busca y retorna el título principal del artículo, priorizando la etiqueta H1 y selectores comunes de titular."""
+        """Busca el título principal del artículo, priorizando H1 y etiquetas de título comunes."""
         
         h1_tag = soup.find('h1', class_=lambda c: c is None or 'logo' not in c.lower() and 'brand' not in c.lower() and 'site-title' not in c.lower())
-        
         if h1_tag and h1_tag.get_text(strip=True) and len(h1_tag.get_text(strip=True)) > 10:
             return h1_tag.get_text(strip=True)
         
         # Búsqueda basada en clases comunes de título
         title_classes = re.compile(r'main-title|article-title|entry-title|post-title|headline-text', re.I)
         main_div = soup.find(['div', 'span'], class_=title_classes)
-        
         if main_div and main_div.get_text(strip=True) and len(main_div.get_text(strip=True)) > 10:
             return main_div.get_text(strip=True)
             
         title_tag = soup.find("title")
-        
         return title_tag.get_text(strip=True) if title_tag else "Contenido Principal del Artículo"
 
 
     @staticmethod
-    def _get_content_area(soup: BeautifulSoup, mode: str) -> Union[Tag, BeautifulSoup]:
-        """
-        Identifica el área principal del contenido usando selectores simples (Plan A) 
-        y luego heurística de densidad (Plan B/Modo Robusto). 
-        Aplica limpieza fina interna para eliminar ruido anidado.
-        """
+    def _get_content_area(soup: BeautifulSoup, mode: str) -> Tag | BeautifulSoup:
+        """Aísla el área de contenido principal basándose en el modo de extracción ('simple' o 'robust')."""
+        
         temp_content_area = None
         
-        # ----------------------------------------------------------------------
-        # A. DETECCIÓN SIMPLE (Plan A: Primer intento rápido y eficiente)
-        # ----------------------------------------------------------------------
         if mode == 'simple':
-            # Selectores de muy alta confianza
-            simple_selectors = ['div[itemprop*="articleBody"]', '.entry-content', 'article.post-content', 'article', 'main']
-            
-            for selector in simple_selectors:
+            # Intento de encontrar contenedores de alta confianza (article, main) y heurística de densidad.
+            high_confidence_selectors = ['article', 'main', 'div[itemprop*="articleBody"]']
+            content_selectors = ['.entry-content', '.td-post-content', '.post-content', '.content-body', 'div[itemprop*="articleBody"]', '#content'] 
+            # ... Lógica de búsqueda de área de contenido 'simple' ...
+            for selector in high_confidence_selectors:
                 area = soup.select_one(selector)
-                # Debe tener suficiente texto para ser un artículo real
-                if area and len(area.get_text(strip=True)) > 500:
+                if area:
+                    refined_area = area.select_one(', '.join(content_selectors))
+                    temp_content_area = refined_area if refined_area else area
+                    break 
+            if not temp_content_area:
+                for selector in content_selectors:
+                    area = soup.select_one(selector)
+                    if area:
+                        temp_content_area = area
+                        break
+            # Heurística de Densidad como último recurso en modo simple
+            if not temp_content_area:
+                potential_content_areas = soup.find_all(['div', 'section'], recursive=True)
+                best_area = None; max_density = 0
+                for area in potential_content_areas:
+                    # Lógica de cálculo de densidad para encontrar el contenedor más probable.
+                    area_class_str = " ".join(area.get('class', []))
+                    if area.name == 'div' and area.get('id') in ['comments', 'sidebar', 'footer', 'header', 'nav', 'ad', 'sponsor']: continue
+                    if 'sidebar' in area_class_str or 'navigation' in area_class_str or 'menu' in area_class_str: continue
+                    p_count = len(area.find_all(['p', 'ul', 'ol', 'h3', 'h4'], limit=20))
+                    area_text_len = len(area.get_text(strip=True)); a_count = len(area.find_all('a', limit=10)) 
+                    link_density_penalty = 1.0
+                    if area_text_len < 400 and a_count > 5: link_density_penalty = 0.1 
+                    current_density = (p_count * area_text_len) * link_density_penalty 
+                    if current_density > max_density and p_count >= 2 and area_text_len >= 100: 
+                        best_area = area; max_density = current_density
+                
+                if best_area: temp_content_area = best_area
+                
+        else: # mode == 'robust' (Plan B: Aislamiento rápido y directo)
+            # Prioriza selectores comunes en blogs con contenido sustancial
+            article_container_selectors = ['#content', '#primary', '#main-content', '.post-wrapper', '.site-main','article','#main',
+                                       '.entry-content','.article-content','.post-content','.td-post-content','.article-body',]
+            for selector in article_container_selectors:
+                area = soup.select_one(selector)
+                if area and len(area.get_text(strip=True)) > 300 and len(area.find_all('p', limit=6)) >= 4:
                     temp_content_area = area
                     break
-
-        # ----------------------------------------------------------------------
-        # B. DETECCIÓN ROBUSTA (Plan B: Heurística de Densidad y Selectores Agresivos)
-        # Se ejecuta si el modo es 'robust' O si el Plan A falló.
-        # ----------------------------------------------------------------------
-        
-        if mode == 'robust' or (mode == 'simple' and not temp_content_area):
             
-            # Selectores de contenedores de artículo 
-            article_container_selectors = [
-                'div[itemprop*="articleBody"]', '.entry-content', '.post-content', 
-                '.article-body', '.post-body', '.article-main-content', '.td-post-content', 
-                '.post-inner', '.content-wrap', '.single-post-content', 
-                
-                # Selectores Agresivos
-                '[class*="content"]', '[class*="single"]', '.post', '.article',
-                '.main-content', '#main-content-area', '.main-area',
-                
-                'article', 'main', '#content', '#primary', '#main-content', 
-            ]
-            
-            best_area = temp_content_area
-            max_p_count = 0
-            
-            # Si venimos de un fallo en el modo simple, reiniciamos max_p_count
-            if not best_area:
-                 max_p_count = 0
+            if not temp_content_area: temp_content_area = soup.find(class_='entry-content') 
+            if not temp_content_area: temp_content_area = soup.find('main', class_=lambda c: c and 'content' in c.split())
+            if not temp_content_area: temp_content_area = soup.find('article', class_=lambda c: c and 'post-' in c)
 
-            # Iteramos sobre todos los candidatos para encontrar el mejor por DENSIDAD
-            for selector in article_container_selectors:
-                for area in soup.select(selector): 
-                    # Contamos párrafos (el marcador clave de contenido principal)
-                    p_count = len(area.find_all('p', limit=10)) 
-                    text_len = len(area.get_text(strip=True))
-                    
-                    # Criterio de Selección: Debe ser grande, tener al menos 3 párrafos y más que el candidato actual.
-                    if text_len > 300 and p_count >= 3:
-                         if p_count > max_p_count:
-                            max_p_count = p_count
-                            best_area = area
-            
-            temp_content_area = best_area
-        
-        # ----------------------------------------------------------------------
-        # C. LÓGICA DE LIMPIEZA INTERNA (LISTA BLANCA + EXCLUSIÓN DE RUIDO)
-        # ----------------------------------------------------------------------
-
-        if temp_content_area:
-            # Lista de etiquetas esenciales que SI deben sobrevivir 
-            essential_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'li', 'a', 'strong', 'em', 'blockquote', 'img', 'figure', 'ul', 'ol', 'video', 'table', 'span', 'br', 'iframe']
-            
-            for element in temp_content_area.find_all(True):
-                is_noise = False
-                
-                # Criterio C.1: Eliminación por Lista Blanca y Vacío (Protege el contenido esencial)
-                if element.name not in essential_tags:
-                    # Busca sii el elemento tiene un hijo multimedia 
-                    has_media_child = element.find(['img', 'figure', 'iframe', 'video', 'picture'], recursive=False)
-                    # Si no es un tag esencial y NO tiene texto significativo
-                    if len(element.get_text(strip=True)) < 50 and not has_media_child: 
-                        is_noise = True
-
-                # Criterio C.2: Heurística de Contenedor de Ruido (Clases y Densidad de Enlaces)
-                if element.name in ['div', 'section', 'aside']:
-                    # 1. Clases de ruido conocidas (Filtro AMPLIO)
-                    if any(c in element.get('class', []) for c in [
-                        'widget', 'promo-box', 'related-posts', 'guide-links', 
-                        'reviews-section', 'author-box', 'social-media', 'share-bar', 
-                        'elementor-widget', 'ad-container', 'post-nav', 'links-list', 
-                        'more-stories', 'paywall-block', 'sub-header', 'footer-content', 'byline-item'
-                    ]):
-                         is_noise = True
-                         
-                    # 2. Heurísticas de densidad de enlaces (Detecta listados de links/publicidad)
-                    num_p = len(element.find_all('p', recursive=False))
-                    num_a = len(element.find_all('a'))
-                    text_len = len(element.get_text(strip=True))
-
-                    # Regla: Si tiene muy pocos párrafos, muchos enlaces y poco texto total.
-                    if num_p < 3 and num_a > 3 and num_a / (len(element.find_all(True)) or 1) > 0.3 and text_len < 500:
-                        is_noise = True
-                        
-                # Criterio C.3: HEURÍSTICA DE CÓDIGO JS Y BOTONES DE ACCIÓN
-                element_text = element.get_text(strip=True)
-                
-                # Detecta tags de form, input o placeholders de JS/React
-                if element.name in ['input', 'textarea', 'select', 'form'] or '{{' in element_text or '}}' in element_text: 
-                     is_noise = True
-                
-                # Detecta botones o links de acción
-                elif element.name in ['button', 'a'] and any(keyword in element_text for keyword in ['Borrar', 'Selecciona', 'Reservar', 'Comprar', 'Agregar', 'Idioma', 'Moneda', 'Opciones', 'Destino', 'Ver más', 'Buscar', 'Suscribir', 'Newsletter', 'Publicidad']):
-                    is_noise = True
-                
-                if is_noise:
-                    element.decompose() # Elimina el elemento
-            
-            # 4. Heurística Final para eliminar bloques de Related Posts/Links al final
-            for last_tag in temp_content_area.find_all(recursive=False)[-3:]:
-                if last_tag.name in ['div', 'section'] and (
-                    len(last_tag.get_text(strip=True)) < 500 and len(last_tag.find_all('a')) > 5
-                ):
-                    last_tag.decompose()
-
-        # ----------------------------------------------------------------------
-        # D. FALLBACK FINAL
-        # ----------------------------------------------------------------------
         return temp_content_area or soup.find('body') or soup
+
 
     @staticmethod
     def group_content_by_headings(soup: BeautifulSoup, mode: str) -> List[Dict[str, Any]]: 
-        """Procesa el HTML de la página, agrupando texto y elementos multimedia bajo los encabezados (H2/H3) detectados para crear bloques estructurados de contenido."""
+        """Agrupa el contenido del artículo por encabezados (H2/H3) o tags de encabezado detectados."""
         blocks = []
         current_heading: Optional[str] = None 
         current_content: List[str] = []
@@ -830,7 +574,6 @@ class ContentExtractor:
         content_area = ContentExtractor._get_content_area(soup, mode)
         article_title = ContentExtractor.get_article_main_heading(soup)
 
-        # Función auxiliar interna para guardar el bloque actual
         def save_current_block():
             heading_to_save = current_heading if current_heading is not None else "Introducción/Pre-H2"
             if current_content or current_media:
@@ -865,7 +608,7 @@ class ContentExtractor:
             if tag_name in ['img', 'figure', 'picture', 'iframe', 'video']: is_heading_divisor = False
             elif tag_name in ['h1', 'h2']: is_heading_divisor = True
             elif tag_name in ['h3', 'h4']:
-                is_heading_divisor = True
+                if len(" ".join(current_content)) > 2000 or current_heading is None: is_heading_divisor = True
             elif tag_name in ['div', 'span', 'section']:
                 if tag.get('role') == 'heading' and tag.get('aria-level') in ['1', '2', '3', '4']: is_heading_divisor = True
                 elif tag.has_attr('class'):
@@ -879,41 +622,7 @@ class ContentExtractor:
             
             # 2. Manejo de Encabezado: Guarda el bloque anterior e inicia uno nuevo
             if is_heading_divisor:
-                
-                # FILTRO 1: Títulos muy cortos o conocidos como ruido visual
                 if len(text_content) < 5 or any(exc in text_content.lower() for exc in ['pie de foto', 'foto:', 'imagen de', 'ver galeria', 'crédito']): continue
-                
-                # <<< INICIO DE FILTROS UNIVERSALES CONTRA EL RUIDO >>>
-                
-                # 1. Chequeo de calidad del bloque ANTERIOR antes de guardarlo.
-                if current_heading is not None and current_content:
-                    
-                    texto_consolidado = " ".join(current_content)
-                    len_texto = len(texto_consolidado)
-                    heading_strip = current_heading.strip()
-                    
-                    # *** FILTRO 1: DUPLICACIÓN HEADER-CONTENIDO EXTENDIDA (Arregla BBC Bloques 17, 18, 19, 20, 21) ***
-                    # Si el contenido es de longitud media o corta (< 1500 chars) y comienza con el encabezado.
-                    if len_texto < 1500 and texto_consolidado.startswith(heading_strip): 
-                        # self.log_debug(f"[FILTRO DUPLICACIÓN] Descartando bloque por duplicación Header/Contenido: '{current_heading[:30]}...'")
-                        current_heading = text_content
-                        current_content = []
-                        current_media = []
-                        continue 
-
-                    # *** FILTRO 2: DENSIDAD DE ENLACES ADAPTATIVA MÁS AGRESIVA (Arreglo Genérico de Widgets de Enlaces) ***
-                    link_count = texto_consolidado.lower().count('http') + texto_consolidado.lower().count('www.')
-                    
-                    # Si el bloque es PEQUEÑO (< 500 chars) Y DENSO EN ENLACES (>= 3), es ruido.
-                    if len_texto < 500 and link_count >= 3: # <<-- CAMBIO CLAVE: Umbral reducido a 3
-                        # self.log_debug(f"[FILTRO DENSIDAD] Descartando bloque por alta densidad de enlaces: '{current_heading[:30]}...'")
-                        current_heading = text_content
-                        current_content = []
-                        current_media = []
-                        continue 
-                        
-                # <<< FIN DE FILTROS UNIVERSALES CONTRA EL RUIDO >>>
-
                 if current_heading is None or text_content.strip() != current_heading.strip():
                     save_current_block()
                     current_heading = text_content; current_content = []; current_media = []
@@ -924,12 +633,6 @@ class ContentExtractor:
                 
             # 4. Manejo de Contenido Textual
             is_content_tag = tag_name in ['p', 'ul', 'ol', 'blockquote']
-            
-            # *** AÑADIDO: INCLUSIÓN DE DIV/SECTION COMO CONTENIDO (Arregla Vogue/GQ) ***
-            # Si no es un encabezado y tiene texto sustancial, es contenido.
-            if tag_name in ['div', 'section'] and not is_heading_divisor and len(text_content) > 50:
-                is_content_tag = True
-                
             if tag_name == 'span' and not is_heading_divisor and len(text_content) > 100: is_content_tag = True
             
             if is_content_tag and text_content and len(text_content) > 10: 
@@ -940,10 +643,9 @@ class ContentExtractor:
         if blocks and blocks[0]['heading'] == "Introducción/Pre-H2":
             blocks[0]['heading'] = article_title 
         
+        # --- FASE 3: FILTRADO FINAL (Aplicar filtros de longitud y ruido) ---
         final_blocks = []
-        
         MIN_TEXT_LENGTH_CHARS = 50 
-        
         for block in blocks:
             heading_lower = block['heading'].lower().strip()
             is_irrelevant_heading = any(exc in heading_lower for exc in ContentExtractor.EXCLUDED_HEADINGS)
@@ -956,39 +658,38 @@ class ContentExtractor:
 
 
     def fetch_webpage(self, url: str) -> tuple[str, str, BeautifulSoup]:
-        """Descarga la página web, elimina etiquetas no deseadas (scripts, estilos) y selectores de ruido (publicidad, navegación) y devuelve el título, el texto limpio y el objeto BeautifulSoup."""
+        """Descarga la página web y realiza la limpieza inicial (remoción de scripts, estilos, banners)."""
         try:
-            response = self.session.get(url, timeout=10, verify=False) 
+            response = self.session.get(url, timeout=10)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, "html.parser")
             
             # Limpieza de etiquetas y selectores irrelevantes (ruido de navegación, publicidad, etc.)
-            for tag in soup(["script", "style", "form"]): tag.decompose()
-
+            for tag in soup(["script", "style", "form", "iframe"]): tag.decompose()
             irrelevant_selectors = [ 
-                # === 1. ESTRUCTURAS GLOBALES Y NAVEGACIÓN ===
-                'header', 'footer', 'nav', 'aside', '[role*="complementary"]', 
-                '#sidebar', '#footer', '#header', '#top-menu', '[data-testid*="footer"]', 
-                '.hero-section', '#skip-link', 'a[href="#main-content"]', 
-                
-                # === 2. PUBLICIDAD / PROMOS / COOKIES / PAYWALLS ===
-                '[class*="ad-"]', '[id*="ad-"]', '[class*="advert"]', '[class*="sponsor"]', 
-                '[id^="ezoic-"]', '#newsletter-form', '[class*="paywall"]', 
-                '[class*="cookie"]', '[id*="consent"]', '[id*="onetrust"]', 
-                '.c-cookie-banner', '.paywall-meter', '.g-ui-layer', 
-                
-                # === 3. METADATOS, REDES Y COMENTARIOS ===
-                '[class*="related"]', '[class*="suggested"]', '[class*="recommend"]', 
-                '[class*="next-story"]', 
+                '.c-cookie-banner', '.c-site-footer', '.SocialShare', '#site-footer',
                 '.article-meta', '.byline', '.metadata', '.author-info', '.date-info', 
-                '[class*="author-box"]', '[class*="share-bar"]', '[class*="social-media"]', 
-                '#comments', '.article-comments', '.SocialShare',
-                
-                # === 4. WIDGETS Y FORMULARIOS ===
-                '.reviews-section', '.guide-links', '.related-cities', 
-                '.language-selector', '.currency-selector', 
-                '[class*="selector"]', '[class*="options"]',
-                'input', 'form', 'button', 'script', # Etiquetas de formulario/código/media externa
+                '.paywall-meter', '.g-ui-layer', '.loading-bar', 
+                '.article__meta-container', '#article-tools', '.c-article-media-switcher', 
+                '.article-comments', 
+                '.css-1qxt0m5', '.e1pby31a0', '.e1pby31a1', 
+                '[data-testid="expanded-footer"]', 
+                '[data-testid*="paywall"]',
+                '[class*="paywall"]', 
+                '[class*="meter-bar"]',
+                '[class*="ad-"]', 
+                '#newsletter-form',
+                '#site-navigation',
+                '.StoryHeader__byline',
+                '.article-section-header', 
+                '.css-g2jrl', '.e1pby31a3', '.e1pby31a4',
+                '[class*="stk-block-columns"]',   
+                '[class*="ct-share-box"]',        
+                '[data-block*="hook"]',           
+                '[id^="ezoic-"]',                 
+                '.ct-breadcrumbs',                
+                '.hero-section',                  
+                'nav.wp-block-stackable-table-of-contents', 
             ]
             for selector in irrelevant_selectors:
                 for element in soup.select(selector):
@@ -1007,8 +708,8 @@ class ContentExtractor:
 
     def _scrape_with_fallback(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
         """
-        Ejecuta la extracción de contenido usando el modo 'simple' (Plan A). Si el resultado 
-        es insuficiente (por debajo de umbrales mínimos de contenido o bloques), utiliza el modo 'robust' (Plan B) como fallback.
+        Ejecuta el Plan A (simple/flexible) y si el resultado es insuficiente, 
+        pasa automáticamente al Plan B (robust/agresivo).
         """
         MIN_CONTENT_CHARS = 300  
         MIN_BLOCKS = 5           
@@ -1028,7 +729,6 @@ class ContentExtractor:
         
         return blocks_robust
 
-
 # --- 3. CLASE AnalysisOrchestrator: Coordinación del Flujo ---
 
 class AnalysisOrchestrator:
@@ -1045,7 +745,15 @@ class AnalysisOrchestrator:
         except Exception:
             self.nlp = None
 
-    
+    def extract_keywords(self, text, top_n=20) -> List[str]:
+        """Extrae keywords utilizando Spacy."""
+        if not self.nlp:
+            return ["spacy-error-keyword"]
+        doc = self.nlp(text.lower())
+        candidates = [chunk.text.strip() for chunk in doc.noun_chunks if 3 <= len(chunk.text.split()) <= 5]
+        counter = Counter(candidates)
+        return [kw for kw, _ in counter.most_common(top_n)]
+
     def _aggressive_text_fallback(self, soup: BeautifulSoup, article_heading: str) -> List[Dict[str, Any]]:
         """
         Plan C: Intento de extracción de texto agresiva cuando la división estructural falla.
@@ -1081,7 +789,7 @@ class AnalysisOrchestrator:
     def execute_scraping(self, req: models.ScrapeRequest) -> Generator[str, None, None]:
         """
         Ejecuta el flujo completo de scraping, análisis y generación de resúmenes IA (FASE 1 a 3),
-        devolviendo el resultado final como un generador de eventos (SSE). 
+        devolviendo el resultado final como un generador de eventos (SSE).
         """
         query = req.query
         urls = [u.strip() for u in query.split(",") if u.strip()][:req.num_results]
@@ -1104,6 +812,7 @@ class AnalysisOrchestrator:
                 msg = f"Contenido nulo o error de conexión en {url} (Título: {title}), se descarta."
                 yield f"data: {msg}\n\n"; log.append(msg); continue
                 
+            keywords = self.extract_keywords(full_text)
             
             # 2. FASE 2: ADAPTABILIDAD ESTRUCTURAL (Plan A -> Plan B -> Plan C)
             structured_chunks = self.extractor._scrape_with_fallback(soup)
@@ -1151,7 +860,7 @@ class AnalysisOrchestrator:
                 # RE-INTRODUCCIÓN DEL LOGGING DETALLADO PARA EL DEBUG DEL FRONT-END
                 yield f"data: Procesando {len(structured_chunks)} secciones estructurales (FASE 3: Extracción Detallada)....\n\n"
                 
-                # Bucle para SIMULAR el progreso y GENERAR los logs detallados 
+                # Bucle para SIMULAR el progreso y GENERAR los logs detallados (NO llama a la IA)
                 for j, chunk_data in enumerate(structured_chunks, 1):
                     
                     chunk_content = chunk_data['content']
@@ -1169,7 +878,7 @@ class AnalysisOrchestrator:
                     yield f"data: {log_msg_debug}\n\n"
                     log.append(log_msg_debug)
                 
-                # 2. LLAMADA A IA CONSOLIDADA 
+                # 2. LLAMADA A IA CONSOLIDADA (se ejecuta solo UNA vez)
                 yield f"data: Análisis de IA en curso sobre el contenido CONSOLIDADO de la URL...\n\n"
                 
                 chunk_content = chunk_data_for_ai['content'] # Contenido consolidado
@@ -1184,7 +893,7 @@ class AnalysisOrchestrator:
                 log.append(f"""[DEBUG: CONTENIDO CONSOLIDADO] Inicio: "{chunk_content[:150].replace('"', "'").strip()}..." (Tamaño: {len(chunk_content)} chars)""")
 
                 if req.use_ai:
-                    summary = self.ai_service.analizar_bloque_contenido(chunk_content, chunk_media, query, chunk_heading) 
+                    summary = self.ai_service.generate_chunk_summary(chunk_content, chunk_media, query, chunk_heading) 
                     summaries.append(summary)
                     chunk_data_for_ai['ai_chunk_summary'] = summary
                     yield "data: Resumen de IA por URL completado.\n\n"
@@ -1210,12 +919,16 @@ class AnalysisOrchestrator:
             result = models.ScrapeResult(
                 url=url,
                 title=title,
+                keywords=keywords,
                 ai_titles=[],
                 subtitles=[],
+                ai_intent="",
                 text_content=context_data,
+                conclusion="",
                 headers={"main_heading": [structured_chunks[0]['heading']] if structured_chunks else [title], "count": [str(len(structured_chunks))]},
                 ai_analysis=ai_analysis_result,
                 title_suggestions=[], 
+                search_intent=None,
                 final_structure="",
                 article_blocks=structured_chunks, 
                 status='OK' 
@@ -1225,6 +938,7 @@ class AnalysisOrchestrator:
         # 4. FASE 4: Preparación para Análisis Manual (Omisión de LLAMADAS IA FINALES)
         valid_results = [r for r in all_results if r.status == 'OK'] 
         consolidated_text = ""
+        unique_keywords = []
 
         if valid_results and req.use_ai: 
             # Consolidación del texto para la FASE 4 (Análisis Final)
@@ -1243,16 +957,24 @@ class AnalysisOrchestrator:
                             structured_context_parts.append(f"CONTENIDO CLAVE SINTETIZADO:\n{analysis}")
                             
             consolidated_text = "\n\n".join(structured_context_parts)
+            all_keywords_lists = [r.keywords for r in valid_results if r.keywords]
+            unique_keywords = list(set([kw for sublist in all_keywords_lists for kw in sublist]))
             
-            
+            final_intent = "Análisis IA Pendiente. Ejecutar 'Generar Análisis IA'."
+            final_keywords_list = unique_keywords
             final_structure_text = "Contenido consolidado listo para análisis IA."
 
             yield "data: [FASE 4: Análisis IA omitido. Contenido consolidado listo para generación manual.]\n\n"
             
         elif not valid_results:
+            final_intent = "No se pudo analizar ninguna página."
             final_structure_text = "No se pudo generar la estructura final debido a fallos de scraping."
+            final_keywords_list = []
         else: # not req.use_ai:
+            final_intent = "Análisis IA desactivado."
             final_structure_text = "Análisis IA desactivado."
+            all_keywords_lists = [r.keywords for r in valid_results if r.keywords]
+            final_keywords_list = list(set([kw for sublist in all_keywords_lists for kw in sublist]))
 
 
         # 5. FASE 5: PREPARACIÓN DE RESPUESTA FINAL
@@ -1261,6 +983,8 @@ class AnalysisOrchestrator:
             count=len(valid_results),
             results=all_results, 
             final_structure=final_structure_text, 
+            search_intent=final_intent,
+            final_keywords=final_keywords_list, 
             log=log,
             consolidated_content=consolidated_text 
         )
@@ -1277,7 +1001,7 @@ def execute_scraping(req: models.ScrapeRequest) -> Generator[str, None, None]:
     orchestrator = AnalysisOrchestrator(ai_service, extractor)
     return orchestrator.execute_scraping(req)
 
-def analisis_final_ia(req: models.AIAnalysisRequest) -> Dict[str, Any]:
+def run_final_ai_analysis(req: models.AIAnalysisRequest) -> Dict[str, Any]:
     """Punto de entrada para el análisis final de IA (Servicio de IA), incluyendo regeneración de secciones."""
     ai_service = AIService()
-    return ai_service.analisis_final_ia(req)
+    return ai_service.run_final_ai_analysis(req)

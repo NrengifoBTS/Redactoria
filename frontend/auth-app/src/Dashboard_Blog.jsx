@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import "@iconscout/unicons/css/line.css";
+
 import "./css/styles.css";
+
 import GeneracionBlog from "./Blog_Generacion";
 
 // -----------------------------------------------------------------------------
