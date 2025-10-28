@@ -60,3 +60,17 @@ def generar_contenido_seccion(req: PeticionGeneracionContenido):
         raise http_e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo en el controlador de generación de contenido: {str(e)}")
+    
+
+@router_ai.post("/generate_full_content", response_model=Dict[str, Any])
+def generar_contenido_completo(req: AIAnalysisRequest): 
+    """
+    Genera el contenido de una sección en modo libre. Usado para la orquestación del blog completo.
+    """
+    try:
+        ai_service = service.AIService() 
+        return ai_service.generar_contenido_blog_libre(req) 
+    except HTTPException as http_e:
+        raise http_e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fallo al generar contenido libre: {str(e)}")

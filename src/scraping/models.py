@@ -25,6 +25,7 @@ class ScrapeResult(BaseModel):
     final_structure: str
     status: str = 'ERROR' 
     article_blocks: Optional[List[Dict[str, Any]]] = None 
+    word_count: Optional[int] = None
 
 
 class ScrapeResponse(BaseModel):
@@ -62,8 +63,27 @@ class AIAnalysisRequest(BaseModel):
     tono: Optional[str] = 'profesional'
 
     max_length: int = Field(default=500, description="Límite aproximado de caracteres para la respuesta de la IA.")
-    
-    # Campos para la Regeneración 
+
+    # --- NUEVOS CAMPOS PARA EL PRESUPUESTO DINÁMICO (Conteo Regresivo) ---
+    palabras_acumuladas: Optional[int] = Field(
+        0, description="Palabras totales generadas en el artículo hasta el momento."
+    )
+    subsecciones_pendientes: Optional[int] = Field(
+        None, description="Número de subsecciones (H2/H3) que quedan por generar."
+    )
+    limite_palabras_bloque: Optional[int] = Field(
+        None, description="Límite de palabras estricto para la generación del bloque actual (calculado en el frontend)."
+    )
+
+    total_sections: Optional[int] = Field(
+        None, description="Número total de secciones/bloques en la estructura final."
+    )
+    total_word_budget: Optional[int] = Field(
+        None, description="Presupuesto total de palabras del artículo estimado por la IA (estimatedWordCount)."
+    )
+
+
+    # CAMPOS PARA LA REGENERACION 
     section_type: Optional[str] = Field(
         None, 
         description="Tipo de sección a regenerar: 'structure_section'." 
@@ -73,6 +93,11 @@ class AIAnalysisRequest(BaseModel):
     )
     regenerate_data: Optional[Dict[str, Any]] = Field(
         None, description="Datos adicionales para la regeneración de secciones (ej. section_text, full_structure_markdown)."
+    )
+
+    system_message: Optional[str] = Field(
+        None, 
+        description="Mensaje del sistema para la IA. Define el rol, tono y acento."
     )
 
 # =======================================================================

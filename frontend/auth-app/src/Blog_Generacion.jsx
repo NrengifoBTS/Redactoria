@@ -4,57 +4,69 @@ import "./css/styles_generacion.css";
 
 const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   // =======================================================================
-  // 1. REFERENCIAS DE ELEMENTOS (useRef)
+  // 1. REFERENCIAS DE ELEMENTOS Y CONTROL (useRef)
   // =======================================================================
   const referenciaUrls = useRef(null);
   const referenciaControladorAborto = useRef(null);
 
   // =======================================================================
-  // 2. DATO INICIAL Y ESTADOS CLAVE
+  // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS
   // =======================================================================
+  const [datosFinales, setDatosFinales] = useState(null);
+  const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
+  const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
+  const [estimatedWordCount, setEstimatedWordCount] = useState(null);
+  const [titleSuggestions, setTitleSuggestions] = useState([]);
+  const [isEditingStructure, setIsEditingStructure] = useState(true);
 
+  // =======================================================================
+  // 3. CONSTANTES Y DATOS INICIALES
+  // =======================================================================
+  //--- URLs de la API del backend ---
+  const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
+  const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
+  const URL_API_IA_COMPLETO =
+    "http://192.168.1.129:8000/ai/generate_full_content";
+
+  //--- Título de la vista (depende de datosFinales) ---
+  const mainTitle =
+    initialParams.titulo || datosFinales?.query || "Generación de Blog";
+
+  // =======================================================================
+  // 4. ESTADOS DE CARGA Y CONTROL DE FLUJO GLOBAL
+  // =======================================================================
+  const [cargandoScraping, setCargandoScraping] = useState(false);
+  const [cargandoIA, setCargandoIA] = useState(false);
+  const [error, setError] = useState(null);
+  const [usarIA, setUsarIA] = useState(true);
+  const [cancelacionSolicitada, setCancelacionSolicitada] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  // =======================================================================
+  // 5. ESTADOS DE INTERFAZ DE USUARIO (UI) Y OPCIONES DE CONTENIDO
+  // =======================================================================
   const [cardVisibility, setCardVisibility] = useState({
     temasKeywords: true,
     estiloTono: true,
     contexto: true,
   });
-
-  //--- URLs de la API del backend ---
-  const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
-  const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
-
-  // --- Estados de Datos y Control ---
-  const [datosFinales, setDatosFinales] = useState(null);
-  const [cargandoScraping, setCargandoScraping] = useState(false);
-  const [error, setError] = useState(null);
-  const [usarIA, setUsarIA] = useState(true);
-
-  //--- Resultados parseados para la vista ---
-  const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
-  const mainTitle =
-    initialParams.titulo || datosFinales?.query || "Generación de Blog";
-
-  //--- Estados para el flujo manual ---
-  const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
-  const [cargandoIA, setCargandoIA] = useState(false);
-  const [selectedSectionForRegen, setSelectedSectionForRegen] = useState(null);
-  const [regenTextareaValue, setRegenTextareaValue] = useState("");
-  const [seccionRegenerando, setSeccionRegenerando] = useState(null); // <-- Define 'setSeccionRegenerando'
-  const [titleSuggestions, setTitleSuggestions] = useState([]); // <-- Define 'setTitleSuggestions'
-
-  // --- ESTADOS para CONTENIDO ---
-  const [sectionContentValue, setSectionContentValue] = useState("");
   const [wordLimit, setWordLimit] = useState(300);
   const [contentType, setContentType] = useState("ia_libre");
 
-  // --- Estado para la Notificación Toast ---
-  const [toast, setToast] = useState(null);
+  // =======================================================================
+  // 6. ESTADOS PARA EL FLUJO MANUAL Y REGENERACIÓN POR SECCIÓN
+  // =======================================================================
+  const [selectedSectionForRegen, setSelectedSectionForRegen] = useState(null);
+  const [regenTextareaValue, setRegenTextareaValue] = useState("");
+  const [seccionRegenerando, setSeccionRegenerando] = useState(null);
+  const [sectionContentValue, setSectionContentValue] = useState("");
 
-  /**
-   * Muestra una notificación temporal.
-   * @param {string} message - El mensaje a mostrar.
-   * @param {string} type - Tipo: 'success', 'error', 'info', 'warning'.
-   */
+  // =======================================================================
+  // 7. FUNCIONES DE UTILIDAD Y LÓGICA DE DATOS
+  //    (Toast, Markdown Parser/Writer, Toggle de UI)
+  // =======================================================================
+
+  //Muestra una notificación temporal.
   const showToast = (message, type = "info") => {
     setToast({ message, type });
 
@@ -64,12 +76,15 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }, 3000);
   };
 
-  /**
-   * Convierte la estructura de objeto anidada (H2 con H3 hijos) de vuelta a una cadena de Markdown.
-   * La renumeración se realiza implícitamente durante la construcción.
-   * @param {Array} structure - Array anidado de secciones.
-   * @returns {string} La cadena de Markdown plana.
-   */
+  // Visibilidad de tarjetas en el front
+  const toggleCardVisibility = (cardName) => {
+    setCardVisibility((prev) => ({
+      ...prev,
+      [cardName]: !prev[cardName],
+    }));
+  };
+
+  //Convierte la estructura de objeto anidada (H2 con H3 hijos) de vuelta a una cadena de Markdown; La renumeración se realiza implícitamente durante la construcción.
   const convertStructureToMarkdown = (structure) => {
     let markdownLines = [];
     let h2Counter = 0;
@@ -136,97 +151,36 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     return markdownLines.join("\n").trim();
   };
 
-  // ==============================================================================================================================================
-  // 3. FUNCIONES DE MANEJO DE PROCESOS (Scraping, Cancelación, Utilidades, Agregar)
-  // ==============================================================================================================================================
-
-  // ---Funcion para la regeneracion de titulos ---
-  const handleSelectNewTitle = (newTitle) => {
-    if (!selectedSectionForRegen || !tablaEstructuraFinal) return;
-
-    // Obtener datos estables de la sección seleccionada
-    const level = selectedSectionForRegen.level.toUpperCase();
-    const enumeration = selectedSectionForRegen.enumeration;
-    const currentMarkdown = tablaEstructuraFinal;
-
-    // 1. Crear el patrón RegEx para reemplazar la línea completa usando la enumeración estable
-    // Se escapa el punto (`.`) en la enumeración (ej. 2.2).
-    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
-
-    // RegEx que apunta al prefijo de la línea usando el nivel y la enumeración
-    const targetRegex = new RegExp(
-      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
-      "m" // Bandera 'm' para multilínea
-    );
-
-    // 2. Construcción de la nueva línea completa (prefijo + nuevo título de la burbuja)
-    // newTitle NO incluye la enumeración (la burbuja solo tiene el texto)
-    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
-
-    // 3. Ejecutar el reemplazo
-    const newStructure = currentMarkdown.replace(targetRegex, newFullLine);
-
-    // 4. Actualizar estados
-    setTablaEstructuraFinal(newStructure);
-    setTitleSuggestions([]);
-
-    setSelectedSectionForRegen((prevSection) => ({
-      ...prevSection,
-      text: newTitle,
-    }));
-
-    // Poner el nuevo título completo en el textarea para edición continua
-    setRegenTextareaValue(newTitle);
-
-    console.log(`[IA - REEMPLAZO] Título reemplazado por: ${newTitle}`);
-  };
-
-  const toggleCardVisibility = (cardName) => {
-    setCardVisibility((prev) => ({
-      ...prev,
-      [cardName]: !prev[cardName],
-    }));
-  };
-
-  // --- Función para Cancelar la Ejecución del Scraping ---
-  const cancelarScraping = () => {
-    if (referenciaControladorAborto.current) {
-      referenciaControladorAborto.current.abort();
-      setCargandoScraping(false);
-      setError("Ejecución de scraping cancelada por el usuario.");
-      referenciaControladorAborto.current = null;
-      console.log("[SCRAPING] Ejecución cancelada por el usuario.");
-    }
+  //Funcion para el conteo de palabras por seccion de H
+  const contarPalabras = (texto) => {
+    if (!texto) return 0;
+    const textoLimpio = texto.replace(/[\n\r\t]/g, " ").trim();
+    return textoLimpio.split(/\s+/).filter((palabra) => palabra.length > 0)
+      .length;
   };
 
   // Funcion para parsear el Markdown de estructura H2/H3 a un objeto anidado para renderizar
   const parseMarkdownStructure = (markdown) => {
     if (!markdown) return [];
 
-    // Asumimos pre-procesamiento de JSON si aplica...
     let finalStructureString = markdown;
     try {
       const parsedJson = JSON.parse(markdown);
       if (parsedJson.full_structure_markdown) {
         finalStructureString = parsedJson.full_structure_markdown;
       }
-    } catch (e) {
-      // No es JSON, asumimos que es Markdown plano.
-    }
+    } catch (e) {}
 
     const lines = finalStructureString.split("\n");
     const structure = [];
     let lastH2 = null;
-    let itemActual = null; // Referencia al H2 o H3 actual para adjuntar propiedades
+    let itemActual = null;
 
-    // 1. RegEx para capturar ENCABEZADOS: [H{N} - X.Y] Título del Encabezado
-    const structuredRegex = /^\[(H\d+)\s*-\s*([\d.]*)[\]>]\s*(.*)/i; // 2. RegEx para capturar la línea de MULTIMEDIA
+    const structuredRegex = /^\[(H\d+)\s*-\s*([\d.]*)[\]>]\s*(.*)/i;
     const separateMediaRegex =
       /^\[MULTIMEDIA:\s*(VIDEO|FOTO|MAPA|GRAFICO)\s*\|\s*(.*?)\]\s*$/i;
-    // 3. RegEx para el marcador de CONTENIDO
     const contentStartRegex = /^\[CONTENIDO\]\s*$/i;
 
-    // Variable de estado para la lectura multilínea
     let leyendoContenido = false;
 
     for (const line of lines) {
@@ -236,8 +190,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       const matchContentStart = trimmedLine.match(contentStartRegex);
 
       if (matchStructured) {
-        // --- 1. ENCABEZADO (H2/H3) ---
-        leyendoContenido = false; // Detener lectura de contenido anterior
+        leyendoContenido = false;
 
         const level = matchStructured[1].toLowerCase();
         const enumeration = matchStructured[2];
@@ -248,7 +201,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
           text,
           multimedia: null,
           multimediaDescription: null,
-          content: null, // <--- CLAVE: Inicializar la propiedad content
+          content: null,
           children: [],
           uniqueId: `${level}-${enumeration}`,
         };
@@ -264,25 +217,18 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
           itemActual = null;
         }
       } else if (matchMedia && itemActual) {
-        // --- 2. MULTIMEDIA ---
-        leyendoContenido = false; // Detener lectura de contenido
+        leyendoContenido = false;
         itemActual.multimedia = matchMedia[1].toUpperCase();
         itemActual.multimediaDescription = matchMedia[2].trim();
       } else if (matchContentStart && itemActual) {
-        // --- 3. INICIO DE BLOQUE DE CONTENIDO ---
         leyendoContenido = true;
-        itemActual.content = ""; // Inicializar la propiedad para acumular el texto
+        itemActual.content = "";
       } else if (leyendoContenido && itemActual) {
-        // --- 4. LEYENDO CONTENIDO MULTILÍNEA ---
-        // Acumular la línea completa (sin trim) para preservar formato/espacios.
-        // Añadimos un salto de línea antes, excepto si es la primera línea que se agrega.
         itemActual.content +=
           (itemActual.content.length > 0 ? "\n" : "") + line;
       }
-      // Si la línea es vacía o no coincide con un marcador, simplemente se omite.
     }
 
-    // Limpieza final de contenido: eliminar saltos de línea y espacios en blanco al inicio/final
     structure.forEach((h2) => {
       if (h2.content) h2.content = h2.content.trim();
       h2.children.forEach((h3) => {
@@ -292,6 +238,138 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
     return structure;
   };
+
+  const recalcularPalabrasGeneradas = (estructura) => {
+    let conteo = 0;
+    estructura.forEach((h2) => {
+      if (h2.content) conteo += contarPalabras(h2.content);
+      h2.children.forEach((h3) => {
+        if (h3.content) conteo += contarPalabras(h3.content);
+      });
+    });
+    return conteo;
+  };
+
+  //Cuenta el total de h2 y h3 en la estructura
+  const contarTotalSubsecciones = (estructura) => {
+    let conteo = 0;
+    estructura.forEach((h2) => {
+      conteo++; // Contar el H2
+      conteo += h2.children.length; // Sumar todos los H3s hijos
+    });
+    return conteo;
+  };
+
+  const recalcularSubseccionesGeneradas = (estructura, contarPalabras) => {
+    let conteo = 0;
+    estructura.forEach((h2) => {
+      // Contar H2 si tiene contenido
+      if (h2.content && contarPalabras(h2.content) > 0) conteo++;
+
+      // Contar H3s si tienen contenido
+      h2.children.forEach((h3) => {
+        if (h3.content && contarPalabras(h3.content) > 0) conteo++;
+      });
+    });
+    return conteo;
+  };
+
+  const renderBlogContent = (title, structure) => {
+    if (!structure || structure.length === 0) {
+      return (
+        <div className="blog-view-placeholder">
+          <p>Aún no hay estructura o contenido generado para mostrar.</p>
+        </div>
+      );
+    }
+
+    // Estructura general del blog (simulando un documento)
+    return (
+      <div className="blog-document-window">
+        {/* H1 - Título Principal del Blog (usa la variable mainTitle) */}
+        <h1 className="blog-title">{title}</h1>
+
+        {/* Iterar sobre la estructura H2/H3 */}
+        {structure.map((h2Item) => (
+          <React.Fragment key={h2Item.uniqueId}>
+            {/* H2 - Título de la Sección Principal */}
+            <h2 className="section-h2">
+              {h2Item.enumeration}. {h2Item.text}
+            </h2>
+
+            {/* Contenido del H2 */}
+            {h2Item.content && (
+              <div className="content-block">
+                {/* Dividir el contenido por saltos de línea para generar párrafos (<p>) */}
+                {h2Item.content.split("\n").map((paragraph, index) =>
+                  // Evitamos crear párrafos vacíos si hay múltiples saltos de línea
+                  paragraph.trim() ? (
+                    <p key={`h2-p-${h2Item.uniqueId}-${index}`}>{paragraph}</p>
+                  ) : null
+                )}
+              </div>
+            )}
+
+            {/* H3 - Subsecciones */}
+            {h2Item.children.map((h3Item) => (
+              <React.Fragment key={h3Item.uniqueId}>
+                {/* H3 - Título de la Subsección */}
+                <h3 className="subsection-h3">
+                  {h3Item.enumeration}. {h3Item.text}
+                </h3>
+
+                {/* Contenido del H3 */}
+                {h3Item.content && (
+                  <div className="content-block">
+                    {h3Item.content
+                      .split("\n")
+                      .map((paragraph, index) =>
+                        paragraph.trim() ? (
+                          <p key={`h3-p-${h3Item.uniqueId}-${index}`}>
+                            {paragraph}
+                          </p>
+                        ) : null
+                      )}
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  };
+
+  // =======================================================================
+  // CÁLCULOS DE ESTRUCTURA Y CONTEO (Código simple - SIN FUNCIONES NUEVAS)
+  // =======================================================================
+
+  // 1. Obtener la estructura base
+  const structureToRender = tablaEstructuraFinal
+    ? parseMarkdownStructure(tablaEstructuraFinal)
+    : [];
+
+  // 2. Crear una NUEVA estructura inyectando 'wordCount'
+  const structureWithCount = structureToRender.map((h2) => ({
+    ...h2,
+    wordCount: contarPalabras(h2.content), // Añadimos el conteo por sección
+    children: h2.children.map((h3) => ({
+      ...h3,
+      wordCount: contarPalabras(h3.content), // Añadimos el conteo por subsección
+    })),
+  }));
+
+  // 3. Usar tu función existente para calcular el total
+  const totalWordsGenerated = recalcularPalabrasGeneradas(structureToRender);
+
+  const remainingWords = estimatedWordCount
+    ? estimatedWordCount - totalWordsGenerated
+    : 0;
+
+  // ==============================================================================================================================================
+  // 8. FUNCIONES DE MANEJO DE ESTRUCTURA Y EDICIÓN LOCAL
+  //    (Selección, Guardar Título/Contenido, Mover, Eliminar, Agregar)
+  // ==============================================================================================================================================
 
   // Funcion que Maneja la selección del título en el StructureRenderer
   const handleSectionSelect = (section, event) => {
@@ -429,7 +507,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
-  // NUEVA FUNCIÓN: Cancelar Edición de Contenido
+  //  Cancelar Edición de Contenido
   const cancelarEdicionContenido = () => {
     // 1. Limpieza de UI
     setSelectedSectionForRegen(null);
@@ -441,11 +519,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     showToast("Edición de contenido cancelada.", "info");
   };
 
-  /**
-   * Mueve una sección (H2 con hijos o H3) dentro de la estructura anidada.
-   * @param {Object} sectionToMove - La sección (H2 o H3) a mover.
-   * @param {string} direction - 'UP' o 'DOWN'.
-   */
+  // Mueve una sección (H2 con hijos o H3) dentro de la estructura anidada.
   const handleMoveSection = (sectionToMove, direction) => {
     const currentStructure = parseMarkdownStructure(tablaEstructuraFinal);
     let newStructure = [...currentStructure];
@@ -454,10 +528,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
     if (isH2) {
       // LÓGICA DE MOVIMIENTO DE H2 (Mueve toda la sección, incluyendo hijos)
-      // 🔑 CORRECCIÓN: Usar uniqueId en lugar de id (ya que id no se genera)
       const currentIndex = newStructure.findIndex(
-        // (item) => item.id === sectionToMove.id // ANTERIOR
-        (item) => item.uniqueId === sectionToMove.uniqueId // CORREGIDO
+        (item) => item.uniqueId === sectionToMove.uniqueId
       );
       if (currentIndex === -1) return;
 
@@ -486,14 +558,10 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       if (!parentH2) return;
 
       const h3Children = parentH2.children;
-      // 🔑 CORRECCIÓN: Usar uniqueId en lugar de id
-      // const h3CurrentId = sectionToMove.id; // ANTERIOR
-      const h3CurrentId = sectionToMove.uniqueId; // CORREGIDO
+      const h3CurrentId = sectionToMove.uniqueId;
 
-      // 🔑 CORRECCIÓN: Usar uniqueId en lugar de id
       const currentIndex = h3Children.findIndex(
-        // (item) => item.id === h3CurrentId // ANTERIOR
-        (item) => item.uniqueId === h3CurrentId // CORREGIDO
+        (item) => item.uniqueId === h3CurrentId
       );
       if (currentIndex === -1) return;
 
@@ -518,9 +586,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     setTablaEstructuraFinal(newMarkdown);
   };
 
-  /**
-   * Maneja acciones de Mover y Eliminar, mostrando un toast de confirmación.
-   */
+  //Maneja acciones de Mover y Eliminar, mostrando un toast de confirmación
   const handleSectionAction = (action, section, direction = null) => {
     switch (action) {
       case "move":
@@ -566,7 +632,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     const level = sectionToDelete.level;
 
     if (level === "h2") {
-      // 1.  ELIMINAR H2: Simplemente filtramos el array principal para excluir el H2.
+      // 1. ELIMINAR H2: Simplemente filtramos el array principal para excluir el H2.
       // Esto elimina automáticamente todos los H3 que estaban anidados dentro.
       newStructure = parsedStructure.filter(
         (item) => item.uniqueId !== targetId
@@ -702,6 +768,35 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       "success"
     );
   };
+
+  const cancelarGeneracionCompleta = () => {
+    if (referenciaControladorAborto.current) {
+      // La bandera cancelacionSolicitada ya existe y se usa en generarContenidoCompleto
+      setCancelacionSolicitada(true);
+
+      // Aborta la petición fetch actual si está en curso (dentro del bucle for)
+      referenciaControladorAborto.current.abort();
+
+      showToast(
+        "Se ha solicitado la cancelación del proceso completo. Esperando que termine la solicitud actual...",
+        "warning"
+      );
+      console.log("[IA - COMPLETO] Solicitud de cancelación enviada.");
+
+      // No limpiamos referenciaControladorAborto.current aquí,
+      // ya que la lógica de 'finally' o 'catch' en generarContenidoCompleto
+      // se encargará de la limpieza para asegurar que el proceso termina ordenadamente.
+    }
+  };
+
+  const handleToggleView = () => {
+    setIsEditingStructure((prev) => !prev); //<--- Se usara para mostrar la vista tipo word
+  };
+
+  // ==============================================================================================================================================
+  // 9. FUNCIONES DE PROCESO PRINCIPAL (Scraping y Cancelación)
+  // ==============================================================================================================================================
+
   // --- Función Principal de Scraping ---
   const ejecutarScraping = async () => {
     // 1. Resetear estados al iniciar
@@ -847,9 +942,61 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
+  // --- Función para Cancelar la Ejecución del Scraping ---
+  const cancelarScraping = () => {
+    if (referenciaControladorAborto.current) {
+      referenciaControladorAborto.current.abort();
+      setCargandoScraping(false);
+      setError("Ejecución de scraping cancelada por el usuario.");
+      referenciaControladorAborto.current = null;
+      console.log("[SCRAPING] Ejecución cancelada por el usuario.");
+    }
+  };
+
   // ==============================================================================================================================================
-  // 4. FUNCIONES DE ANÁLISIS Y REGENERACIÓN DE IA
+  // 10. FUNCIONES DE ANÁLISIS Y REGENERACIÓN DE IA
   // ==============================================================================================================================================
+
+  // ---Funcion para la regeneracion de titulos (maneja la selección de la burbuja) ---
+  const handleSelectNewTitle = (newTitle) => {
+    if (!selectedSectionForRegen || !tablaEstructuraFinal) return;
+
+    // Obtener datos estables de la sección seleccionada
+    const level = selectedSectionForRegen.level.toUpperCase();
+    const enumeration = selectedSectionForRegen.enumeration;
+    const currentMarkdown = tablaEstructuraFinal;
+
+    // 1. Crear el patrón RegEx para reemplazar la línea completa usando la enumeración estable
+    // Se escapa el punto (`.`) en la enumeración (ej. 2.2).
+    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
+
+    // RegEx que apunta al prefijo de la línea usando el nivel y la enumeración
+    const targetRegex = new RegExp(
+      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
+      "m" // Bandera 'm' para multilínea
+    );
+
+    // 2. Construcción de la nueva línea completa (prefijo + nuevo título de la burbuja)
+    // newTitle NO incluye la enumeración (la burbuja solo tiene el texto)
+    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
+
+    // 3. Ejecutar el reemplazo
+    const newStructure = currentMarkdown.replace(targetRegex, newFullLine);
+
+    // 4. Actualizar estados
+    setTablaEstructuraFinal(newStructure);
+    setTitleSuggestions([]);
+
+    setSelectedSectionForRegen((prevSection) => ({
+      ...prevSection,
+      text: newTitle,
+    }));
+
+    // Poner el nuevo título completo en el textarea para edición continua
+    setRegenTextareaValue(newTitle);
+
+    console.log(`[IA - REEMPLAZO] Título reemplazado por: ${newTitle}`);
+  };
 
   // Funcion Generación de Análisis IA
   const generarAnalisisIA = async () => {
@@ -915,6 +1062,14 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       const structureMarkdown = final_structure_json?.structure_markdown || "";
 
       setTablaEstructuraFinal(structureMarkdown);
+
+      const wordCount = final_structure_json?.estimated_word_count;
+      if (wordCount) {
+        // Aseguramos que sea un número entero
+        setEstimatedWordCount(parseInt(wordCount, 10));
+      } else {
+        setEstimatedWordCount(null);
+      }
 
       showToast("✨ Estructura generada por IA exitosamente.", "success");
     } catch (err) {
@@ -1049,7 +1204,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
-  // FUNCIÓN: Generación Única con Historial
+  // Generación Única con Historial
   const regenerarSeccion = async (sectionType, historyArray) => {
     // 1. Validaciones Iniciales
     if (
@@ -1062,11 +1217,9 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       );
       return;
     }
-
     console.log(
       `[IA - REGENERACIÓN] Iniciando regeneración de la sección: ${sectionType}`
     );
-
     setCargandoIA(true);
     setSeccionRegenerando(sectionType);
     setError(null);
@@ -1092,7 +1245,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       const fullStructure =
         datosFinales.final_structure_object?.structure_markdown ||
         tablaEstructuraFinal;
-
       if (!selectedSectionForRegen || !fullStructure) {
         setError(
           "Error interno: Faltan datos de la sección de estructura para regenerar."
@@ -1106,7 +1258,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         regenTextareaValue !== selectedSectionForRegen.text
           ? regenTextareaValue
           : null;
-
       requestData.regenerate_data = {
         section_text: selectedSectionForRegen.text,
         full_structure_markdown: fullStructure,
@@ -1129,7 +1280,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       }
 
       const result = await response.json();
-
       let regeneratedSuggestions = result?.regenerated_suggestions;
 
       // Lógica de validación y fallback
@@ -1189,6 +1339,248 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
   };
 
+  const generarContenidoCompleto = async () => {
+    // 1. Validaciones iniciales
+    if (
+      !tablaEstructuraFinal ||
+      cargandoIA ||
+      !contenidoConsolidado ||
+      !datosFinales ||
+      !estimatedWordCount
+    ) {
+      showToast(
+        "Error: Estructura, contenido de análisis, datos de configuración o conteo de palabras objetivo faltantes.",
+        "error"
+      );
+      return;
+    }
+
+    setCargandoIA(true);
+    setCancelacionSolicitada(false);
+
+    const controller = new AbortController();
+    referenciaControladorAborto.current = controller;
+    showToast(
+      "Iniciando la generación de contenido COMPLETO, BLOQUE por BLOQUE...",
+      "info"
+    );
+
+    // --- LÓGICA DE PRESUPUESTO DINÁMICO: INICIALIZACIÓN ---
+    let estructuraAnidada = parseMarkdownStructure(tablaEstructuraFinal);
+    let estructuraTemporal = estructuraAnidada;
+    let generatedContentHistory = [];
+
+    // 1. Variables Globales y Contadores Iniciales
+    const palabrasObjetivo = estimatedWordCount;
+    const totalSubsecciones = contarTotalSubsecciones(estructuraAnidada);
+
+    let palabrasAcumuladas = recalcularPalabrasGeneradas(estructuraAnidada);
+    let subseccionesGeneradas = recalcularSubseccionesGeneradas(
+      estructuraAnidada,
+      contarPalabras
+    );
+    // --- FIN INICIALIZACIÓN DE PRESUPUESTO ---
+
+    // 3. Procesar CADA BLOQUE H2 secuencialmente
+    for (const h2Block of estructuraAnidada) {
+      if (cancelacionSolicitada) {
+        break;
+      }
+
+      // Saltamos bloques ya generados
+      const estaGenerado =
+        h2Block.content && h2Block.children.every((h3) => h3.content);
+      if (estaGenerado && contarPalabras(h2Block.content) > 0) {
+        continue;
+      }
+
+      setSelectedSectionForRegen(h2Block);
+
+      const blockTitle = h2Block.enumeration + ". " + h2Block.text;
+      showToast(`Generando contenido para BLOQUE: ${blockTitle}`, "info", 4000);
+
+      // Markdown para el H2 y sus H3 (sección a generar)
+      const blockMarkdownToGenerate = [
+        `## ${h2Block.enumeration}. ${h2Block.text}`,
+        ...h2Block.children.map((h3) => `### ${h3.enumeration}. ${h3.text}`),
+      ].join("\n");
+
+      // Obtenemos el Markdown completo actualizado para el historial
+      const fullStructureMarkdown =
+        convertStructureToMarkdown(estructuraTemporal);
+
+      // --- CÁLCULO DINÁMICO DEL PRESUPUESTO DEL BLOQUE ---
+
+      let subseccionesEnBloqueActual = 0;
+      if (!h2Block.content || contarPalabras(h2Block.content) === 0) {
+        subseccionesEnBloqueActual = 1;
+      }
+      h2Block.children.forEach((h3) => {
+        if (!h3.content || contarPalabras(h3.content) === 0) {
+          subseccionesEnBloqueActual++;
+        }
+      });
+
+      // Este es el valor clave para la fórmula de distribución de presupuesto
+      const subseccionesPendientes = Math.max(
+        1,
+        totalSubsecciones - subseccionesGeneradas
+      );
+
+      // FÓRMULA: (Palabras Restantes / Subsecciones Pendientes) * Subsecciones en Bloque Actual
+      const limitePalabrasBloqueCalculado = Math.ceil(
+        ((palabrasObjetivo - palabrasAcumuladas) / subseccionesPendientes) *
+          subseccionesEnBloqueActual
+      );
+
+      const limiteFinal = Math.max(100, limitePalabrasBloqueCalculado);
+
+      // --- CONSTRUCCIÓN DEL PAYLOAD ---
+      const payload = {
+        query: datosFinales.query,
+        consolidated_content: contenidoConsolidado,
+        idioma: datosFinales.idioma,
+        acento: datosFinales.acento,
+        tono: datosFinales.tono,
+        section_type: "full_block_generation",
+        keywords: datosFinales.keywords || [],
+        previous_content: generatedContentHistory,
+
+        // CAMPOS DE PRESUPUESTO DINÁMICO enviados al backend
+        palabras_acumuladas: palabrasAcumuladas,
+        subsecciones_pendientes: subseccionesPendientes,
+        limite_palabras_bloque: limiteFinal,
+
+        regenerate_data: {
+          section_title: blockTitle,
+          section_level: "h2_block",
+          section_text: blockMarkdownToGenerate,
+          full_structure_markdown: fullStructureMarkdown,
+          estimated_word_count: palabrasObjetivo || 0,
+        },
+      };
+
+      try {
+        const response = await fetch(URL_API_IA_COMPLETO, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+
+        // Lógica de manejo de errores HTTP
+        if (!response.ok) {
+          let errorMessage = `Error HTTP ${response.status} (${response.statusText})`;
+          try {
+            const errorData = await response.json();
+            if (errorData.detail) {
+              errorMessage = JSON.stringify(errorData.detail);
+            } else if (errorData.error) {
+              errorMessage = errorData.error;
+            } else {
+              errorMessage = JSON.stringify(errorData);
+            }
+          } catch (jsonError) {
+            const responseBody = await response.text();
+            errorMessage = responseBody || errorMessage;
+          }
+          throw new Error(errorMessage);
+        }
+
+        const result = await response.json();
+
+        if (result.success !== "True" || !result.generated_content) {
+          throw new Error(
+            `Respuesta de IA fallida o incompleta. Log: ${result.log || "N/A"}`
+          );
+        }
+
+        // 4. APLICACIÓN Y RENDERIZADO DEL CONTENIDO
+        const rawContent =
+          typeof result.generated_content === "string"
+            ? result.generated_content
+            : String(result.generated_content || "");
+
+        let generatedContentMap;
+        try {
+          generatedContentMap = JSON.parse(rawContent.trim());
+        } catch (e) {
+          const cleanContent = rawContent.replace(/```json\s*|```/g, "").trim();
+          generatedContentMap = JSON.parse(cleanContent);
+        }
+
+        // 4.1. Mutar la estructura temporal con el contenido
+        estructuraTemporal = estructuraTemporal.map((h2Padre) => {
+          if (h2Padre.enumeration !== h2Block.enumeration) {
+            return h2Padre;
+          }
+
+          let h2Actualizado = { ...h2Padre };
+
+          // 4.1.1. Actualizar el H2 principal
+          const h2Key = `${h2Padre.enumeration}. ${h2Padre.text}`;
+          if (generatedContentMap[h2Key]) {
+            h2Actualizado.content = generatedContentMap[h2Key];
+            generatedContentHistory.push(generatedContentMap[h2Key]);
+          }
+
+          // 4.1.2. Actualizar todos sus H3
+          h2Actualizado.children = h2Actualizado.children.map((h3) => {
+            const h3Key = `${h3.enumeration}. ${h3.text}`;
+            if (generatedContentMap[h3Key]) {
+              generatedContentHistory.push(generatedContentMap[h3Key]);
+              return { ...h3, content: generatedContentMap[h3Key] };
+            }
+            return h3;
+          });
+
+          return h2Actualizado;
+        });
+
+        // 4.2. Actualizacion del estado completo
+        const nuevoMarkdown = convertStructureToMarkdown(estructuraTemporal);
+        setTablaEstructuraFinal(nuevoMarkdown);
+
+        // --- ACTUALIZACIÓN DE CONTADORES PARA LA SIGUIENTE ITERACIÓN ---
+        // Recalculamos el total con la nueva estructura
+        palabrasAcumuladas = recalcularPalabrasGeneradas(estructuraTemporal);
+        subseccionesGeneradas = recalcularSubseccionesGeneradas(
+          estructuraTemporal,
+          contarPalabras
+        );
+
+        // --- FIN ACTUALIZACIÓN DE CONTADORES ---
+
+        showToast(
+          `BLOQUE ${blockTitle} generado y aplicado completamente.`,
+          "success"
+        );
+      } catch (error) {
+        if (error.name === "AbortError") {
+          console.log("Generación cancelada por el usuario.");
+          break;
+        }
+
+        const errorMsg =
+          error.message || "Error de red o conexión desconocido.";
+        console.error(
+          `Error al generar contenido para el BLOQUE ${blockTitle}:`,
+          error
+        );
+        setError(`Error al generar contenido: ${errorMsg}`);
+        showToast(`Error al solicitar contenido a la IA: ${errorMsg}`, "error");
+        break;
+      }
+    }
+
+    if (!cancelacionSolicitada) {
+      referenciaControladorAborto.current = null;
+    }
+    setCargandoIA(false);
+    setSelectedSectionForRegen(null);
+    showToast(" Proceso de generación completa finalizado.", "info");
+  };
+
   // =======================================================================
   // 5. COMPONENTE StructureRenderer
   // =======================================================================
@@ -1213,11 +1605,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       <ul className="structure-list">
         {structure.map((item) => {
           const isH2 = item.level === "h2";
-
-          // Retorna el <li> que contiene todos los elementos de la sección
           return (
             <li
-              // 🔑 CORRECCIÓN KEY: Se mueve la key al <li>, que es el elemento raíz de la iteración.
               key={item.uniqueId || item.enumeration}
               className={`
                             structure-item
@@ -1251,7 +1640,22 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                     {item.enumeration}
                   </span>
                   {item.text}
+                  {/* Contador de palabras por sección */}
+                  {item.wordCount !== null && item.wordCount > 0 && (
+                    <span
+                      className="section-word-count"
+                      style={{
+                        marginLeft: "8px",
+                        color: "#6c757d",
+                        fontWeight: "normal",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      ({item.wordCount} palabras)
+                    </span>
+                  )}
                 </div>
+
                 {/* GRUPO DE BOTONES DE ACCIÓN (Mover/Eliminar) */}
                 <div className="structure-buttons-group">
                   {/* Mover Arriba */}
@@ -1585,7 +1989,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
             {/* ---------------------------------------------------- */}
             {/* --- BOTÓN DE ANÁLISIS IA MANUAL (FASE 4) --- */}
             {/* ---------------------------------------------------- */}
-            {contenidoDisponible && (
+            {contenidoDisponible && !tablaEstructuraFinal && (
               <section className="analysis-result fade-in">
                 <h2 className="analysis-title">Análisis de Estructura</h2>
                 <p className="result-text">
@@ -1845,7 +2249,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   </button>
                   <button
                     onClick={generarContenidoIA}
-                    className="btn-regenerar btn-content-regen"
+                    className="btn-generate"
+                    style={{ flexGrow: 1 }}
                     disabled={cargandoIA || !contenidoConsolidado}
                   >
                     {cargandoIA && (
@@ -1887,71 +2292,192 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
           <div className="generadores-derecha">
             {/* BOTÓN REGENERAR ESTRUCTURA */}
             {(resultadosDisponibles || tablaEstructuraFinal) && (
-              <div style={{ marginBottom: "15px" }}>
-                <button
-                  onClick={generarAnalisisIA}
-                  className="btn-regenerar"
-                  disabled={cargandoIA || !datosFinales}
-                  style={{ width: "100%" }}
-                >
-                  {cargandoIA
-                    ? "Generando Nueva Estructura..."
-                    : "Volver a Generar Estructura (IA)"}
-                </button>
+              <div
+                style={{
+                  marginBottom: "15px",
+                  display: "flex",
+                  gap: "10px", // Espacio entre los botones
+                }}
+              >
+                {/* BOTÓN DE CANCELAR (Visible solo mientras cargandoIA es TRUE) */}
+                {cargandoIA ? (
+                  <button
+                    onClick={cancelarGeneracionCompleta}
+                    className="btn-regenerar"
+                    style={{
+                      flex: 1,
+                      minWidth: "150px",
+                      backgroundColor: "#e74c3c",
+                      color: "white",
+                    }}
+                  >
+                    <i className="uil uil-times-circle"></i> Cancelar Generación
+                  </button>
+                ) : (
+                  <>
+                    {/* 1. Volver a Generar Estructura (IA) */}
+                    <button
+                      onClick={generarAnalisisIA}
+                      className="btn-regenerar"
+                      disabled={!datosFinales}
+                      style={{
+                        flex: 1,
+                        minWidth: "150px",
+                        backgroundColor: "#f39c12",
+                      }}
+                    >
+                      Volver a Generar Estructura (IA)
+                    </button>
+
+                    {/* 2. Generar Contenido COMPLETO */}
+                    <button
+                      onClick={generarContenidoCompleto}
+                      className="btn-regenerar"
+                      disabled={!tablaEstructuraFinal}
+                      style={{
+                        flex: 1,
+                        minWidth: "150px",
+                        backgroundColor: "#27ae60",
+                        color: "white",
+                      }}
+                    >
+                      Generar Contenido COMPLETO
+                    </button>
+                  </>
+                )}
               </div>
             )}
             <h2 className="text-center">Estructura de Blog</h2>
             <section className="idea-generator">
-              <div className="card-body">
-                {/* NUEVO: Título Principal del Blog (H1) */}
-                <h1
-                  className="text-center"
-                  style={{ marginBottom: "25px", fontSize: "2rem" }}
-                >
-                  {mainTitle}
-                </h1>
-                {/* INICIO: CONTENEDOR DE BOTONES DE AÑADIR */}
-                <div
-                  className="add-section-controls"
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    gap: "15px",
-                    marginBottom: "25px",
-                  }}
-                >
-                  {/* Botón para Añadir H2 */}
-                  <button onClick={agregarSeccionH2} className="btn-add-h2">
-                    <i className="uil uil-plus-circle"></i> Agregar Sección H2
-                  </button>
+              {/* ========================================================= */}
+              {/* >>> NUEVA SECCIÓN DE TÍTULO Y BOTÓN DE ALTERNANCIA <<< */}
+              {/* ========================================================= */}
+              <h2 className="card-title structure-title-with-toggle">
+                {/* Título Dinámico */}
+                {isEditingStructure ? (
+                  <>
+                    <i className="uil uil-sitemap"></i> Estructura del Blog
+                    (Editable)
+                  </>
+                ) : (
+                  <>
+                    <i className="uil uil-file-alt"></i> Vista de Documento
+                    (Word-like)
+                  </>
+                )}
 
-                  {/* Botón para Añadir H3 */}
-                  <button
-                    onClick={agregarSubseccionH3}
-                    className="btn-add-h3"
-                    disabled={!selectedSectionForRegen || !tablaEstructuraFinal}
+                {/* Botón de Alternancia */}
+                <button
+                  className="toggle-view-button"
+                  onClick={handleToggleView}
+                  title={
+                    isEditingStructure
+                      ? "Ver como Documento"
+                      : "Volver a la Estructura Editable"
+                  }
+                >
+                  <i
+                    className={`uil ${
+                      isEditingStructure ? "uil-eye" : "uil-sitemap"
+                    }`}
+                  ></i>
+                </button>
+              </h2>
+
+              {/* Mover la tarjeta con el body/contenido DENTRO de la lógica condicional */}
+              {isEditingStructure ? (
+                // >>> VISTA EDITABLE ORIGINAL <<<
+                <div className="card-body">
+                  {/* Título Principal del Blog (H1) */}
+                  <h1
+                    className="text-center"
+                    style={{ marginBottom: "25px", fontSize: "2rem" }}
                   >
-                    <i className="uil uil-plus-circle"></i> Agregar Subsección
-                    H3
-                  </button>
+                    {mainTitle}
+                  </h1>
+
+                  {/* CONTENEDOR DE BOTONES DE AÑADIR (H2/H3) */}
+                  <div
+                    className="add-section-controls"
+                    style={{
+                      display: "flex",
+                      justifyContent: "center",
+                      gap: "15px",
+                      marginBottom: "25px",
+                    }}
+                  >
+                    {/* Botón para Añadir H2 */}
+                    <button onClick={agregarSeccionH2} className="btn-add-h2">
+                      <i className="uil uil-plus-circle"></i> Agregar Sección H2
+                    </button>
+
+                    {/* Botón para Añadir H3 */}
+                    <button
+                      onClick={agregarSubseccionH3}
+                      className="btn-add-h3"
+                      disabled={
+                        !selectedSectionForRegen || !tablaEstructuraFinal
+                      }
+                    >
+                      <i className="uil uil-plus-circle"></i> Agregar Subsección
+                      H3
+                    </button>
+                  </div>
+
+                  {/* INDICADORES DE PALABRAS */}
+                  {estimatedWordCount && (
+                    <span className="info-badge">
+                      <i className="uil uil-ruler-combined"></i> Longitud
+                      Estimada:{" "}
+                      <strong>{estimatedWordCount.toLocaleString()}</strong>{" "}
+                    </span>
+                  )}
+
+                  {totalWordsGenerated > 0 && (
+                    <span
+                      className={`count-badge generated ${
+                        remainingWords < 0 ? "exceeded" : ""
+                      }`}
+                    >
+                      <i className="uil uil-file-alt"></i> Generadas:
+                      <strong>
+                        {totalWordsGenerated.toLocaleString()}
+                      </strong>{" "}
+                    </span>
+                  )}
+
+                  {/* Indicador de Palabras Restantes */}
+                  {estimatedWordCount && (
+                    <span
+                      className={`count-badge remaining ${
+                        remainingWords < 0 ? "exceeded" : ""
+                      }`}
+                    >
+                      <i className="uil uil-process"></i>Restante:
+                      <strong>{remainingWords.toLocaleString()}</strong>{" "}
+                    </span>
+                  )}
+
+                  {/* RENDERIZADO DE LA ESTRUCTURA EDITABLE */}
+                  {tablaEstructuraFinal ? (
+                    <StructureRenderer
+                      structure={structureWithCount}
+                      onSelect={handleSectionSelect}
+                      onAction={handleSectionAction}
+                      selectedSection={selectedSectionForRegen}
+                    />
+                  ) : (
+                    // Placeholder
+                    <pre className="structure-pre terminal-content">
+                      Esperando la generación del Análisis...
+                    </pre>
+                  )}
                 </div>
-                {/* FIN: CONTENEDOR DE BOTONES DE AÑADIR */}
-              </div>
-              {/* Componente MenuContextual Eliminado */}
-
-              {tablaEstructuraFinal ? (
-                <StructureRenderer
-                  structure={parseMarkdownStructure(tablaEstructuraFinal)}
-                  onSelect={handleSectionSelect}
-                  onAction={handleSectionAction} // <-- Llamada unificada para mover y eliminar
-                  selectedSection={selectedSectionForRegen}
-                />
               ) : (
-                // Mantiene el placeholder
-
-                <pre className="structure-pre terminal-content">
-                  Esperando la generación del Análisis...
-                </pre>
+                // >>> NUEVA VISTA TIPO WORD <<<
+                <div className="blog-view-toggle-container">
+                  {renderBlogContent(mainTitle, structureToRender)}
+                </div>
               )}
             </section>
           </div>

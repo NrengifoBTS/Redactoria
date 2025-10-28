@@ -55,10 +55,7 @@ select {
 
 /* Textarea auto-expand (Estilos específicos) */
 .auto-expand {
-  min-height: 40px;
-  max-height: 200px;
-  resize: none;
-  line-height: 1.4;
+  resize: vertical;
 }
 
 /* ==========================================================
@@ -822,4 +819,101 @@ select {
 }
 .toast-warning {
   background-color: #f59e0b;
+}
+
+/* ============================================= */
+/* ESTILOS PARA LA VENTANA TIPO WORD */
+/* ============================================= */
+
+/* Contenedor que simula la ventana o la página del documento */
+.blog-document-window {
+  background-color: #ffffff; /* Fondo blanco */
+  padding: 2.5rem; /* Margen de la "página" */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); /* Sombra para efecto de elevación */
+  margin: 20px auto; /* Centrar y separar de otros elementos */
+  max-width: 800px; /* Ancho típico de un documento */
+  min-height: 400px;
+  border-radius: 4px; /* Bordes ligeramente redondeados */
+  font-family: "Arial", sans-serif; /* Fuente estándar de documento */
+  line-height: 1.6;
+}
+
+/* Estilo del Título Principal (H1) */
+.blog-title {
+  font-size: 2.5em;
+  font-weight: 500;
+  color: #212529;
+  margin-bottom: 0.5em;
+  text-align: center;
+}
+
+/* Estilo de los Títulos de Sección (H2) */
+.section-h2 {
+  font-size: 2em;
+  font-weight: 400;
+  color: #000000;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
+/* Estilo de los Subtítulos (H3) */
+.subsection-h3 {
+  font-size: 1.5em;
+  font-weight: 500;
+  color: #000000;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+}
+
+/* Estilo del Contenido de Párrafo */
+.content-block p {
+  font-size: 1em;
+  color: #464646;
+  margin-bottom: 1em;
+  text-align: justify;
+}
+
+/* Placeholder si no hay contenido */
+.blog-view-placeholder {
+  padding: 50px;
+  text-align: center;
+  color: #6c757d;
+  border: 1px dashed #ced4da;
+  border-radius: 4px;
+}
+
+/* Modifica la clase para que el título sea un contenedor flexible */
+.card-title.structure-title-with-toggle {
+  display: flex; /* Habilita el layout flexible */
+  justify-content: space-between; /* Empuja el título a la izquierda y el botón a la derecha */
+  align-items: center; /* Alineación vertical centrada */
+}
+
+/* Estilo del Botón de Alternancia */
+.toggle-view-button {
+  background: none;
+  border: 1px solid #ccc; /* Borde sutil */
+  border-radius: 4px;
+  color: var(--color-principal, #343a40); /* Color del texto/icono */
+  cursor: pointer;
+  font-size: 1.1em;
+  padding: 5px 10px;
+  margin-left: 15px;
+  opacity: 0.8;
+  transition: all 0.2s;
+}
+
+.toggle-view-button:hover {
+  background-color: #f8f9fa; /* Color de fondo al pasar el ratón */
+  opacity: 1;
+}
+
+/* Estilos adicionales para el contenedor de la vista Word 
+  (Asegúrate de mantener los estilos de .blog-document-window del paso anterior)
+*/
+.blog-view-toggle-container {
+  /* Opcional: Ajusta el padding para que la vista del documento se ajuste mejor a la tarjeta */
+  padding: 10px 0;
 }

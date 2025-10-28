@@ -1005,3 +1005,6 @@ def run_final_ai_analysis(req: models.AIAnalysisRequest) -> Dict[str, Any]:
     """Punto de entrada para el análisis final de IA (Servicio de IA), incluyendo regeneración de secciones."""
     ai_service = AIService()
     return ai_service.run_final_ai_analysis(req)
+
+
+
