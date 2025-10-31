@@ -917,3 +917,32 @@ select {
   /* Opcional: Ajusta el padding para que la vista del documento se ajuste mejor a la tarjeta */
   padding: 10px 0;
 }
+
+/* ==========================================================
+   ESTILOS PARA BADGES DE CONTEO (Asegúrate de que esta clase exista)
+   ========================================================== */
+
+.count-badge {
+  /* Estilos base para todos los contadores */
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-right: 15px;
+}
+
+/* Estilo para el contador de palabras RESTANTES */
+.count-badge.remaining {
+  background-color: #e6f7ff; /* Fondo azul claro */
+  color: #2cb1b6; /* Texto azul oscuro */
+  border: 1px solid #91d5ff;
+}
+
+/* Estilo para cuando se ha EXCEDIDO el límite */
+.count-badge.remaining.exceeded {
+  background-color: #fff1f0; /* Fondo rojo muy claro */
+  color: #cf1322; /* Texto rojo intenso */
+  border: 1px solid #ffa39e;
+}

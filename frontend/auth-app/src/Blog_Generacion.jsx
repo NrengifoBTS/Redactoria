@@ -16,6 +16,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [estimatedWordCount, setEstimatedWordCount] = useState(null);
+  const [totalGeneratedWords, setTotalGeneratedWords] = useState(0);
   const [titleSuggestions, setTitleSuggestions] = useState([]);
   const [isEditingStructure, setIsEditingStructure] = useState(true);
 
@@ -154,8 +155,15 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   //Funcion para el conteo de palabras por seccion de H
   const contarPalabras = (texto) => {
     if (!texto) return 0;
-    const textoLimpio = texto.replace(/[\n\r\t]/g, " ").trim();
-    return textoLimpio.split(/\s+/).filter((palabra) => palabra.length > 0)
+
+    // 1. Limpieza de marcadores de estructura:
+    let textoLimpio = texto
+      .replace(/\[H[2-4]\s*-\s*[0-9.]+\]\s*|\[MULTIMEDIA:.*\]/g, "")
+      .replace(/(\*\*|__|\*|_)/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return textoLimpio.split(" ").filter((palabra) => palabra.length > 0)
       .length;
   };
 
@@ -242,8 +250,17 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   const recalcularPalabrasGeneradas = (estructura) => {
     let conteo = 0;
     estructura.forEach((h2) => {
+      // Suma del título H2
+      conteo += contarPalabras(h2.text);
+
+      // Suma del contenido H2
       if (h2.content) conteo += contarPalabras(h2.content);
+
       h2.children.forEach((h3) => {
+        // Suma del título H3
+        conteo += contarPalabras(h3.text);
+
+        // Suma del contenido H3
         if (h3.content) conteo += contarPalabras(h3.content);
       });
     });
@@ -360,12 +377,11 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   }));
 
   // 3. Usar tu función existente para calcular el total
-  const totalWordsGenerated = recalcularPalabrasGeneradas(structureToRender);
+  const totalWordsGenerated = recalcularPalabrasGeneradas(structureWithCount);
 
   const remainingWords = estimatedWordCount
     ? estimatedWordCount - totalWordsGenerated
     : 0;
-
   // ==============================================================================================================================================
   // 8. FUNCIONES DE MANEJO DE ESTRUCTURA Y EDICIÓN LOCAL
   //    (Selección, Guardar Título/Contenido, Mover, Eliminar, Agregar)
@@ -486,10 +502,27 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     }
 
     // 3. Convertir la estructura modificada de vuelta a Markdown
-    // USA EL NOMBRE REAL DE TU FUNCIÓN DE ESCRITURA
     const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
 
-    // 4. ACTUALIZAR EL ESTADO PRINCIPAL (¡Esto fuerza la actualización de la vista!)
+    // 3.1. Calcular el nuevo total de palabras de TODA la estructura con la función mejorada
+    const nuevoTotalPalabras = recalcularPalabrasGeneradas(nuevaEstructura);
+
+    // 3.2. ACTUALIZAR EL ESTADO GLOBAL DE PALABRAS GENERADAS
+    setTotalGeneratedWords(nuevoTotalPalabras);
+
+    // 3.3. Notificación de límite de palabras
+    if (estimatedWordCount && estimatedWordCount > 0) {
+      if (nuevoTotalPalabras > estimatedWordCount) {
+        const exceso = nuevoTotalPalabras - estimatedWordCount;
+        // Aviso de excedente de límite
+        showToast(
+          ` ADVERTENCIA: Has excedido la longitud estimada de ${estimatedWordCount.toLocaleString()} palabras por ${exceso.toLocaleString()}.`,
+          "warning"
+        );
+      }
+    }
+
+    // 4. ACTUALIZAR EL ESTADO PRINCIPAL
     setTablaEstructuraFinal(nuevoMarkdown);
 
     // 5. Limpieza de UI
@@ -1107,6 +1140,58 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
       "info"
     );
 
+    // --- LÓGICA CLAVE: GENERACIÓN DE CONTEXTO (Anti-Canibalismo) ---
+    let contextData = "";
+    const sectionId = selectedSectionForRegen.uniqueId; // ID de la sección objetivo
+    const targetSection = selectedSectionForRegen; // Objeto de la sección objetivo
+
+    // 1. Construir el contexto basado en el nivel (H2 vs H3)
+    if (targetSection && sectionId) {
+      const level = targetSection.level.toLowerCase();
+      contextData = `Contexto del Articulo (NO REPITA O REDUNDE en las ideas listadas):`;
+
+      if (level === "h2") {
+        // REQUISITO: Para H2, mirar los otros H2 de la estructura (hermanos).
+        contextData += `\n--- Temas ya cubiertos (H2s hermanos): ---\n`;
+        structureWithCount.forEach((h2) => {
+          // Usamos structureWithCount que tiene la estructura viva
+          if (h2.uniqueId !== sectionId) {
+            contextData += `- Título: "${h2.text}"`;
+            if (h2.content) contextData += ` (Contenido ya generado)`;
+            contextData += "\n";
+          }
+        });
+      } else if (level === "h3") {
+        // REQUISITO: Para H3, mirar la sección H2 completa (H2 principal y sus H3).
+        // NOTA: Asumo que structureWithCount está disponible en este scope.
+        const parentH2 = structureWithCount.find((s) =>
+          s.children.some((c) => c.uniqueId === sectionId)
+        );
+
+        if (parentH2) {
+          contextData += `\n--- Contexto de la sección principal (H2 Padre): ---\n`;
+          contextData += `H2 Principal: "${parentH2.text}"`;
+          if (parentH2.content)
+            contextData += ` (Contenido del H2: ${parentH2.content.substring(
+              0,
+              50
+            )}...)`;
+
+          contextData += `\n--- Subtemas cubiertos (H3s hermanos): ---\n`;
+          parentH2.children.forEach((h3) => {
+            if (h3.uniqueId !== sectionId) {
+              contextData += `- Subtítulo: "${h3.text}"`;
+              if (h3.content) contextData += ` (Contenido ya generado)`;
+              contextData += "\n";
+            }
+          });
+        }
+      }
+    }
+
+    // 2. Filtrar contexto vacío (solo enviar si es significativo)
+    const finalContextData = contextData.length > 50 ? contextData : "";
+
     // 1. CONSTRUCCIÓN DEL PAYLOAD PARA EL BACKEND
     const payload = {
       // Campos requeridos por AIAnalysisRequest
@@ -1127,6 +1212,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         full_structure_markdown: tablaEstructuraFinal,
         word_limit: finalWordLimit,
         content_type: contentType,
+        context_data: finalContextData,
       },
     };
 
@@ -1183,10 +1269,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         // 3.5. Mostrar el contenido en el editor para revisión
         setSectionContentValue(nuevoContenido);
 
-        showToast(
-          "✨ Contenido generado por IA y aplicado al editor.",
-          "success"
-        );
+        showToast("Contenido generado por IA y aplicado al editor.", "success");
       } else {
         throw new Error(
           "Respuesta de IA inesperada. No se encontró el contenido."
@@ -2347,10 +2430,9 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 )}
               </div>
             )}
-            <h2 className="text-center">Estructura de Blog</h2>
             <section className="idea-generator">
               {/* ========================================================= */}
-              {/* >>> NUEVA SECCIÓN DE TÍTULO Y BOTÓN DE ALTERNANCIA <<< */}
+              {/*  SECCIÓN DE TÍTULO Y BOTÓN DE ALTERNANCIA */}
               {/* ========================================================= */}
               <h2 className="card-title structure-title-with-toggle">
                 {/* Título Dinámico */}
@@ -2386,7 +2468,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
               {/* Mover la tarjeta con el body/contenido DENTRO de la lógica condicional */}
               {isEditingStructure ? (
-                // >>> VISTA EDITABLE ORIGINAL <<<
+                // >>> VISTA EDITABLE ORIGINAL
                 <div className="card-body">
                   {/* Título Principal del Blog (H1) */}
                   <h1
@@ -2434,12 +2516,8 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                   )}
 
                   {totalWordsGenerated > 0 && (
-                    <span
-                      className={`count-badge generated ${
-                        remainingWords < 0 ? "exceeded" : ""
-                      }`}
-                    >
-                      <i className="uil uil-file-alt"></i> Generadas:
+                    <span className="count-badge generated">
+                      <i className="uil uil-pen"></i>Generadas:
                       <strong>
                         {totalWordsGenerated.toLocaleString()}
                       </strong>{" "}
