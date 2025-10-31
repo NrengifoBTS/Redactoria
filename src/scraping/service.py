@@ -28,10 +28,9 @@ class AIService:
     DEFAULT_SYSTEM_MESSAGE = (
         "Eres un Redactor SEO, Copywriter y Editor Web de ÉLITE. "
         "Tu única tarea es generar el artículo de blog **COMPLETO** en formato Markdown. "
-        "INSTRUCCIÓN CRÍTICA: NO UTILICES NINGÚN TIPO DE FORMATO EN EL TEXTO generado (es decir, NO uses negritas como **, cursivas como * o subrayados). Solo texto plano y encabezados (H2, H3). "
         "Tu mayor prioridad es la **CONCISIÓN** y el cumplimiento **ESTRICTO** de la longitud solicitada. "
         "El contenido debe ser informativo, autoritario, y persuasivo. "
-        "Asegúrate de que el texto sea altamente 'escaneable' (usa listas y párrafos muy cortos)."
+        "Asegúrate de que el texto sea altamente 'escaneable' (usa negritas, listas y párrafos muy cortos)."
     )
 
 
@@ -195,20 +194,16 @@ class AIService:
         system_message = f"""
             Eres un Estratega SEO Senior y Arquitecto de Contenidos experto en planificación estructural.
             
-            Tu función principal NO es redactar el texto final, sino diseñar la **estructura jerárquica completa del cuerpo del artículo**, 
-            optimizada para SEO, retención lectora y coherencia semántica. **Tu principal prioridad es la eficiencia de la estructura y la longitud competitiva.**
+            Tu función principal NO es redactar el texto final, sino diseñar la **estructura jerárquica completa del cuerpo del artículo**, optimizada para SEO, retención lectora y coherencia semántica. **Tu principal prioridad es la eficiencia de la estructura y la longitud competitiva.**
             
-            Debes trabajar en el idioma '{idioma}', respetando el acento cultural '{acento}' y aplicando el tono de voz '{tono}', 
-            pero **solo como guía de enfoque**, no de estilo narrativo.
+            Debes trabajar en el idioma '{idioma}', respetando el acento cultural '{acento}' y aplicando el tono de voz '{tono}', pero **solo como guía de enfoque**, no de estilo narrativo.
 
             Tu salida debe ser un **objeto JSON limpio y válido**, que contenga la estructura final en el formato especificado.
             
-            **[MANDATO CLAVE DE SALIDA] Tu salida debe ser SOLAMENTE el objeto JSON, sin ningún texto, encabezado o explicación previa o posterior. 
-            Esto incluye eliminar frases como 'Aquí está el JSON', '```json' o cualquier comentario de la IA.**
+            **[MANDATO CLAVE DE SALIDA] Tu salida debe ser SOLAMENTE el objeto JSON, sin ningún texto, encabezado o explicación previa o posterior. Esto incluye eliminar frases como 'Aquí está el JSON', '```json' o cualquier comentario de la IA.**
             Recuerda:
             - No redactas contenido, solo estructuras.
-            - El texto de los títulos de la estructura debe ser ABSOLUTAMENTE texto plano. NO uses negritas (**texto**), cursivas (*texto*) o subrayados.
-            - No uses URLs ni caracteres decorativos.
+            - No uses Markdown, URLs ni caracteres decorativos.
             - Aplica los principios del contenido de alta calidad (profundidad, jerarquía, relevancia, cobertura completa del tema).
             """
         
@@ -232,9 +227,7 @@ class AIService:
             2. **TIPO DE CONTENIDO:** Guía SEO de alta calidad y relevancia.
             
             3. **PROFUNDIDAD Y LONGITUD (MANDATO CRÍTICO DE EFICIENCIA):**
-                Tu estructura debe ser la **esencialmente necesaria** para superar la calidad de los competidores. 
-                Analiza las **Longitudes de la Competencia** ({longitudes_competencia_str}) y determina la longitud **IDEAL Y MÁS CORTA POSIBLE** 
-                para la máxima cobertura temática. **LA LONGITUD MÁXIMA ES UN ERROR SEO.** Tu diseño debe priorizar la DENSIDAD sobre la extensión.
+                Tu estructura debe ser la **esencialmente necesaria** para superar la calidad de los competidores. Analiza las **Longitudes de la Competencia** ({longitudes_competencia_str}) y determina la longitud **IDEAL Y MÁS CORTA POSIBLE** para la máxima cobertura temática. **LA LONGITUD MÁXIMA ES UN ERROR SEO.** Tu diseño debe priorizar la DENSIDAD sobre la extensión.
             
             4. **ESTIMACIÓN DE PALABRAS (RESTRICCIÓN ALGORÍTMICA):** Estima la **cantidad total de palabras** requeridas (`estimated_word_count`). Este valor debe cumplir la siguiente restricción estricta:
                 **Si las longitudes de la competencia son bajas (ej. menor a 1,500 palabras), tu estimación DEBE ser SÓLO entre el 10% y 30% más alta que el promedio de esas longitudes.** Utiliza la longitud más baja y eficiente posible. **BAJO NINGUNA CIRCUNSTANCIA** la estimación debe exceder las 2,000 palabras si la competencia está por debajo de 1,500 palabras. **ESTE CÁLCULO ES IMPERATIVO.**
@@ -250,7 +243,7 @@ class AIService:
             - La descripción SEO debe incluir palabras clave relevantes, contexto visual y atractivo informativo.
             - Ejemplo correcto:
                 [H3 - 2.1] Mirador nocturno en ICON Park
-                [MULTIMEDIA: FOTO | Vista panorámica nocturnx|a del skyline de Orlando con familias disfrutando de The Wheel]
+                [MULTIMEDIA: FOTO | Vista panorámica nocturna del skyline de Orlando con familias disfrutando de The Wheel]
 
             7. **FORMATO DE SALIDA (OBLIGATORIO):**
             - Cada línea corresponde a un encabezado.
@@ -262,7 +255,7 @@ class AIService:
             - No uses emojis, símbolos ni URL visibles.
 
             8. **PROHIBICIONES:**
-            - No incluyas secciones con “Resumen”, “Conclusión” , “Formulario” , "Preguntas frecuentes" o "fAQ".
+            - No incluyas secciones con “Resumen”, “Conclusión” , “Formulario” o "fAQ".
             - No menciones URLs ni fuentes.
             - No repitas encabezados ni temas redundantes.
             - No uses texto decorativo ni numeraciones fuera del formato solicitado.
@@ -366,279 +359,144 @@ class AIService:
             print(f"ERROR: Excepción inesperada durante el parseo de títulos: {e}")
             return [] 
 
-    #Regeneracion o generacion principal para los contenidos de los H 
-    def generar_contenido_seccion (self, req: models.AIAnalysisRequest) -> Dict[str,Any]:
-        """
-        Logica para la regeneracion o generacion de contenido de una seccion especifica 
-        """
-
-        # 1. Validacion de datos
-        if not req.regenerate_data:
-            raise HTTPException(status_code=400, detail="regenerate_data es requerido para la generacion de contenido.")
-        
-        try: 
-            #Campos base requeridos desde el frontes(Blog_generacion)
-            section_title = req.regenerate_data['section_title']
-            section_level = req.regenerate_data['section_level']
-            full_structure_markdown = req.regenerate_data['full_structure_markdown']
-            required_keywords: List[str] = req.regenerate_data.get('required_keywords', [])
-            word_limit: int = req.regenerate_data.get('word_limit', None)
-            content_type: str = req.regenerate_data.get('content_type', 'parrafo_marrativo')
-            context_data: Optional[str] = req.regenerate_data.get('context_data', None)
-
-
-        except KeyError as e:
-            raise HTTPException(status_code=400, detail=f"Falta el campo requerido en regenerate_data:{e}")
-        
-
-        # 2 Construccion de intrucciones dinamicas para el prompt
-
-        keyword_instruction = ""
-        if required_keywords and isinstance(required_keywords, list):
-            keywords_str = ', '.join(required_keywords)
-            keyword_instruction = f"""
-            INSTRUCCIÓN CLAVE DE SEO: Debes incluir las siguientes palabras clave en el texto: **{keywords_str}**.
-            Es FUNDAMENTAL que te enfoques **únicamente** en el contexto de la sección '{section_title}' ({section_level}),
-            evitando estrictamente temas y palabras clave que pertenezcan a otros H2/H3 de la estructura general para evitar la redundancia y el canibalismo semántico.
-            """
-
-        context_instruction = ""
-        if context_data:
-            context_instruction = (
-                f"\n--- INSTRUCCIÓN CLAVE PARA PREVENCIÓN DE CANIBALISMO ---\n"
-                f"La siguiente información describe temas que **YA ESTÁN CUBIERTOS** en otras partes del blog. "
-                f"Asegúrate de que tu contenido **NO REPITA** o **REDUNDE** en las ideas listadas abajo, "
-                f"sino que las complemente o las aborde desde un ángulo diferente.\n"
-                f"{context_data}\n"
-                f"--- FIN INSTRUCCIÓN CLAVE ---\n"
-            )
-
-        word_limit_instruction = ""
-        if word_limit and isinstance(word_limit, int) and 100 <= word_limit <= 1000:
-            word_limit_instruction = f"INSTRUCCIÓN DE EXTENSIÓN: El contenido debe tener una extensión aproximada de **{word_limit}** palabras."
-        elif word_limit:
-            # Mensaje si el límite no es válido (aunque el frontend ya lo validará)
-             word_limit_instruction = "El contenido debe ser de tamaño medio a largo."
-
-        format_instruction = ""
-        
-        if content_type == "lista_pasos":
-            format_instruction = "El contenido debe ser una **lista numerada detallada** (1., 2., 3...) de pasos o instrucciones. Cada paso debe ser conciso, claro y estar en una línea separada."
-        elif content_type == "lista_caracteristicas":
-            format_instruction = "El contenido debe presentarse como una **lista con viñetas** (usando `*` o `-`) que enumere y describa brevemente ventajas, desventajas, características o elementos clave."
-        elif content_type == "resumen_conciso":
-            format_instruction = "El contenido debe ser un **párrafo único y conciso** (no más de 4-5 frases) que sirva como un resumen ejecutivo, una conclusión o un punto clave, con un lenguaje directo y persuasivo."
-        elif content_type == "definicion_detallada":
-            format_instruction = "El contenido debe iniciar con el término o frase, seguido de una definición clara y párrafos explicativos que profundicen en el concepto, su historia o su relevancia."        
-        elif content_type == "casos_texto":
-            format_instruction = "El contenido debe enfocarse en proporcionar múltiples ejemplos o casos de uso prácticos que ilustren el tema. Cada ejemplo debe estar claramente separado, con su título en texto plano y su descripción en un párrafo."
-        elif content_type == "comparacion_corta":
-            format_instruction = "El contenido debe ser una comparación punto por punto entre 2 o 3 elementos clave (ej. Producto A vs. Producto B). Usa texto plano para los nombres de los elementos y viñetas para contrastar sus características de manera clara."
-        elif content_type == "analisis_critico":
-            format_instruction = "El contenido debe ser un **análisis estructurado en párrafos** con una introducción clara del problema o tema, un desarrollo del argumento central y una proyección o recomendación clara al final. Debe ser objetivo, sintético y basado en hechos."
-        elif content_type == "pro_y_contra":
-            format_instruction = "El contenido debe estar dividido en dos secciones claras: Pros (Ventajas) y Contras (Desventajas). Cada sección debe usar una lista con viñetas para enumerar y describir brevemente cada punto de manera equilibrada y separada. No uses negritas para los títulos de las secciones ni para los puntos."
-        elif content_type == "datos_estadisticos":
-            format_instruction = "El contenido debe enfocarse en presentar datos, cifras y estadísticas relevantes. Cada dato debe ser presentado en una línea separada, comenzando por el valor numérico, seguido de su explicación o contexto. No uses tablas, solo texto y listas."
-        elif content_type == "mito_vs_realidad":
-            format_instruction = "El contenido debe usar un formato de Mito vs. Realidad para desmentir conceptos erróneos. Cada punto debe tener una línea para el Mito y la siguiente línea para la Realidad (en formato de párrafo explicativo)."
-        elif content_type == "linea_tiempo":
-            format_instruction = "El contenido debe ser una línea de tiempo cronológica. Utiliza una lista numerada donde cada punto represente un hito o evento en la secuencia temporal, incluyendo el año o la fecha al inicio de cada punto."
-        else: 
-            format_instruction = (
-                "Tu tarea es generar el contenido utilizando el formato que consideres más apropiado (párrafos y listas con viñetas) para el tema de la sección. "
-                "PROHIBIDO: No utilices negritas, cursivas o subrayados. Solo texto plano."
-            )
-
-        # 3. Construcción del Prompt Principal (Inyectando las instrucciones)
-        prompt = f"""
-            Eres un escritor experto en SEO y un especialista en el tema '{req.query}'.
-            Tu tarea es generar el contenido detallado para la sección con el título: '{section_title}',
-            que pertenece al nivel de encabezado '{section_level}'.
-            
-            SOLO DEVUELVE EL TEXTO DEL CONTENIDO DE LA SECCIÓN SOLICITADA, SIN AÑADIR EL TÍTULO DE LA SECCIÓN NI NINGÚN OTRO ENCABEZADO.
-
-            El contenido debe ser en idioma '{req.idioma}' con acento '{req.acento}' y tono '{req.tono}'.
-
-            {context_instruction} <-- AÑADIDO: El contexto es la primera instrucción de peso.
-            
-            {keyword_instruction}
-            {word_limit_instruction}
-
-            --- INSTRUCCIÓN DE FORMATO EXCLUSIVO ---
-            {format_instruction}  <-- Colocado aquí para mayor peso
-            --- FIN INSTRUCCIÓN DE FORMATO ---
-
-            CONTEXTO DE LA ESTRUCTURA DEL BLOG (usa esto para mantener el flujo):
-            {full_structure_markdown}
-
-            REFERENCIA DE CONTENIDO DEL SCRAPING (usa esto como fuente primaria de información y para asegurar la factualidad):
-            {req.consolidated_content}
-
-            Asegúrate de que la salida respete estrictamente la INSTRUCCIÓN DE FORMATO provista.
-            """
-
-
-        # 4. Llamada al LLM y Procesamiento
-        # (Aquí se usaría su función _llm_generate)
-        generated_content = self._llm_generate(
-            prompt=prompt,
-            system_message="Eres un escritor SEO profesional.",
-            temperature=0.6
-        )
-
-        return {
-            "generated_content": generated_content,
-            "success": True,
-            "log": "Contenido generado exitosamente."
-        }
-
-      
     # -- GENERA EL CONTENIDO DE EL ESQUEMA DEL BLOG
-    def generar_contenido_blog_libre(self, req: 'models.AIAnalysisRequest') -> Dict[str, Any]:
-    
-            # 1. Validación y Extracción de Datos 
-            if not req.regenerate_data:
-                raise HTTPException(status_code=400, detail="El campo 'regenerate_data' es requerido para la generación completa.")
-
-            try:
-                # Uso de .get() con un valor por defecto para claridad y robustez
-                data = req.regenerate_data
-                section_title = data.get('section_title')
-                section_level = data.get('section_level')
-                full_structure_markdown = data.get('full_structure_markdown')
-                section_to_generate_markdown = data.get('section_text') 
-                estimated_word_count = data.get('estimated_word_count', 0)
-                    
-                if not all([section_title, full_structure_markdown, section_to_generate_markdown]):
-                    # Lanzamos una única excepción si faltan campos CRÍTICOS
-                    raise ValueError("Faltan campos críticos ('section_text', 'full_structure_markdown', o 'section_title') en regenerate_data.")
-                        
-            except (TypeError, ValueError) as e:
-                # Captura errores si regenerate_data no es un dict o si la validación de 'all' falla
-                raise HTTPException(status_code=400, detail=f"Error en la estructura de regenerate_data: {e}")
-
-            # 2. Preparación de Contexto (Historial) 📜
-            # Simplificación del manejo de historial usando un enfoque más directo
-            history_text = "No se ha generado contenido previo. Genera de forma cohesiva."
-            if isinstance(req.previous_content, list) and req.previous_content:
-                # Solo usar el último bloque para ser conservador con el límite de tokens
-                history_text = f"Último bloque de contenido generado: \n{req.previous_content[-1]}"
-            elif isinstance(req.previous_content, str) and req.previous_content:
-                history_text = req.previous_content
-
-            # 3. Lógica de Longitud y Densidad (Simplificada) 📏
-            instruccion_longitud = ""
-            target_avg_words = 0
-            if estimated_word_count > 0:
-                # Cuenta las líneas que parecen ser el inicio de una nueva sección
-                num_h2_sections = len([
-                    line for line in full_structure_markdown.split('\n') 
-                    if line.strip().startswith('[H2 -')
-                ]) or 1 # Asignar 1 como mínimo para evitar división por cero
-                
-                target_avg_words = int(estimated_word_count / num_h2_sections)
-                
-                instruccion_longitud = (
-                    f"### ESTRATEGIA DE DENSIDAD (CRÍTICA): \n"
-                    f"Para cumplir el límite total de {estimated_word_count:,} palabras con {num_h2_sections} secciones, "
-                    f"el presupuesto promedio de esta sección es de solo **{target_avg_words:,} palabras**.\n"
-                    f"**MANDATO:** Sé **EXTREMADAMENTE CONCISO**. Prioriza **listas y tablas**. **ELIMINA POR COMPLETO** el relleno o frases de transición innecesarias."
-                )
-
-            # 4. Extracción de Cabeceras para JSON 🏗️
-            # 1. La primera clave SIEMPRE es el H2 principal.
-            headers_for_json = [section_title] 
+    def generar_contenido_blog_libre(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
+        
+        if not req.regenerate_data:
+            raise HTTPException(status_code=400, detail="regenerate_data es requerido para la generación completa.")
+        
+        try:
+            # 1. Extracción de datos
+            section_title = req.regenerate_data.get('section_title')
+            section_level = req.regenerate_data.get('section_level')
+            full_structure_markdown = req.regenerate_data.get('full_structure_markdown')
+            section_to_generate_markdown = req.regenerate_data.get('section_text') 
+            estimated_word_count = req.regenerate_data.get('estimated_word_count', 0)
             
-            # 2. Extraer sub-cabeceras (H3, H4, etc.)
-            # Se unifican los dos regex en uno, buscando patrones de estructura o markdown estándar
-            # (El regex original es bastante específico, se mantiene para asegurar compatibilidad con el formato '[H3 - ...]')
-            sub_headers_pattern = r'(\[H[0-9] - [0-9.]+\].*\s*(.+)$)|(^[#]{3,}\s*(.+)$)'
-            sub_headers_raw = re.findall(sub_headers_pattern, section_to_generate_markdown, re.MULTILINE)
+            previous_content_raw = req.previous_content
             
-            # Limpiamos y aplanamos la lista de resultados del regex
-            sub_headers = [h for match in sub_headers_raw for h in (match[1] or match[3]).strip().split('\n') if h.strip() and h.strip() != section_title]
+            if not section_to_generate_markdown or not full_structure_markdown or not section_title:
+                raise KeyError("Faltan 'section_text', 'full_structure_markdown' o 'section_title' en regenerate_data.")
+                
+        except KeyError as e:
+            raise HTTPException(status_code=400, detail=f"Falta el campo requerido en regenerate_data: {e}")
 
-            # Añadir subtítulos limpios, evitando duplicados y el título principal
-            headers_for_json.extend(h for h in sub_headers if h not in headers_for_json)
+        # 2. Preparacion del contexto para anti colapso
+        history_text = "No se ha generado contenido previo. Genera de forma cohesiva."
+        
+        if isinstance(previous_content_raw, list) and previous_content_raw:
+            #Usar solo el último bloque para evitar desbordamiento de tokens.
+            last_block = previous_content_raw[-1]
+            history_text = (
+                f"{last_block}"
+            )
+        # Si previous_content_raw es un string, se usa el string completo.
+        elif isinstance(previous_content_raw, str) and previous_content_raw:
+            history_text = previous_content_raw
+
+
+        instruccion_longitud = ""
+        if estimated_word_count > 0:
+            instruccion_longitud = (
+                f"La longitud óptima del artículo es de {estimated_word_count:,} palabras. "
+                "Asegúrate de que la extensión y profundidad de esta sección sea la adecuada para alcanzar ese volumen general."
+            )
+
+        # 3. Extraccion u ordenamiento de cabeceras para el json 
+        
+        # 1. La primera clave del JSON SIEMPRE debe ser el título del H2 principal, para su contenido introductorio.
+        headers_for_json = [section_title] 
+        
+        # 2. Extraer sub-cabeceras (H3, H4, etc.) de la estructura formal.
+        sub_headers = re.findall(r'\[H[0-9] - [0-9.]+\].*\s*(.+)$', section_to_generate_markdown, re.MULTILINE)
+        
+        # Fallback por si la estructura usa Markdown estándar (###)
+        if not sub_headers:
+            sub_headers = re.findall(r'^[#]{3,}\s*(.+)$', section_to_generate_markdown, re.MULTILINE)
+        
+        # 3. Añadir los subtítulos limpios como claves adicionales, evitando duplicados.
+        headers_for_json.extend([h.strip() for h in sub_headers if h.strip() not in headers_for_json])
+        
+        # Crear un esquema de ejemplo para el prompt (JSON)
+        json_schema_example = {header: f"[CONTENIDO EN MARKDOWN COMPLETO PARA '{header}']" for header in headers_for_json}
+        json_schema_example_str = json.dumps(json_schema_example, indent=2, ensure_ascii=False)
+
+
+        # 4. Prompt y mensaje del sistema  estrategico en uno solo para la generacion completa 
+        
+        system_message = f"""
+        Especialista SEO: Eres un escritor experto en SEO y un especialista en el tema '{req.query}'. Tu tarea es generar el contenido para todos los títulos y subtítulos de una sección H2.
+        
+        {req.system_message or ""}
+        
+        REGLAS CRÍTICAS DE CALIDAD:
+        1. **ESCAPADO CRÍTICO (MITIGACIÓN):** Dentro de las cadenas de texto del JSON (los valores), **DEBES** utilizar **SIEMPRE** doble barra invertida (\\\\) para representar una barra invertida literal (\). Nunca uses una sola barra invertida (\) para rutas de archivo o caracteres especiales.
+        2. **NO REPETIR/ANTI-CANIBALISMO:** **DEBES** leer el 'Contenido Generado Previamente' y el 'Contenido Scrapeado'. No repitas ideas ya cubiertas.
+        3. **COHESIÓN:** Asegura que el nuevo contenido se integre de forma lógica con el historial.
+        4. **SALIDA (CRÍTICA):** **DEBES devolver ÚNICAMENTE un objeto JSON.** Este objeto debe contener una clave por cada título/subtítulo (incluyendo el H2 principal) donde el valor es el **contenido en formato Markdown**. NO INCLUYAS NINGÚN TEXTO FUERA DEL BLOQUE JSON. NO UTILICES TÍTULOS (##, ###) DENTRO DE LOS VALORES DEL JSON.
+        5. **RESTRICCIÓN DE ESTRUCTURA (CRÍTICA):** Solo genera contenido para los títulos existentes.
+        
+        {instruccion_longitud}
+        """
+        
+        prompt = f"""
+        --- 1. ESTRUCTURA COMPLETA DEL ARTÍCULO (MAPA GLOBAL) ---
+        Esto te da el contexto de dónde se sitúa la sección a generar:
+        {full_structure_markdown}
+
+        --- 2. CONTENIDO GENERADO PREVIAMENTE (HISTORIAL Y ANTI-CANIBALISMO) ---
+        Este es el contenido del blog generado hasta ahora. No debes repetir nada de aquí:
+        {history_text}
+
+        --- 3. CONTENIDO SCRAPEADO (REFERENCIA DE CONTEXTO) ---
+        Este es el contenido base extraído de la web para el tema:
+        {req.consolidated_content or 'No hay contenido scrapeado disponible.'}
+
+        --- 4. SECCIÓN A GENERAR (H2 y todos sus H3) ---
+        Tu tarea es generar el contenido de **TODOS** los títulos y subtítulos en la siguiente estructura. La generación es para **una sola sección H2 completa**.
+
+        **ESTRUCTURA EXACTA DE CLAVES JSON REQUERIDA (debes llenar el contenido de cada una):**
+        {section_to_generate_markdown}
+
+        **FORMATO DE SALIDA (CRÍTICO):** Debes devolver **ÚNICAMENTE** un objeto JSON que mapee el título exacto a su contenido.
+        
+        **Esquema JSON Ejemplo (Las claves deben coincidir con la lista de títulos limpios: {', '.join(headers_for_json)}):**
+        ```json
+        {json_schema_example_str}
+        ```
+
+        **Instrucción Final:** Genera el JSON que contiene el contenido asociado a CADA título/subtítulo.
+        """
+
+        try:
+            generated_response = self._llm_generate( 
+                prompt=prompt,
+                system_message=system_message,
+                temperature=0.7, 
+                max_tokens=10000 
+            )
             
-            # Crear esquema de ejemplo (CRÍTICO para la estructura del JSON)
-            json_schema_example = {header: f"[CONTENIDO EN MARKDOWN PARA '{header}']" for header in headers_for_json}
-            json_schema_example_str = json.dumps(json_schema_example, indent=2, ensure_ascii=False)
-
-            # 5. Construcción del Prompt (El corazón de la simplificación) 
+            # Limpieza de json 
+            response_corrected = re.sub(
+                r'(?<!\\)\\(?![ntrbvf/\\]|u[0-9a-fA-F]{4}|\"|\')', 
+                r'\\\\', 
+                generated_response
+            )
             
-            # Se condensa el 'system_message' para ser más directo.
-            system_message = f"""
-            Especialista SEO: Eres un escritor experto en SEO y un especialista en el tema '{req.query}'. Tu tarea es generar el contenido para **todos** los títulos y subtítulos de la sección H2 actual.
-            {req.system_message or ""}
+            structured_content = self.limpieza_extraccion_json(response_corrected)
             
-            REGLAS CRÍTICAS DE SALIDA:
-            1. **SALIDA (CRÍTICA):** **DEBES devolver ÚNICAMENTE un objeto JSON**. No incluyas NINGÚN texto fuera del bloque JSON.
-            2. **CLAVES:** El JSON debe tener una clave por cada título/subtítulo. Las claves deben ser **exactamente** los títulos limpios.
-            3. **VALORES:** Los valores son el **contenido en formato Markdown** para esa sección. NO utilices títulos (##, ###) dentro de los valores del JSON.
-            4. **ESCAPE (CRÍTICO):** Dentro del JSON, usa **DOBLE barra invertida (\\\\)** para representar una barra invertida literal (\).
+        except HTTPException as http_e:
+            raise http_e
+        except Exception as llm_e:
+            raise HTTPException(status_code=503, detail=f"Fallo en la comunicación/parseo con el modelo LLM. El modelo devolvió contenido no JSON o no se pudo corregir el error de escape: {str(llm_e)}")
 
-            REGLAS DE CONTENIDO:
-            1. **FORMATO (MANDATO CRÍTICO):** EL CONTENIDO DEBE SER TEXTO PLANO. **PROHIBIDO** utilizar negritas (`**texto**`), cursivas (`*texto*`), subrayados, o cualquier otro formato decorativo de Markdown en los valores. Solo usa Markdown para saltos de línea y listas si son estrictamente necesarias.
-            2. **ANTI-CANIBALISMO:** No repitas ideas ya cubiertas en el 'Contenido Generado Previamente' o en el 'Contenido Scrapeado'.
-            3. **COHESIÓN:** El nuevo contenido debe integrarse lógicamente con el historial.
-            {instruccion_longitud}
-            """
-                
-                
-            prompt = f"""
-            ## CONTEXTO GLOBAL (MAPA DEL ARTÍCULO)
-            {full_structure_markdown}
-
-            ## HISTORIAL DE CONTENIDO (NO REPETIR)
-            {history_text}
-
-            ## REFERENCIA DE CONTEXTO (SCRAPING)
-            {req.consolidated_content or 'No hay contenido scrapeado disponible.'}
-
-            ## ESTRUCTURA DE LA SECCIÓN A GENERAR
-            Tu tarea es llenar el contenido de **TODOS** los títulos/subtítulos de esta sección H2.
-            {section_to_generate_markdown}
-
-            ## FORMATO DE SALIDA REQUERIDO (JSON)
-            **Claves Requeridas:** {', '.join(headers_for_json)}
-            ```json
-            {json_schema_example_str}
-            ```
-
-            **Instrucción Final:** Genera el JSON que contiene el contenido asociado a CADA título/subtítulo.
-            """
-
-            try:
-                generated_response = self._llm_generate( 
-                    prompt=prompt,
-                    system_message=system_message,
-                    temperature=0.7, 
-                    max_tokens=10000 
-                )
-                
-                # Limpieza de json 
-                response_corrected = re.sub(
-                    r'(?<!\\)\\(?![ntrbvf/\\]|u[0-9a-fA-F]{4}|\"|\')', 
-                    r'\\\\', 
-                    generated_response
-                )
-                
-                structured_content = self.limpieza_extraccion_json(response_corrected)
-                
-            except HTTPException as http_e:
-                raise http_e
-            except Exception as llm_e:
-                raise HTTPException(status_code=503, detail=f"Fallo en la comunicación/parseo con el modelo LLM. El modelo devolvió contenido no JSON o no se pudo corregir el error de escape: {str(llm_e)}")
-
-            
-            # 6. Respuesta Final devuelve el JSON serializado al frontend
-            return {
-                "generated_content": json.dumps(structured_content), 
-                "success": "True",
-                "log": f"Contenido estructurado generado para la sección: {section_title} (Nivel {section_level})."
-            }
+        
+        # 6. Respuesta Final devuelve el JSON serializado al frontend
+        return {
+            "generated_content": json.dumps(structured_content), 
+            "success": "True",
+            "log": f"Contenido estructurado generado para la sección: {section_title} (Nivel {section_level})."
+        }
 
 
     # --- AQUI ESTA LA LOGICA DE REGENERACION Y LIMPIEZA DEL JSON QUE DEVUELVE LA IA 
@@ -686,24 +544,6 @@ class AIService:
                     tono=tono,
                     query=query
                 )
-            # --- 2. GENERACIÓN DE CONTENIDO (CUERPO DE TEXTO) ---
-            elif req.section_type == 'content_generation':
-    
-                # 1. Llama al nuevo método, replicando el patrón de self.
-                try:
-                    # Llama a la nueva función especializada de la misma clase.
-                    content_result = self.generar_contenido_seccion(req)
-                    
-                    # El método ya retorna el diccionario {"generated_content": ..., "section_type": ...}
-                    return content_result 
-                
-                except HTTPException as e:
-                    # Re-lanza excepciones HTTP específicas
-                    raise e
-                except Exception as e:
-                    # Captura cualquier error inesperado
-                    raise HTTPException(status_code=500, detail=f"Error en la delegación de generación de contenido: {str(e)}")
-
 
             # --- BLOQUE DE RETORNO DE REGENERACIÓN (DESPACHADOR DE RESPUESTAS) ---
             if content is not None:
