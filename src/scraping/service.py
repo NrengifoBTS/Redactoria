@@ -546,7 +546,7 @@ class AIService:
                     f"**MANDATO:** Sé **EXTREMADAMENTE CONCISO**. Prioriza **listas y tablas**. **ELIMINA POR COMPLETO** el relleno o frases de transición innecesarias."
                 )
 
-            # 4. Extracción de Cabeceras para JSON 🏗️
+            # 4. Extracción de Cabeceras para JSON 
             # 1. La primera clave SIEMPRE es el H2 principal.
             headers_for_json = [section_title] 
             

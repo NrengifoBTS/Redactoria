@@ -2515,11 +2515,11 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                     </span>
                   )}
 
-                  {totalWordsGenerated > 0 && (
+                  {totalGeneratedWords > 0 && (
                     <span className="count-badge generated">
                       <i className="uil uil-pen"></i>Generadas:
                       <strong>
-                        {totalWordsGenerated.toLocaleString()}
+                        {totalGeneratedWords.toLocaleString()}
                       </strong>{" "}
                     </span>
                   )}

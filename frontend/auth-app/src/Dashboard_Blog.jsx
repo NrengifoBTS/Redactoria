@@ -192,33 +192,6 @@ const App = () => {
     { value: "87", label: "Artículos Generados" },
     { value: "142", label: "Imágenes Generadas" },
   ];
-  // ... (tableData)
-  const tableData = [
-    {
-      archivo: "Guía de Viajes 2025",
-      tipo: "Artículo",
-      palabras: 1200,
-      estado: "Activo",
-      prioridad: "Urgente",
-      fecha: "18/09/2025",
-    },
-    {
-      archivo: "IA Futurista",
-      tipo: "Artículo",
-      palabras: 850,
-      estado: "Inactivo",
-      prioridad: "Neutral",
-      fecha: "17/09/2025",
-    },
-    {
-      archivo: "Logo Digital",
-      tipo: "Imagen",
-      palabras: 1500,
-      estado: "Activo",
-      prioridad: "Alto",
-      fecha: "15/09/2025",
-    },
-  ];
 
   const Header = () => (
     <header className="navbar">
@@ -265,14 +238,31 @@ const App = () => {
         <div className="filters">
           <input type="text" placeholder="Buscar..." />
           <select>
-            <option>Todos los tipos</option>
-            <option>Artículos</option>
-            <option>Imágenes</option>
+            <option>Todos los Estados</option>
+            <option>Borrador</option>
+            <option>Pendiente</option>
+            <option>En proceso</option>
+            <option>Pendiente de revisión</option>
+            <option>Pendiente de ajuste</option>
+            <option>Aprobado</option>
+            <option>Pendiente</option>
           </select>
           <select>
-            <option>Últimos 7 días</option>
-            <option>Últimos 30 días</option>
+            <option>Todas las fechas</option>
+            <option>Esta Semana</option>
+            <option>Este mes</option>
             <option>Este año</option>
+          </select>
+          <select>
+            <option value="">Todos los asignados </option>
+            {/*Aqui va la logica con la llamada a usuarios para obtenerlos */}
+          </select>
+
+          <select>
+            <option value="">Todas las prioridades</option>
+            <option value="">Alta</option>
+            <option value="">Media</option>
+            <option value="">Baja</option>
           </select>
         </div>
         {/* Uso de botón para abrir el modal */}
@@ -284,8 +274,8 @@ const App = () => {
       <table>
         <thead>
           <tr>
-            <th>Archivo</th>
-            <th>Tipo</th>
+            <th>Nombre archivo</th>
+            <th>Asignado A</th>
             <th>Palabras</th>
             <th>Estado</th>
             <th>Prioridad</th>
@@ -301,6 +291,34 @@ const App = () => {
       </table>
     </section>
   );
+
+  // ... (tableData)
+  const tableData = [
+    {
+      archivo: "Guía de Viajes 2025",
+      tipo: "Persona 1",
+      palabras: 1200,
+      estado: "Activo",
+      prioridad: "Urgente",
+      fecha: "18/09/2025",
+    },
+    {
+      archivo: "IA Futurista",
+      tipo: "Persona2",
+      palabras: 850,
+      estado: "Inactivo",
+      prioridad: "Neutral",
+      fecha: "17/09/2025",
+    },
+    {
+      archivo: "Logo Digital",
+      tipo: "Imagen",
+      palabras: 1500,
+      estado: "Activo",
+      prioridad: "Alto",
+      fecha: "15/09/2025",
+    },
+  ];
 
   const Footer = () => <footer className="footer"></footer>;
   // --- Fin de Componentes y Datos Internos ---

@@ -41,6 +41,9 @@ def create_proyecto(current_user: TokenData, db: Session, proyecto: models.Proye
         db.refresh(new_landing_page)
         db.refresh(new_proyecto)
         
+        
+
+
         logging.info(f"Created new proyecto for user: {current_user.get_uuid()}")
         return new_proyecto
     except Exception as e:
