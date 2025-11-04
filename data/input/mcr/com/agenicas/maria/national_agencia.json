@@ -15,7 +15,7 @@
     {
       "fleet": {
         "h2": "Flota de autos baratos National",
-        "vol_h2": "80 a 85 palabras",
+        "vol_h2": "125 a 130 palabras",
         "h2_desc": "¡Tenemos las mejores ofertas que benefician tu bolsillo! Alquila un carro National con Miles Car Rental y mejora tu movilidad en cada destino con descuentos hasta del 35% en tu tarifa. Aprovecha ventajas exclusivas como Seguro de Viaje GRATIS para turistas extranjeros, Kilómetros Ilimitados, Asistencia Básica en Carretera, pagos 100% seguros y más. ¡Con nosotros, cada recorrido es una aventura cómoda y accesible!\nCon más de 10 años en el mercado de renta de vehículos, ofrecemos la confianza que necesitas para elegirnos como tu broker ideal. Al reservar con anticipación, aseguras el auto que mejor se ajuste a tus necesidades y disfrutas de una experiencia sin contratiempos en la ciudad de tu preferencia. ¡No esperes más! Los autos se agotan rápidamente.",
         "ip_usa": "¡Tenemos las mejores ofertas que benefician tu bolsillo! Alquila un carro National con Miles Car Rental y mejora tu movilidad en cada destino con descuentos hasta del 35% en tu pago. Aprovecha ventajas exclusivas como Kilómetros Ilimitados, Tarifas Preferencias, Asistencia Básica en Carretera, pagos 100% seguros y más. ¡Con nosotros, cada recorrido es una aventura cómoda y accesible!\nCon más de 10 años en el mercado de renta de vehículos, ofrecemos la confianza que necesitas para elegirnos como tu broker ideal. Al reservar con anticipación, aseguras el auto que mejor se ajuste a tus necesidades y disfrutas de una experiencia sin contratiempos en la ciudad de tu preferencia. ¡No esperes más! Los autos se agotan rápidamente.",
         "ip_bra": "¡Tenemos las mejores ofertas que benefician tu bolsillo! Alquila un carro National con Miles Car Rental y mejora tu movilidad en cada destino con descuentos hasta del 35% en tu tarifa. Aprovecha ventajas exclusivas como Seguro de Viaje GRATIS para turistas extranjeros, Kilómetros Ilimitados, Asistencia Básica en Carretera, Beneficio en Cobertura del IOF, pagos 100% seguros y más. ¡Con nosotros, cada recorrido es una aventura cómoda y accesible.\nCon más de 10 años en el mercado de renta de vehículos, ofrecemos la confianza que necesitas para elegirnos como tu broker ideal. Al reservar con anticipación, aseguras el auto que mejor se ajuste a tus necesidades y disfrutas de una experiencia sin contratiempos en la ciudad de tu preferencia. ¡No esperes más! Los autos se agotan rápidamente."
@@ -70,14 +70,14 @@
     {
       "bloquehistoria": {
         "h2": "Historia de National Car Rental",
-        "vol_h2": "55 a 60 palabras",
+        "vol_h2": "95 a 130 palabras",
         "h2_desc": "National Car Rental se fundó como un consolidado de empresas en 1947, cuando 24 operadores independientes de alquiler de autos decidieron unirse para crear una gran compañía. Estableció su base de operaciones en St. Louis, Missouri, con una flota de aproximadamente 800 vehículos en 60 ciudades de Estados Unidos.\nEsta agencia se destacó por sus procesos innovadores, ya que en 1954 fue la primera empresa en ofrecer el servicio de recogida en una localidad y devolución en otra. Además, en 1966 fue pionera en aplicar la tecnología al sector de alquiler de autos, implementando el uso de computadoras para realizar reservas de autos.\nEn 2007, National se unió al consolidado de Enterprise Holdings, formando parte de esta importante sociedad integrada por otras destacadas empresas como Enterprise Rent-A-Car y Alamo Rent A Car.\nEn la actualidad, National Car Rental está presente en aproximadamente 90 países alrededor del mundo, con más de 1500 localidades y ofrece más de 30 tipos de vehículos de alquiler."
       }
     },
     {
       "rentcompanies": {
         "h2": "Mejores empresas de renta de autos",
-        "vol_h2": "55 a 60 palabras",
+        "vol_h2": "220 a 250 palabras",
         "h2_desc": "¡Las mejores agencias están de nuestro lado! En Miles Car Rental, tenemos sólidas alianzas con las principales compañías de renta de autos a nivel mundial. Encuentra disponibilidad con Avis, Budget, Hertz, Alamo y muchas más. Alquila de forma fácil, rápida y segura, eligiendo la opción que mejor se adapte a tus necesidades. Simplemente selecciona la localidad que deseas visitar, indica las fechas de tu viaje y elige el vehículo ideal para tus trayectos. ¡Comienza a planear tu aventura hoy mismo! Es hora de reservar."
       }
     }

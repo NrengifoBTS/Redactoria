@@ -15,7 +15,7 @@
     {
       "fleet": {
         "h2": "Flota de autos baratos Thrifty",
-        "vol_h2": "80 a 85 palabras",
+        "vol_h2": "125 a 130 palabras",
         "h2_desc": "Thrifty es tu mejor alternativa para alquilar un carro al precio más competitivo. A través de Miles Car Rental, accede a descuentos hasta del 35%, Kilómetros Ilimitados y un Seguro de Viaje Gratis para turistas extranjeros incluido en tu reserva. Su amplia selección de vehículos y tarifas accesibles aseguran que encuentres el auto ideal sin exceder tu presupuesto. Además, disfrutarás de beneficios como Asistencia Básica en Carretera, Seguro del Auto, Protección a Terceros, y más, para que tu viaje sea cómodo y protegido. \nOlvídate de búsquedas complicadas, renta ya con Thrifty a través de nuestro sitio web y comienza a ahorrar desde el primer trayecto. ¡Garantiza tu auto hoy mismo y descubre lo sencillo que es viajar con precios bajos y total tranquilidad!",
         "ip_usa": "Thrifty es tu mejor alternativa para alquilar un carro al precio más competitivo. A través de Miles Car Rental, accede a descuentos hasta del 35%, Kilómetros Ilimitados y Asistencia Básica en Carretera incluida en tu reserva. Su amplia selección de vehículos y tarifas accesibles aseguran que encuentres el auto ideal sin exceder tu presupuesto. Además, disfrutarás de beneficios como Tarifas Preferenciales, Pagos 100% transparentes, y más, para que tu viaje sea flexible y cómodo.  \nOlvídate de búsquedas complicadas, renta ya con Thrifty a través de nuestro sitio web y comienza a ahorrar desde el primer trayecto. ¡Garantiza tu auto hoy mismo y descubre lo sencillo que es viajar con precios bajos y total tranquilidad!",
         "ip_bra": "Thrifty es tu mejor alternativa para alquilar un carro al precio más competitivo. A través de Miles Car Rental, accede a descuentos hasta del 35%, Kilómetros Ilimitados y un Seguro de Viaje Gratis para turistas extranjeros incluido en tu reserva. Su amplia selección de vehículos y tarifas accesibles aseguran que encuentres el auto ideal sin exceder tu presupuesto. Además, disfrutarás de beneficios como Asistencia Básica en Carretera, Seguro del Auto, Beneficio en Cobertura del IOF, y más, para que tu viaje sea cómodo y protegido. \nOlvídate de búsquedas complicadas, renta ya con Thrifty a través de nuestro sitio web y comienza a ahorrar desde el primer trayecto. ¡Garantiza tu auto hoy mismo y descubre lo sencillo que es viajar con precios bajos y total tranquilidad!"
@@ -72,14 +72,14 @@
     {
       "bloquehistoria": {
         "h2": "Historia de Thrifty",
-        "vol_h2": "55 a 60 palabras",
+        "vol_h2": "200 a 230 palabras",
         "h2_desc": "Thrifty Car Rental es una empresa de alquiler de autos fundada en 1958 en los Estados Unidos por la familia Dyson. Originalmente, se creó como un servicio de alquiler de autos de bajo costo para viajeros, dirigido a aquellos que buscaban opciones económicas para sus traslados. \nCon el tiempo, Thrifty se expandió tanto a nivel nacional como internacional, convirtiéndose en una de las principales marcas en la industria de alquiler de autos. En 1989, la empresa fue adquirida por Chrysler, y más tarde pasó a formar parte de la empresa matriz Hertz Global Holdings en 2012, aunque operó de manera independiente bajo su propia marca. \nThrifty se caracteriza por ofrecer precios competitivos, servicios accesibles y una amplia variedad de vehículos para satisfacer las necesidades de todo tipo de viajeros. A lo largo de los años, la marca ha mantenido su enfoque en ofrecer tarifas económicas sin sacrificar la calidad del servicio, siendo una opción popular para turistas y viajeros de negocios. "
       }
     },
     {
       "rentcompanies": {
         "h2": "Mejores empresas de renta de autos",
-        "vol_h2": "55 a 60 palabras",
+        "vol_h2": "80 a 85 palabras",
         "h2_desc": "En nuestro portal web, no solo encontrarás las tarifas más competitivas de Thrifty, sino también una selección de las mejores compañías de renta de autos para que elijas la opción que mejor se adapte a tus necesidades. Ya sea que busques comodidad, vehículos de lujo o precios económicos, tenemos todo lo que necesitas para tu próximo viaje. ¡Haz tu reserva hoy mismo y disfruta de un servicio de calidad con las marcas más confiables del mercado!"
       }
     }

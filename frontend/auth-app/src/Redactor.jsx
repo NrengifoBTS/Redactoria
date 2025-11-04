@@ -430,10 +430,9 @@ export default function Redactor() {
     tempDiv.innerHTML = html;
     
     const cleanedHtml = tempDiv.innerHTML
-      .replace(/<span[^>]*>\s*<\/span>/g, '')
-      .replace(/<div[^>]*>\s*<\/div>/g, '')  
-      .replace(/<p[^>]*>\s*<\/p>/g, '')
-      .replace(/<br\s*\/?>\s*<br\s*\/?>/g, '<br>')
+      .replace(/<span[^>]*><\/span>/g, '')
+      .replace(/<div[^>]*><\/div>/g, '')  
+      .replace(/<p[^>]*><\/p>/g, '')
       .replace(/(<br\s*\/?>){3,}/g, '<br><br>')
       .trim();
     

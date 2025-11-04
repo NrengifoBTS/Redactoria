@@ -49,3 +49,22 @@ def change_password(db: Session, user_id: UUID, password_change: models.Password
     except Exception as e:
         logging.error(f"Error during password change for user ID: {user_id}. Error: {str(e)}")
         raise
+
+
+def delete_user(db: Session, user_id: UUID) -> None:
+    """Eliminar un usuario por su ID"""
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logging.warning(f"Cannot delete: User not found with ID: {user_id}")
+            raise UserNotFoundError(user_id)
+        
+        db.delete(user)
+        db.commit()
+        logging.info(f"Successfully deleted user with ID: {user_id}")
+    except UserNotFoundError:
+        raise
+    except Exception as e:
+        db.rollback()
+        logging.error(f"Error deleting user with ID: {user_id}. Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error deleting user")
