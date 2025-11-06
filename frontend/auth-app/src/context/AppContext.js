@@ -22,6 +22,8 @@ export function AppProvider({ children }) {
     };
   };
 
+
+
   // Inicializar usuario desde token
   useEffect(() => {
     const initializeAuth = async () => {
@@ -56,7 +58,7 @@ export function AppProvider({ children }) {
     };
 
     initializeAuth();
-  }, []);// eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cargar usuarios desde la API
   const loadUsers = async () => {
@@ -411,7 +413,7 @@ export function AppProvider({ children }) {
   };
 
   const [templates, setTemplates] = useState([]);
-  const [templatesGrouped, setTemplatesGrouped] = useState({}); // eslint-disable-line no-unused-vars 
+  const [templatesGrouped, setTemplatesGrouped] = useState({});
 
   const loadTemplates = async () => {
     try {
