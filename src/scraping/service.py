@@ -31,7 +31,7 @@ class AIService:
         "INSTRUCCIÓN CRÍTICA: NO UTILICES NINGÚN TIPO DE FORMATO EN EL TEXTO generado (es decir, NO uses negritas como **, cursivas como * o subrayados). Solo texto plano y encabezados (H2, H3). "
         "Tu mayor prioridad es la **CONCISIÓN** y el cumplimiento **ESTRICTO** de la longitud solicitada. "
         "El contenido debe ser informativo, autoritario, y persuasivo. "
-        "Asegúrate de que el texto sea altamente 'escaneable' (usa listas y párrafos muy cortos)."
+        "Asegúrate de que el texto sea altamente 'escaneable'."
     )
 
 
@@ -164,20 +164,35 @@ class AIService:
         """
         media_text = self._build_media_text(media_info)
 
-        # 1. CONSTRUCCIÓN DEL PROMPT
         prompt = f"Basándote en el ARTÍCULO CONSOLIDADO, el cual contiene MÚLTIPLES SECCIONES ESTRUCTURADAS, bajo el título '{heading}' y relacionado con el tema '{query}':\n---\n{chunk}\n{media_text}\n---\n\n"
         
-        # INSTRUCCIÓN CLAVE: Pide el análisis clave sin restricciones de longitud, pero forzando el formato directo.
-        prompt += f"Realiza un **ANÁLISIS ESTRUCTURAL CLAVE Y CONCISO** del bloque de contenido anterior. Tu tarea es **extraer solo los puntos clave y subtítulos más relevantes** que contribuyan a una estructura de blog de alta calidad para el tema '{query}'. Analiza también la relevancia de la multimedia (si aplica). **Devuelve el análisis ÚNICAMENTE en forma de lista de puntos clave detallados, usando formato Markdown (puntos o numeración), sin NINGUNA INTRODUCCIÓN, EXPLICACIÓN O COMENTARIO ADICIONAL.**"
+        # INSTRUCCIÓN CLAVE CORREGIDA: Pedimos extracción completa, pero formato denso.
+        prompt += f"""Realiza un **ANÁLISIS ESTRUCTURAL Y TEMÁTICO COMPLETO**. Tu tarea es analizar el bloque anterior y devolver **TODOS los conceptos clave, nombres de subtemas y datos esenciales** que contribuyan a un blog de alta calidad para el tema '{query}'. **NO OMITAS NINGÚN PUNTO CLAVE.**
+
+        **Formato de Salida Obligatorio:**
+        1.  **Título de la Página Fuente:** Comienza con una línea que diga: **[FUENTE: {heading}]**
+        2.  **Lista Atómica:** Luego, genera una lista de puntos usando guiones (`-`). Cada punto debe ser un **CONCEPTO ÚNICO**, un **TÍTULO DE SUBTEMA**, o un **HECHO AISLADO**.
+        3.  **Prohibición de Descripción:** Los puntos de la lista **NO DEBEN SER PÁRRAFOS EXPLICATIVOS NI RESÚMENES LARGOS**. Deben ser frases muy cortas y densas que identifiquen el tema o concepto.
+
+        **Ejemplo de formato denso (Correcto):**
+        [FUENTE: Título de la página]
+        - Prohibición legal: Ley 1333/2009.
+        - Animales no aptos: Primates y Aves Silvestres.
+        - Riesgo de zoonosis.
+        - Sanciones económicas por tráfico.
+        
+        Devuelve el análisis ÚNICAMENTE con el formato solicitado, sin NINGUNA INTRODUCCIÓN, EXPLICACIÓN O COMENTARIO ADICIONAL.
+        """
         
         # 2. NUEVO SYSTEM_MSG
         # La IA no debe generar NADA que no sea la lista de puntos.
-        system_msg = "Eres un consultor de contenido y analista estructural experto. Tu ÚNICA TAREA es analizar la información proporcionada y devolver SOLAMENTE una lista detallada y estructurada (usando markdown, puntos o numeración) con los puntos clave y elementos estructurales extraídos. No generes introducciones, conclusiones, resúmenes, explicaciones, o cualquier texto que no sea el análisis solicitado."
+        system_msg = "Eres un Analista de Contenido Completo y Denso. Tu ÚNICA TAREA es analizar la información proporcionada de manera exhaustiva y devolver SOLAMENTE una lista de conceptos estructurales y temáticos atómicos. No generes introducciones, conclusiones, resúmenes, explicaciones, o cualquier texto que no sea el análisis solicitado."        
         
         return self._llm_generate(prompt, system_msg, temperature=0.5)
+    
 
 
-    # --- GENERA EL ESQUEMA COMPLETO DEL BLOG
+    # --- GENERA EL ESQUEMA COMPLETO DEL BLOG (CORREGIDO PARA DENSIDAD Y NO REDUNDANCIA)
     def generar_estructura_seo_final(self, 
                                           consolidated_text: str, 
                                           query: str, 
@@ -193,91 +208,60 @@ class AIService:
         keywords_str = ', '.join([query])
         
         system_message = f"""
-            Eres un Estratega SEO Senior y Arquitecto de Contenidos experto en planificación estructural.
+            Eres un Estratega SEO Senior y Arquitecto de Contenidos COMPETITIVO Y ESTRATÉGICO experto en planificación estructural.
             
-            Tu función principal NO es redactar el texto final, sino diseñar la **estructura jerárquica completa del cuerpo del artículo**, 
-            optimizada para SEO, retención lectora y coherencia semántica. **Tu principal prioridad es la eficiencia de la estructura y la longitud competitiva.**
+            Tu función principal es diseñar la **estructura jerárquica OPTIMIZADA y ESTRATÉGICA del cuerpo del artículo**, 
+            basada en el análisis de la competencia (texto consolidado) para asegurar un alto posicionamiento. **Tu principal prioridad es la DENSIDAD TEMÁTICA y la COBERTURA COMPETITIVA.**
             
-            Debes trabajar en el idioma '{idioma}', respetando el acento cultural '{acento}' y aplicando el tono de voz '{tono}', 
-            pero **solo como guía de enfoque**, no de estilo narrativo.
-
-            Tu salida debe ser un **objeto JSON limpio y válido**, que contenga la estructura final en el formato especificado.
-            
-            **[MANDATO CLAVE DE SALIDA] Tu salida debe ser SOLAMENTE el objeto JSON, sin ningún texto, encabezado o explicación previa o posterior. 
-            Esto incluye eliminar frases como 'Aquí está el JSON', '```json' o cualquier comentario de la IA.**
-            Recuerda:
-            - No redactas contenido, solo estructuras.
-            - El texto de los títulos de la estructura debe ser ABSOLUTAMENTE texto plano. NO uses negritas (**texto**), cursivas (*texto*) o subrayados.
-            - No uses URLs ni caracteres decorativos.
-            - Aplica los principios del contenido de alta calidad (profundidad, jerarquía, relevancia, cobertura completa del tema).
+            Tu salida debe ser un **objeto JSON limpio y válido**, sin ningún texto, encabezado o explicación previa o posterior.
+            Debes trabajar en el idioma '{idioma}', respetando el acento cultural '{acento}' y aplicando el tono de voz '{tono}'.
             """
+        
         
         prompt = f"""
             --- CONTEXTO Y OBJETIVO ---
-            Eres un estratega SEO experto, creador de contenido de alta calidad, especializado en blogs turísticos familiares.
-            Tu misión es diseñar una **estructura jerárquica completa y exhaustiva** del cuerpo del artículo titulado:
+            Estrategia: Diseñar una **estructura jerárquica OPTIMIZADA, COMPARABLE y PARECIDA** para el artículo titulado:
             '{title_base}' (tema principal: '{query}').
 
             **COMPETENCIA Y LONGITUD (CRÍTICO PARA SEO):**
-            **Longitudes de la Competencia (Palabras):** {longitudes_competencia_str}
-
-            El texto que recibes a continuación proviene del **análisis consolidado...**:
+            Longitudes de la Competencia (Palabras): {longitudes_competencia_str}
+            El texto consolidado para el análisis es:
             ---
             {consolidated_text}
             ---
 
             --- MANDATOS DE ESTRUCTURA ---
-            1. **OBJETIVO PRINCIPAL:** Crear una estructura **altamente optimizada para SEO** que garantice la **mejor calidad y relevancia** del contenido, basándose estrictamente en el texto consolidado.
+            1. **OBJETIVO PRINCIPAL (COBERTURA COMPETITIVA):** Crear una estructura **altamente optimizada para SEO** que **replique el alcance (scope) y profundidad** inferido de la competencia. Organiza la información de forma DENSA y eficiente.
             
-            2. **TIPO DE CONTENIDO:** Guía SEO de alta calidad y relevancia.
+            2. **JERARQUÍA Y CONCISIÓN (MANDATO CRÍTICO):**
+                - Utiliza **H2 y H3** (evita H4).
+                - La estructura debe ser la **estratégicamente necesaria** para superar a los competidores.
+                - **COBERTURA TEMÁTICA COMPLETA (PRIORIDAD ÚNICA):** Utiliza la cantidad de secciones H2 y H3 que sean necesarias para lograr una **cobertura temática exhaustiva** y densa que supere la de la competencia. No hay límites numéricos o guías.
             
-            3. **PROFUNDIDAD Y LONGITUD (MANDATO CRÍTICO DE EFICIENCIA):**
-                Tu estructura debe ser la **esencialmente necesaria** para superar la calidad de los competidores. 
-                Analiza las **Longitudes de la Competencia** ({longitudes_competencia_str}) y determina la longitud **IDEAL Y MÁS CORTA POSIBLE** 
-                para la máxima cobertura temática. **LA LONGITUD MÁXIMA ES UN ERROR SEO.** Tu diseño debe priorizar la DENSIDAD sobre la extensión.
+            3. **ESTIMACIÓN DE PALABRAS (LÍMITE ESTRICTO):** Estima la **cantidad total de palabras** requeridas (`estimated_word_count`). Este valor debe ser el **MÁXIMO competitivo** permitido NO SER EXAGERADO. **NO EXCEDAS** el promedio de la competencia por más de un **10%**.
             
-            4. **ESTIMACIÓN DE PALABRAS (RESTRICCIÓN ALGORÍTMICA):** Estima la **cantidad total de palabras** requeridas (`estimated_word_count`). Este valor debe cumplir la siguiente restricción estricta:
-                **Si las longitudes de la competencia son bajas (ej. menor a 1,500 palabras), tu estimación DEBE ser SÓLO entre el 10% y 30% más alta que el promedio de esas longitudes.** Utiliza la longitud más baja y eficiente posible. **BAJO NINGUNA CIRCUNSTANCIA** la estimación debe exceder las 2,000 palabras si la competencia está por debajo de 1,500 palabras. **ESTE CÁLCULO ES IMPERATIVO.**
-
-            5. **NIVELES JERÁRQUICOS:**
-            - Utiliza H2, H3 y H4 según sea necesario para organizar la información de forma lógica.
-            - Todos los encabezados deben ser relevantes, únicos y semánticamente diferentes.
-            
-            5. **INTEGRACIÓN DE MULTIMEDIA:** Inmediatamente después de cada encabezado (H2 o H3) que lo requiera, incluye una línea con el siguiente formato exacto:
-            [MULTIMEDIA: TIPO | Descripción SEO detallada para Alt Text]
-            Donde:
-            - TIPO = VIDEO, FOTO, MAPA o GRAFICO.
-            - La descripción SEO debe incluir palabras clave relevantes, contexto visual y atractivo informativo.
-            - Ejemplo correcto:
-                [H3 - 2.1] Mirador nocturno en ICON Park
-                [MULTIMEDIA: FOTO | Vista panorámica nocturnx|a del skyline de Orlando con familias disfrutando de The Wheel]
-
-            7. **FORMATO DE SALIDA (OBLIGATORIO):**
-            - Cada línea corresponde a un encabezado.
-            - El formato exacto es:
-                [H{{N}} - X.Y] Título del Encabezado
-            - {{N}} indica el nivel HTML (2, 3 o 4).
-            - X.Y indica la jerarquía decimal (ejemplo: 1.0, 1.1, 1.1.1, etc.).
-            - No uses Markdown (##, ###, * o guiones).
-            - No uses emojis, símbolos ni URL visibles.
-
-            8. **PROHIBICIONES:**
-            - No incluyas secciones con “Resumen”, “Conclusión” , “Formulario” , "Preguntas frecuentes" o "fAQ".
-            - No menciones URLs ni fuentes.
-            - No repitas encabezados ni temas redundantes.
-            - No uses texto decorativo ni numeraciones fuera del formato solicitado.
-
-            9. **AMPLIACIÓN CONTEXTUAL (Guía de enfoque):**
-            - Cubre todos los enfoques detectados en el texto consolidado (histórico, cultural, logístico, experiencial, comparativo).
-            - Integra temas secundarios: gastronomía, transporte, horarios, seguridad, eventos especiales, actividades por zona, etc.
-            - Combina los enfoques de las distintas páginas en una estructura unificada y optimizada.
+            4. **REGLAS DE FORMATO Y CONTENIDO (CRÍTICO):**
+                a. **Formato de Título (Estructura Pura):** Cada línea debe ser **EXCLUSIVAMENTE** un encabezado o una etiqueta multimedia.
+                    - Encabezados: `[H{{N}} - X.Y] Título del Encabezado` (Ej: `[H2 - 1.0] Definición de Riesgo Sistémico`).
+                    - Multimedia: `[MULTIMEDIA: TIPO | Descripción SEO detallada para Alt Text]` (TIPO = VIDEO, FOTO, MAPA o GRAFICO).
+                b. **Prohibiciones en Títulos:** Los títulos (H2/H3) deben ser conceptuales y estructurales. NO DEBEN INCLUIR datos específicos, nombres de leyes, cifras, números, o detalles concretos. Estos detalles van en las Notas de Contenido (Mandato 5).
+                c. **Prohibiciones de Secciones:** No incluyas secciones llamadas **"Introducción"**, **"Resumen"**, **"Conclusión"** o **"Preguntas Frecuentes"** (o "FAQ").
+                d. **PROHIBIDO** utilizar negritas (`**texto**`), cursivas (`*texto*`), subrayados, o cualquier otro formato decorativo de Markdown en los valores. Solo usa Markdown para saltos de línea y listas si son estrictamente necesarias.
+                
+            5. **SUGERENCIAS DE CONTENIDO (CAPTURA ESTRUCTURADA):**
+                Extrae **TODOS los hechos, datos, cifras, ejemplos específicos, nombres de leyes, etc.** del texto consolidado que deben ser incluidos en el contenido. La información de este campo guiará la generación de contenido.
+                
+                **FORMATO REQUERIDO EN content_notes:**
+                * `[ID-H{{N}}] - Detalle o sugerencia específica de contenido a incluir en esa sección.`
+                
+                *Ejemplo:* `[H2-1.0] - Mencionar las penas de prisión de 48-108 meses y el decomiso obligatorio.`
 
             --- FORMATO FINAL EXCLUSIVO ---
             Devuelve **ÚNICAMENTE** el siguiente objeto JSON, sin texto adicional:
             {{
             "structure_markdown": "Estructura detallada con formato [H{{N}} - X.Y] Título.",
-            "estimated_word_count": "Número entero que representa el total de palabras estimadas (e.g., 3500)"
-
+            "estimated_word_count": "Número entero que representa el total de palabras estimadas (e.g., 1800)",
+            "content_notes": "Lista de sugerencias de contenido, datos curiosos, o detalles a incluir, separados por guiones (-)."
             }}
             """
         
@@ -287,8 +271,11 @@ class AIService:
             return self.limpieza_extraccion_json(response_json_str)
         except Exception as e:
             return {
-                "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e}]"
-            }
+                "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e} - Respuesta IA: {response_json_str[:200]}...]",
+                "estimated_word_count": 0,
+                "content_notes": []
+            }   
+
 
 
     # --- LOGICA PARA REGENERAR SOLAMENTE UNA UNICA PARTE DE LA ESTRUCTURA EN ESTE CASO TITULOS Y SUBTITULOS--- 
@@ -460,7 +447,7 @@ class AIService:
 
             El contenido debe ser en idioma '{req.idioma}' con acento '{req.acento}' y tono '{req.tono}'.
 
-            {context_instruction} <-- AÑADIDO: El contexto es la primera instrucción de peso.
+            {context_instruction} 
             
             {keyword_instruction}
             {word_limit_instruction}
@@ -509,6 +496,8 @@ class AIService:
                 full_structure_markdown = data.get('full_structure_markdown')
                 section_to_generate_markdown = data.get('section_text') 
                 estimated_word_count = data.get('estimated_word_count', 0)
+                content_notes = data.get('content_notes', "")
+
                     
                 if not all([section_title, full_structure_markdown, section_to_generate_markdown]):
                     # Lanzamos una única excepción si faltan campos CRÍTICOS
@@ -574,15 +563,19 @@ class AIService:
             {req.system_message or ""}
             
             REGLAS CRÍTICAS DE SALIDA:
-            1. **SALIDA (CRÍTICA):** **DEBES devolver ÚNICAMENTE un objeto JSON**. No incluyas NINGÚN texto fuera del bloque JSON.
-            2. **CLAVES:** El JSON debe tener una clave por cada título/subtítulo. Las claves deben ser **exactamente** los títulos limpios.
-            3. **VALORES:** Los valores son el **contenido en formato Markdown** para esa sección. NO utilices títulos (##, ###) dentro de los valores del JSON.
-            4. **ESCAPE (CRÍTICO):** Dentro del JSON, usa **DOBLE barra invertida (\\\\)** para representar una barra invertida literal (\).
+            1. SALIDA (CRÍTICA): DEBES devolver ÚNICAMENTE un objeto JSON. No incluyas NINGÚN texto fuera del bloque JSON.
+            2. CLAVES: El JSON debe tener una clave por cada título/subtítulo. Las claves deben ser exactamente los títulos limpios.
+            3. VALORES: Los valores son el contenido en formato Markdown para esa sección. NO utilices títulos (##, ###) dentro de los valores del JSON.
+            4. ESCAPE (CRÍTICO): Dentro del JSON, usa DOBLE barra invertida (\\\\) para representar una barra invertida literal (\).
 
             REGLAS DE CONTENIDO:
-            1. **FORMATO (MANDATO CRÍTICO):** EL CONTENIDO DEBE SER TEXTO PLANO. **PROHIBIDO** utilizar negritas (`**texto**`), cursivas (`*texto*`), subrayados, o cualquier otro formato decorativo de Markdown en los valores. Solo usa Markdown para saltos de línea y listas si son estrictamente necesarias.
-            2. **ANTI-CANIBALISMO:** No repitas ideas ya cubiertas en el 'Contenido Generado Previamente' o en el 'Contenido Scrapeado'.
-            3. **COHESIÓN:** El nuevo contenido debe integrarse lógicamente con el historial.
+            1. FORMATO (MANDATO CRÍTICO): EL CONTENIDO DEBE SER TEXTO PLANO. **PROHIBIDO** utilizar negritas (`**texto**`), cursivas (`*texto*`), subrayados, o cualquier otro formato decorativo de Markdown en los valores. Solo usa Markdown para saltos de línea y listas si son estrictamente necesarias.
+            2. PRIORIDAD DE NOTAS (NUEVA REGLA CRÍTICA): Si el apartado 'NOTAS DE CONTENIDO PARA ESTA SECCIÓN' contiene texto, **DEBES usar ese texto como base** o como el contenido directo para el título/subtítulo más relevante al que aplique. Si las notas están vacías, genera contenido de alta calidad.
+            3. CALIDAD: El contenido debe ser de alta calidad, informativo y persuasivo. Evita el relleno.
+            3. ANTI-CANIBALISMO Y COHESIÓN (MANDATO CRÍTICO):
+                a. EVITA REDUNDANCIA: El contenido de un título No debe repetir lo que se explicará detalladamente en sus subsecciones. Si el título principal (H2, H3, etc.) es simplemente un contenedor de sus subtítulos (por ejemplo, 'Tipos de X' seguido de subsecciones que detallan cada tipo), el valor de la clave de ese título principal en el JSON DEBE SER UNA CADENA VACÍA (""). Esto elimina el "canibalismo" entre el título y sus hijos.
+                b. No repitas ideas ya cubiertas en el 'Historial de Contenido' o 'Referencia de Contexto'.
+                c. El nuevo contenido debe integrarse lógicamente con el historial.
             {instruccion_longitud}
             """
                 
@@ -597,8 +590,13 @@ class AIService:
             ## REFERENCIA DE CONTEXTO (SCRAPING)
             {req.consolidated_content or 'No hay contenido scrapeado disponible.'}
 
+            ##NOTAS DE CONTENIDO PARA ESTA SECCION 
+            Estas notas contienen ideas específicas, o incluso texto ya redactado por el usuario, que **DEBES** utilizar si está presente. Si están vacías, ignóralas y genera el contenido.
+            {content_notes or 'Notas Vacías. Genera Contenido.'}
+
             ## ESTRUCTURA DE LA SECCIÓN A GENERAR
             Tu tarea es llenar el contenido de **TODOS** los títulos/subtítulos de esta sección H2.
+            **RECUERDA:** Si el título principal solo introduce los subtítulos, su valor de contenido **DEBE SER VACÍO ("")** en el JSON.
             {section_to_generate_markdown}
 
             ## FORMATO DE SALIDA REQUERIDO (JSON)

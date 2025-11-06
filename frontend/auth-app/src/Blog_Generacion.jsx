@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import "@iconscout/unicons/css/line.css";
 import "./css/styles_generacion.css";
 
@@ -8,7 +8,6 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   // =======================================================================
   const referenciaUrls = useRef(null);
   const referenciaControladorAborto = useRef(null);
-
   // =======================================================================
   // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS
   // =======================================================================
@@ -16,18 +15,32 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
   const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [estimatedWordCount, setEstimatedWordCount] = useState(null);
-  const [totalGeneratedWords, setTotalGeneratedWords] = useState(0);
+  const [, setTotalGeneratedWords] = useState(0);
   const [titleSuggestions, setTitleSuggestions] = useState([]);
   const [isEditingStructure, setIsEditingStructure] = useState(true);
+
+  // --- NUEVOS ESTADOS DE PERSISTENCIA Y FEEDBACK ---
+  const [localBlogId, setLocalBlogId] = useState(null); // ID del proyecto (null hasta el primer guardado)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // Indica si hay cambios pendientes
+  const [isSaving, setIsSaving] = useState(false); // Estado de cargando
+  const [notification, setNotification] = useState({ message: "", type: "" }); // Mensajes de Toast para el guardado
 
   // =======================================================================
   // 3. CONSTANTES Y DATOS INICIALES
   // =======================================================================
   //--- URLs de la API del backend ---
-  const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
+  /*const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
   const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
   const URL_API_IA_COMPLETO =
-    "http://192.168.1.129:8000/ai/generate_full_content";
+    "http://192.168.1.129:8000/ai/generate_full_content";*/
+
+  // Sustituye 192.168.1.129 por tu IP actual: 192.168.1.58
+  const URL_API_SCRAPING = "http://192.168.1.58:8000/scraping/stream";
+  const URL_API_IA = "http://192.168.1.58:8000/ai/generate_structure";
+  const URL_API_IA_COMPLETO =
+    "http://192.168.1.58:8000/ai/generate_full_content";
+
+  const URL_API_BASE_BLOGS = "http://192.168.1.58:8000/blogs"; // <-- AÑADIR URL BASE DE BLOGS
 
   //--- Título de la vista (depende de datosFinales) ---
   const mainTitle =
@@ -357,6 +370,94 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
     );
   };
 
+  // --- LÓGICA DE PERSISTENCIA Y FEEDBACK (NUEVO) ---
+
+  // 1. Función para mostrar la notificación de guardado
+  const showNotification = (message, type) => {
+    setNotification({ message, type });
+    // Oculta la notificación después de 4 segundos
+    setTimeout(() => {
+      setNotification({ message: "", type: "" });
+    }, 4000);
+  };
+
+  // 2. Función para marcar que algo ha cambiado (activa el botón de guardar)
+  const markAsChanged = useCallback(() => {
+    if (!hasUnsavedChanges) {
+      setHasUnsavedChanges(true);
+    }
+  }, [hasUnsavedChanges]);
+
+  // 3. Lógica principal de Guardado (POST/PUT)
+  const handleSaveProject = async () => {
+    // Validación: Previene el envío si no hay estructura o no hay cambios
+    if (isSaving || !tablaEstructuraFinal || !hasUnsavedChanges) return;
+
+    setIsSaving(true);
+
+    const method = localBlogId ? "PUT" : "POST";
+
+    let URL_API_SAVE;
+    let payload;
+
+    const blogData = {
+      name: initialParams.titulo,
+      estructura_blog_json: tablaEstructuraFinal,
+      consolidated_content: contenidoConsolidado,
+    };
+
+    if (method === "POST") {
+      URL_API_SAVE = URL_API_BASE_BLOGS + "/";
+      payload = {
+        ...initialParams, // Parámetros del formulario (título, categoría, etc.)
+        ...blogData,
+      };
+    } else {
+      URL_API_SAVE = `${URL_API_BASE_BLOGS}/${localBlogId}`;
+      payload = blogData;
+    }
+
+    try {
+      const response = await fetch(URL_API_SAVE, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail ||
+            `Fallo al ${
+              method === "POST" ? "crear" : "actualizar"
+            } el proyecto.`
+        );
+      }
+
+      const result = await response.json();
+
+      if (method === "POST") {
+        setLocalBlogId(result.id); // ¡CRÍTICO: Guarda el ID!
+        showNotification(
+          `✅ Proyecto CREADO con éxito. ID: ${result.id.substring(0, 8)}...`,
+          "success"
+        );
+      } else {
+        showNotification(
+          "✅ Guardado exitoso. Proyecto actualizado.",
+          "success"
+        );
+      }
+
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error("Fallo la operación de guardado:", error);
+      showNotification(`❌ Error al guardar: ${error.message}`, "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // =======================================================================
   // CÁLCULOS DE ESTRUCTURA Y CONTEO (Código simple - SIN FUNCIONES NUEVAS)
   // =======================================================================
@@ -465,6 +566,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
 
       setRegenTextareaValue(newTitle);
       showToast(" Edición local del título guardada exitosamente.", "success");
+      markAsChanged();
     }
   };
 
@@ -537,6 +639,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
         " Contenido de la sección guardado localmente y actualizado.",
         "success"
       );
+      markAsChanged();
     }
   };
 
@@ -1777,7 +1880,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 </div>
               </div>
 
-              {/* 📝 CORRECCIÓN VISUAL: Bloque de previsualización del CONTENIDO */}
+              {/* Bloque de previsualización del CONTENIDO */}
               {item.content && item.content.trim() && (
                 <div
                   className="content-preview-block"
@@ -1825,7 +1928,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                 </div>
               )}
 
-              {/* 🚀 CORRECCIÓN ESTRUCTURA: RECURSIVIDAD para H3s ANIDADA dentro del <li> de H2. */}
+              {/* RECURSIVIDAD para H3s ANIDADA dentro del <li> de H2. */}
               {isH2 && item.children && item.children.length > 0 && (
                 <div style={{ marginLeft: "25px", marginTop: "10px" }}>
                   <StructureRenderer
@@ -2515,11 +2618,11 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
                     </span>
                   )}
 
-                  {totalGeneratedWords > 0 && (
+                  {totalWordsGenerated > 0 && (
                     <span className="count-badge generated">
                       <i className="uil uil-pen"></i>Generadas:
                       <strong>
-                        {totalGeneratedWords.toLocaleString()}
+                        {totalWordsGenerated.toLocaleString()}
                       </strong>{" "}
                     </span>
                   )}
@@ -2554,6 +2657,7 @@ const GeneracionBlog = ({ initialParams = {}, onBackToDashboard }) => {
               ) : (
                 // >>> NUEVA VISTA TIPO WORD <<<
                 <div className="blog-view-toggle-container">
+                  {/* Contenido principal del blog: Renderiza la estructura dinámica */}
                   {renderBlogContent(mainTitle, structureToRender)}
                 </div>
               )}
