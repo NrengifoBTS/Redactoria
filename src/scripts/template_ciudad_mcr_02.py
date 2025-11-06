@@ -460,14 +460,14 @@ def create_template():
         "10": {
             "name": "Bloque 10",
             "type": "rentacar",
-            "startRow": 104,
+            "startRow": 105,
             "endRow": 110,
-            "titleRow": 104,
-            "descRow": 105,
+            "titleRow": 105,
+            "descRow": 106,
             "contentMapping": {
-                "desc": "105-3",    
-                "desc_1": "107-3",         
-                "desc_2": "109-3"  
+                "desc": "106-3",    
+                "desc_1": "108-3",         
+                "desc_2": "110-3"  
             }
         }
     }

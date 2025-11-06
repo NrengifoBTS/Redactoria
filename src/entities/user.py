@@ -13,10 +13,11 @@ class User(Base):
     last_name = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
 
+    # ESTOS RELATIONSHIPS DEBEN ESTAR:
     created_projects = relationship("Proyecto", foreign_keys="Proyecto.created_by", back_populates="creator")
     assigned_projects = relationship("Proyecto", foreign_keys="Proyecto.assigned_to", back_populates="assignee")
     created_templates = relationship("Template", back_populates="creator")
-    anotaciones = relationship("Anotacion", back_populates="user")  
+    anotaciones = relationship("Anotacion", back_populates="user")  # ← ESTE DEBE ESTAR
 
     def __repr__(self):
         return f"<User(email='{self.email}', first_name='{self.first_name}', last_name='{self.last_name}')>"

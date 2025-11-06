@@ -5,7 +5,7 @@ def create_template():
     """Crear template para Ciudad"""
     
     # TOKEN - REEMPLAZA CON TU TOKEN
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjEyNDE2MzR9.2OljsK4hUrX02rHliEXZAbtYq-DSic3BXoTkL09Ten8"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjYW1pbGFjQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJiNDNmMWQwNC1mMzM5LTRjZjktOGU0ZS00ZjEyN2YxMmFmNWEiLCJleHAiOjE3NTI4NTk1MDJ9.o9NeRqDJ7p9Aho9cDzzB-E5-RmMpDdfQIfSI5VisJPI"
     
     # URL de tu API
     base_url = "http://192.168.1.11:8000"  

@@ -159,6 +159,7 @@ def _parse_html_to_rich_text(html_content: str):
             if element.get('style'):
                 style_attr = element.get('style')
                 
+                # ✅ MEJORADO: Buscar color con más precisión
                 # Primero buscar rgba
                 rgba_match = re.search(r'color:\s*rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+)?\s*\)', style_attr)
                 if rgba_match:
@@ -825,6 +826,9 @@ def _fill_keywords_otro_template(ws_imagenes, keywords: Dict):
     except Exception as e:
         logging.error(f"Error llenando keywords otro_template: {str(e)}")
 
+
+
+
 def _populate_imagenes_viajemos_autos(ws_imagenes, export_request: models.ExportExcelRequest):
     """
     Lógica específica para template viajemos_autos - múltiples bloques
@@ -935,6 +939,7 @@ def _populate_imagenes_viajemos_ciudad(ws_imagenes, export_request: models.Expor
             
     except Exception as e:
         logging.error(f"Error poblando hoja imagenes viajemos_autos: {str(e)}")
+
 
 def _process_dynamic_block5(export_request: models.ExportExcelRequest) -> list:
     """

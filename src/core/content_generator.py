@@ -394,7 +394,7 @@ class ContentGenerator:
         prompt = (
             f"{ejemplos_texto}\n"
             f"nuevo tema: {nuevo_tema}, tit: {tit_seo}\n"
-            f"reglas a tener en cuenta para desc: cantidad de palabras {vol_desc}, para desc_h2: cantidad de palabras {vol_h2}, para desc_h3: cantidad de palabras {vol_h3} mínimo a máximo. manten el formato como en los ejemplos(listas, nueracion, saltos de linea como \ n.)\n"
+            f"reglas a tener en cuenta para desc: cantidad de palabras {vol_desc}, para desc_h2: cantidad de palabras {vol_h2}, para desc_h3: cantidad de palabras {vol_h3} mínimo a máximo.\n"
             f"ahora genera el contenido, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: {tit_seo}|\n |desc: redaccion_principal|\n |desc_h2: redaccion_h2|\n |desc_h3: redaccion_h3|\n"
         )
         

@@ -108,16 +108,16 @@ class LLMClient:
         # Si no se proporciona un mensaje de sistema, usar uno vacío
         if system_message is None:
             system_message = """
-            vas a asumir el rol de un agente supervisor SEO en español, tu tarea sera revisar y corregir si aplica a los textos que se te pasan, mantendras la regla de cantidad de palabras {regla}, solo responderas con la estructura actual
-	        continuación te paso unas listas de reglas 
-            lista de amplitud semantica y homologaciones:
+            vas a asumir el rol de un agente supervisor SEO en español, tu tarea sera revizar y si aplica corregir los textos que se te pasan, mantendras la regla de cantidad de palabras {regla}, solo responderas con la estructura actual, no agregaras informacion y pensamientos adicional.
+            en caso de encontrar alguna palabra restringida usa la tabla de homologacion para sustituirla,
+            Esta es una lista de amplitud semantica y homologaciones:
             - Alquiler y Renta,
             - Autos, Carros y Vehículos
-            lista de palabras restringidas, si encuentras alguna de estas palabras en el texto que se te pasa debes sustituirla por otra que no este en la lista:
+            esta es una lista de palabras restringidas, si encuentras alguna de estas palabras en el texto que se te pasa, debes sustituirla por otra que no este en la lista:
             - Coche
             - Automovil
             - Flota
-            - Gastos, pagos, cargos 'ocultos o transparentse'
+            - Gastos, pagos, cargos 'ocultos o transparentse' (no usar estas frases, si sale esta palabra eliminala)
             - Descuentos relampago 
             - Seguro de viaje gratis 
             esta es una tabla de beneficios, donde encontraras beneficios y sinonimos para que los utilices segun conveniencia (normalmente esta se usa en el bloque fleet)(beneficio -> sinonimo -> (ip/restriccion/contexto)):
@@ -131,10 +131,10 @@ class LLMClient:
             - Cobertura por Robo ->	Seguro Contra Hurto del Vehículo ->	Latam to Usa
             - Sin Deducibles ->	Sin Responsabilidad Económica -> Latam to Usa
             - Beneficio en Cobertura del IOF ->	No tiene ->	Brasil
-            recuerda mantener su estructura de llaves y valores 
-            |tit: tit| |desc: desc|\n |desc2: desc2| etc... y mantener dentro de los bloques correspondientes la informacion proporcionada y corregida si aplica, como los de ip_.
-         
-           """
+            recuerda mantener su estructura
+            <think> para tus pensamientos </think> \n
+            |tit: tit| |desc: desc|\n |desc2: desc2| etc... y mantener los bloques correspondientes si aplica, como los de ip_.
+            """
             
         data = {
             "model": self.model_name,
@@ -180,11 +180,14 @@ class LLMClient:
         # Si no se proporciona un mensaje de sistema, usar uno vacío
         if system_message is None:
             system_message = """
-            vas a asumir el rol de un supervisor SEO en español, tu tarea sera revisar y modificar si aplica a los textos que se te pasan, mantendras la regla de cantidad de palabras {regla}, solo responderas con la estructura deseada no hables de mas.
-            tu tarea principal es revisar los textos en busca de errores de estructura y longitud, corregirlos de la mejor manera, sin afectar el texto.
-            si encuentras mas palabras que la cantidad de palabras que se te indica, debes modificar sutilmente el texto para que se ajuste a la cantidad de palabras, sin perder el sentido del texto. no cuenta las etiquetas de marcado para la cantidad, solo el texto dentro de ellas.
-            estructura de output deseado el contenido se encuentra entre | | y con su llave: valor:
-            |tit: tit| |desc: desc|\n |desc2: desc2| etc...   y mantener dentro de los bloques la informacion porporcionada y corregida correspondientes si aplica, como los de ip_.
+            vas a asumir el rol de un supervisor SEO en español, tu tarea sera revizar y si aplica modificar los textos que se te pasan, mantendras la regla de cantidad de palabras {regla}, solo responderas con la estructura deseada no hables de mas.
+            tu tarea principal es revisar los textos en busca de errores de estructura, corregirlos de la mejor manera, siguiendo la logica del texto y la estructura general, revisa que se abran y cierren las estructuras:
+            si encuentras mas palabras que la cantidad de palabras que se te indica, debes modificar sutilmente el texto para que se ajuste a la cantidad de palabras, sin perder el sentido del texto. no cuanta las etiquetas de marcado, solo el texto dentro de ellas.
+            estructura de output deseado:
+            de no ser un excepcion a la regla, el output deseado cuenta con 3 bloques, think, titulo, redaccion o descripcion y en ese orden.
+            <think> para tus pensamientos </think> \n
+            |tit: tit| |desc: desc|\n |desc2: desc2| etc...   y mantener los bloques correspondientes si aplica, como los de ip_.
+            
             """
             
         data = {
@@ -213,7 +216,4 @@ class LLMClient:
         except Exception as e:
             print(f"Error al llamar al modelo: {e}")
             return "[Error generando texto]"  
-
-    
-
 

@@ -13,8 +13,7 @@ import logging
 ADMIN_USER_IDS = [
   'b43f1d04-f339-4cf9-8e4e-4f127f12af5a',
   'f49cda9b-2138-435e-a497-fda85be87e63',
-  'c7c17838-074d-44fa-9248-8dc87c15edd5',
-  '2fd1e540-40be-42cf-9d2b-693b0d3132af'
+  'c7c17838-074d-44fa-9248-8dc87c15edd5'
 ]
 def is_admin_user(user_uuid) -> bool:
     """Verificar si el usuario es administrador"""

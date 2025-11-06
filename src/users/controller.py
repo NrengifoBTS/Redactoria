@@ -28,12 +28,3 @@ def change_password(
     current_user: CurrentUser
 ):
     service.change_password(db, current_user.get_uuid(), password_change)
-
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(
-    user_id: UUID,
-    db: DbSession,
-    current_user: CurrentUser
-):
-    """Eliminar un usuario por ID"""
-    service.delete_user(db, user_id)

@@ -53,10 +53,3 @@
   "last_name": "Franco",
   "password": "AldairFIA2025"
 }
-
-{
-  "email": "miguelm@redactoria.com",
-  "first_name": "Miguel",
-  "last_name": "Martinez",
-  "password": "MiguelMIA2025"
-}
