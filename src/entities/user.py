@@ -1,3 +1,4 @@
+#redactoria/src/entities/user.py
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -19,9 +20,15 @@ class User(Base):
     created_templates = relationship("Template", back_populates="creator")
     anotaciones = relationship("Anotacion", back_populates="user")  # ← ESTE DEBE ESTAR
 
-    #RELACIONES CON LA ENTIDAD BLOG 
+    # ==========================================================
+    # NUEVAS RELACIONES PARA BLOGS
+    # ==========================================================
     created_blogs = relationship("Blog", foreign_keys="Blog.created_by", back_populates="creator")
     assigned_blogs = relationship("Blog", foreign_keys="Blog.assigned_to", back_populates="assignee")
+    
+    
 
+    
+    
     def __repr__(self):
         return f"<User(email='{self.email}', first_name='{self.first_name}', last_name='{self.last_name}')>"

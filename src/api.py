@@ -11,6 +11,7 @@ from src.export_excel.controller import router as export_router
 from src.ia.controller import router as ia_router
 from src.blog.controller import router as blog_router
 
+ 
 from src.scraping.controllers import router as scraping_router_stream, router_ai 
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,5 +49,5 @@ def register_routes(app: FastAPI):
     
     # Rutas de Scraping y la Nueva Ruta de AI
     app.include_router(scraping_router_stream) # Incluye el router original /scraping/stream
-    app.include_router(router_ai)             # 💡 ¡Añadido! Incluye el nuevo router /ai/generate_structure
+    app.include_router(router_ai)             # Incluye el nuevo router /ai/generate_structure
     

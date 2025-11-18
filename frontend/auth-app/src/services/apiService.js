@@ -800,6 +800,160 @@ class ApiService {
       throw error;
     }
   }
+
+  // =========================================================================
+  // ENDPOINTS DE BLOGS (NUEVA SECCIÓN)
+  // =========================================================================
+
+  /**
+   * Obtiene todos los blogs, o los asignados/creados para el usuario actual.
+   */
+  async getBlogs(filters = {}) {
+    try {
+      // 1. Crear URLSearchParams para manejar los filtros
+      const queryParams = new URLSearchParams();
+
+      // 2. Mapear filtros del frontend al backend (ejemplo)
+      if (filters.status) {
+        queryParams.append("estado", this.mapStatusToBackend(filters.status));
+      }
+      if (filters.priority) {
+        queryParams.append(
+          "prioridad",
+          this.mapPriorityToBackend(filters.priority)
+        );
+      }
+      if (filters.assignedTo) {
+        queryParams.append("assigned_to", filters.assignedTo);
+      }
+      if (filters.category) {
+        queryParams.append("category", filters.category);
+      }
+      // Añade aquí cualquier otro filtro que el backend de blogs necesite
+
+      const queryString = queryParams.toString();
+      const url = `/blogs/${queryString ? `?${queryString}` : ""}`;
+
+      // 3. Llamar a makeRequest con la URL construida
+      const response = await this.makeRequest(url);
+
+      // 4. Mapeo de la respuesta (Si tienes una función mapBackendToBlogFrontend, úsala aquí)
+      return response;
+    } catch (error) {
+      if (error.message === "NOT_AUTHENTICATED") {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Crea un nuevo blog.
+   */
+  async createBlog(blogData) {
+    try {
+      // Mapeo crucial: asegura que 'name' se envíe con el valor de 'titulo'
+      const payload = {
+        ...blogData,
+        name: blogData.titulo || blogData.name,
+      };
+
+      const response = await this.makeRequest("/blogs/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return response;
+    } catch (error) {
+      if (error.message === "NOT_AUTHENTICATED") {
+        return null;
+      }
+      throw error;
+    }
+  }
+  /**
+   * Actualiza un blog existente.
+   */
+  async updateBlog(blogId, updates) {
+    try {
+      // Asumimos que los campos en 'updates' son los que espera el backend.
+      const response = await this.makeRequest(`/blogs/${blogId}`, {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      });
+      return response;
+    } catch (error) {
+      if (error.message === "NOT_AUTHENTICATED") {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Elimina un blog.
+   */
+  async deleteBlog(blogId) {
+    try {
+      await this.makeRequest(`/blogs/${blogId}`, {
+        method: "DELETE",
+      });
+    } catch (error) {
+      if (error.message === "NOT_AUTHENTICATED") {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Asigna un blog a un usuario.
+   */
+  async assignBlog(blogId, userId) {
+    try {
+      const response = await this.makeRequest(`/blogs/${blogId}/assign`, {
+        method: "POST",
+        body: JSON.stringify({ assigned_to: userId }),
+      });
+      return response;
+    } catch (error) {
+      if (error.message === "NOT_AUTHENTICATED") {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Cambia el estado del blog.
+   */
+  async updateEstadoBlog(blogId, estado) {
+    try {
+      const backendEstado = this.mapStatusToBackend(estado);
+      const response = await this.makeRequest(`/blogs/${blogId}/estado`, {
+        method: "POST",
+        body: JSON.stringify({ estado: backendEstado }),
+      });
+      return response;
+    } catch (error) {
+      if (error.message === "NOT_AUTHENTICATED") {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // Obtener blog por ID
+  async getBlogById(blogId) {
+    try {
+      const response = await this.makeRequest(`/blogs/${blogId}`);
+      return response;
+    } catch (error) {
+      if (error.message === "NOT_AUTHENTICATED") {
+        return null;
+      }
+      throw error;
+    }
+  }
 }
 
 // Crear instancia singleton

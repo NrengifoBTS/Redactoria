@@ -73,12 +73,19 @@ select {
   color: #0583ff;
 }
 
+/* ----------------------------------------------------------
+   1. ESTILOS BASE ESTRUCTURAL (ALTURA Y FORMA)
+   ---------------------------------------------------------- */
 .btn,
 .btn-generate,
 .btn-regenerar,
 .btn-download,
-.btn-generate-image {
-  /* Estilos Estructurales Comunes: Eliminación de redundancia */
+.btn-generate-image,
+.btn-contenido,
+.btn-estructura,
+.btn-add-h2,
+.btn-add-h3 {
+  /* Estilos Estructurales Comunes */
   height: 55px;
   display: flex;
   align-items: center;
@@ -91,21 +98,135 @@ select {
   text-decoration: none;
 }
 
-/* Botón Principal (Generar, Imagen, Navbar) */
+/* ----------------------------------------------------------
+   2. BOTONES PRINCIPALES (COLOR/HOVER) - ESTILO SOFISTICADO
+   ---------------------------------------------------------- */
+
+/* Botón Principal (Generar, Imagen, Navbar) - Azul Zafiro */
 .btn,
 .btn-generate,
 .btn-generate-image,
 .navbar .btn {
-  background: linear-gradient(135deg, #0583ff, #00eba7);
+  background: linear-gradient(
+    135deg,
+    #0056b3,
+    #00c6ff
+  ); /* Azul Zafiro a Celeste Intenso */
   color: #fff;
 }
 .btn-generate:hover,
 .btn-generate-image:hover,
 .navbar .btn:hover {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(0, 235, 167, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 198, 255, 0.4);
 }
 
+/* Botón Regenerar - Púrpura Amatista */
+.btn-regenerar {
+  background: linear-gradient(
+    135deg,
+    #7c4dff,
+    #a020f0
+  ); /* Violeta Profundo a Amatista */
+  color: #ffffff;
+  flex: 1;
+}
+.btn-regenerar:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(160, 32, 240, 0.4);
+}
+
+/* NUEVO: Botón Contenido - Verde Esmeralda/Militar */
+.btn-contenido {
+  background: linear-gradient(
+    135deg,
+    #009688,
+    #4db6ac
+  ); /* Verde Marino Oscuro a Esmeralda */
+  color: #fff;
+  flex: 1;
+}
+.btn-contenido:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(77, 182, 172, 0.4);
+}
+
+/* NUEVO: Botón Estructura - Coral/Salmón */
+.btn-estructura {
+  background: linear-gradient(
+    135deg,
+    #ff7043,
+    #ffcc80
+  ); /* Naranja Coral a Melocotón */
+  color: #fff;
+  flex: 1;
+}
+.btn-estructura:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(255, 204, 128, 0.4);
+}
+
+/* Botón Descargar (Mantiene color original) */
+.btn-download {
+  background: linear-gradient(135deg, #0583ff, #9900ff);
+  color: #fff;
+  flex: 1;
+}
+
+.btn-download:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(57, 58, 148, 0.4);
+}
+
+/* ----------------------------------------------------------
+   2.1. BOTONES DE AGREGAR SECCIÓN (H2 y H3) - CON ESTILO PRINCIPAL
+   ---------------------------------------------------------- */
+
+/* Botón H2: Principal - Dorado/Amarillo Ámbar */
+.btn-add-h2 {
+  background: linear-gradient(
+    135deg,
+    #ffb300,
+    #ffecb3
+  ); /* Dorado Oscuro a Ámbar Claro */
+  color: #fff;
+  border: none;
+}
+.btn-add-h2:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(255, 179, 0, 0.4);
+}
+
+/* Botón H3: Secundario - Vino Tinto/Rubí */
+.btn-add-h3:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    #d32f2f,
+    #ef9a9a
+  ); /* Rojo Vino a Rubí Suave */
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-add-h3:not(:disabled):hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(200, 40, 40, 0.4);
+}
+
+/* Estado Desactivado para H3 */
+.btn-add-h3:disabled {
+  background-color: #e5e7eb; /* Gris muy claro (desactivado) */
+  color: #9ca3af; /* Texto gris (desactivado) */
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.7;
+  transform: none;
+}
+
+/* ----------------------------------------------------------
+   3. BOTONES MODIFICADORES (CANCELAR Y GUARDAR)
+   ---------------------------------------------------------- */
 /* Botón de Cancelación (Modificador) */
 .btn-generate.btn-cancel {
   background: linear-gradient(135deg, #ff6b6b, #ff9a9e);
@@ -115,24 +236,70 @@ select {
   box-shadow: 0 6px 16px rgba(255, 107, 107, 0.3);
 }
 
-/* Botón Regenerar */
-.btn-regenerar {
-  background: linear-gradient(135deg, #00eba7, #41c08b);
-  color: #fff;
-  flex: 1;
+/* ESTILOS PARA EL BOTÓN DE GUARDAR EDICIÓN LOCAL */
+.btn-generate.btn-save-edit {
+  height: auto; /* Anula el height: 55px de .btn-generate */
+  padding: 10px 15px;
+  background: #1d4ed8; /* Azul oscuro */
+  color: white;
+  border-radius: 6px;
+  font-weight: bold;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: none;
 }
 
-/* Botón Descargar */
-.btn-download {
-  /* Solo estilos específicos: El resto de estilos base se aplican arriba */
-  background: linear-gradient(135deg, #0583ff, #9900ff);
-  color: #fff;
-  flex: 1;
+.btn-generate.btn-save-edit:hover {
+  background: #1e40af; /* Tono más oscuro */
+  transform: none; /* Anula el transform de .btn-generate */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-.btn-download:hover {
-  box-shadow: 0 6px 16px rgba(57, 58, 148, 0.4);
+/* ----------------------------------------------------------
+   4. BOTONES DE AGREGAR (H2 y H3) - (SE ELIMINA SECCIÓN DE ESTILO ANTIGUO)
+   ---------------------------------------------------------- */
+
+/* ----------------------------------------------------------
+   5. BOTONES DE ACCIÓN (Mover/Eliminar, Pequeños)
+   ---------------------------------------------------------- */
+.structure-buttons-group {
+  display: flex;
+  gap: 5px;
+  align-items: center;
 }
+
+.structure-buttons-group button {
+  /* Estilo base para todos los botones de Mover/Eliminar */
+  background: none;
+  border: none;
+  color: #6c757d; /* Gris tenue */
+  padding: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  line-height: 1;
+  font-size: 1.2em;
+}
+
+.structure-buttons-group button:hover {
+  background-color: #e9ecef; /* Gris claro al pasar el mouse */
+  color: #343a40;
+}
+
+.structure-buttons-group .btn-delete-section:hover {
+  color: #dc3545; /* Rojo de peligro para el hover de eliminar */
+  background-color: #f8d7da; /* Fondo rojo muy claro */
+}
+/* Ajuste del botón de eliminar */
+.btn-delete-structure {
+  opacity: 0.6; /* Lo hacemos sutil */
+  transition: opacity 0.2s;
+}
+
+.structure-item:hover .btn-delete-structure {
+  opacity: 1; /* Se resalta al pasar el mouse sobre el elemento de la lista */
+}
+/* Fin de Botones pequeños */
 
 /* ==========================================================
    SECCIONES BASE (Idea, Visual, Image, Links, FAQ)
@@ -184,6 +351,8 @@ select {
   display: flex;
   gap: 20px;
   padding: 20px;
+  /* CRÍTICO: Asegúrate de que el contenedor padre no restrinja el crecimiento vertical, si no, usa align-items: flex-start; */
+  align-items: stretch; /* Ayuda a que las columnas se alineen sin forzar altura */
 }
 
 .generadores-izquierda {
@@ -195,6 +364,18 @@ select {
 
 .generadores-derecha {
   flex: 1 1 50%;
+  height: calc(87vh);
+  overflow-y: auto;
+  background-color: #ffffff;
+  padding: 20px; /* Asegura que el contenido tenga un buen margen interno */
+  border-radius: 16px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08); /* Mantenemos la sombra de tarjeta */
+}
+
+.generadores-derecha .analysis-result {
+  padding: 0;
+  box-shadow: none;
+  transform: none;
 }
 
 /* ==========================================================
@@ -230,16 +411,6 @@ select {
   display: flex;
   gap: 10px;
   width: 100%;
-}
-
-/* Ajuste del botón de eliminar */
-.btn-delete-structure {
-  opacity: 0.6; /* Lo hacemos sutil */
-  transition: opacity 0.2s;
-}
-
-.structure-item:hover .btn-delete-structure {
-  opacity: 1; /* Se resalta al pasar el mouse sobre el elemento de la lista */
 }
 
 /* Logs y Preview */
@@ -362,7 +533,6 @@ select {
   .generadores-izquierda,
   .generadores-derecha {
     flex: none;
-    width: 100%;
   }
 
   /* PESTAÑAS (CARDS) */
@@ -428,7 +598,9 @@ select {
   }
 }
 
-/* Nuevos estilos para la sección de análisis final */
+/* ==========================================================
+   ANÁLISIS DE CONTENIDO (ANALYSIS RESULT)
+   ========================================================== */
 
 .analysis-title {
   display: block;
@@ -466,7 +638,7 @@ select {
 }
 
 /* ==========================================================
-   ESTILOS PARA LA ESTRUCTURA DE BLOG (StructureRenderer)
+   ESTRUCTURA DE BLOG (StructureRenderer)
    ========================================================== */
 
 /* Contenedor principal para la lista */
@@ -536,6 +708,22 @@ select {
   color: #666;
 }
 
+/* Nuevo estilo para el contenedor flex de texto y botón */
+.structure-content-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* Estilo para el área de texto dentro del li, para que sea clickeable y crezca */
+.structure-list li .structure-text-area {
+  display: flex; /* Para alinear ícono y texto */
+  align-items: center;
+  flex-grow: 1;
+  padding: 5px 0;
+}
+
 /* ==========================================================
    ESTILOS ESPECÍFICOS DE REGENERACIÓN DE TÍTULOS
    ========================================================== */
@@ -596,7 +784,7 @@ select {
 }
 
 /* ==========================================================
-   ESTILOS PARA LAYOUT DE REGENERACIÓN LATERAL (50/50 y Espaciado)
+   LAYOUT DE REGENERACIÓN LATERAL (50/50 y Espaciado)
    ========================================================== */
 
 .regen-input-area {
@@ -634,7 +822,7 @@ select {
 }
 
 /* ==========================================================
-   AJUSTES FINALES DE BOTONES DE EDICIÓN (50/50 y Color)
+   AJUSTES FINALES DE BOTONES DE EDICIÓN
    ========================================================== */
 
 .idea-buttons {
@@ -648,134 +836,6 @@ select {
 .idea-buttons > .btn-regenerar {
   flex: 1 1 calc(50% - 5px);
   width: auto;
-}
-
-.btn-regenerar {
-  background: linear-gradient(135deg, #00eba7, #dae085);
-  color: #fff;
-}
-
-/* Nuevo estilo para el contenedor flex de texto y botón */
-.structure-content-wrapper {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-/* Estilo para el área de texto dentro del li, para que sea clickeable y crezca */
-.structure-list li .structure-text-area {
-  display: flex; /* Para alinear ícono y texto */
-  align-items: center;
-  flex-grow: 1;
-  padding: 5px 0;
-}
-
-/* ============================================= */
-/* ESTILOS CSS PARA BOTONES DE ACCIÓN (Mover/Eliminar) */
-/* ============================================= */
-
-.structure-buttons-group {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-
-.structure-buttons-group button {
-  /* Estilo base para todos los botones de Mover/Eliminar */
-  background: none;
-  border: none;
-  color: #6c757d; /* Gris tenue */
-  padding: 5px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 4px;
-  line-height: 1;
-  font-size: 1.2em;
-}
-
-.structure-buttons-group button:hover {
-  background-color: #e9ecef; /* Gris claro al pasar el mouse */
-  color: #343a40;
-}
-
-.structure-buttons-group .btn-delete-section:hover {
-  color: #dc3545; /* Rojo de peligro para el hover de eliminar */
-  background-color: #f8d7da; /* Fondo rojo muy claro */
-}
-
-/* ============================================= */
-/* ESTILOS PARA BOTONES DE AGREGAR (H2 y H3) */
-/* ============================================= */
-
-/* Botón H2: Principal (Verde Esmeralda) */
-.btn-add-h2 {
-  padding: 10px 20px;
-  background-color: #10b981; /* Verde brillante (emerald) */
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: background-color 0.2s, box-shadow 0.2s;
-}
-
-.btn-add-h2:hover {
-  background-color: #059669; /* Tono más oscuro al pasar el mouse */
-}
-
-/* Botón H3: Secundario (Amarillo/Ámbar) */
-.btn-add-h3 {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  transition: background-color 0.2s, box-shadow 0.2s, opacity 0.2s;
-  cursor: pointer;
-}
-
-/* Estado Activo para H3 */
-.btn-add-h3:not(:disabled) {
-  background-color: #fbbf24; /* Amarillo (activo) */
-  color: #1f2937; /* Texto oscuro (activo) */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.btn-add-h3:not(:disabled):hover {
-  background-color: #f59e0b; /* Tono más oscuro al pasar el mouse */
-}
-
-/* Estado Desactivado para H3 */
-.btn-add-h3:disabled {
-  background-color: #e5e7eb; /* Gris muy claro (desactivado) */
-  color: #9ca3af; /* Texto gris (desactivado) */
-  cursor: not-allowed;
-  box-shadow: none;
-  opacity: 0.7;
-}
-
-/* ============================================= */
-/* ESTILOS PARA EL BOTÓN DE GUARDAR EDICIÓN LOCAL */
-/* ============================================= */
-
-/* Clase modificadora para Guardar Edición, sobreescribe el estilo general de .btn-generate */
-.btn-generate.btn-save-edit {
-  height: auto; /* Anula el height: 55px de .btn-generate */
-  padding: 10px 15px;
-  background: #1d4ed8; /* Azul oscuro */
-  color: white;
-  border-radius: 6px;
-  font-weight: bold;
-  transition: background-color 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border: none;
-}
-
-.btn-generate.btn-save-edit:hover {
-  background: #1e40af; /* Tono más oscuro */
-  transform: none; /* Anula el transform de .btn-generate */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* ============================================= */
@@ -822,7 +882,7 @@ select {
 }
 
 /* ============================================= */
-/* ESTILOS PARA LA VENTANA TIPO WORD */
+/* ESTILOS PARA LA VENTANA TIPO WORD (PREVIEW) */
 /* ============================================= */
 
 /* Contenedor que simula la ventana o la página del documento */
@@ -910,16 +970,13 @@ select {
   opacity: 1;
 }
 
-/* Estilos adicionales para el contenedor de la vista Word 
-  (Asegúrate de mantener los estilos de .blog-document-window del paso anterior)
-*/
+/* Estilos adicionales para el contenedor de la vista Word */
 .blog-view-toggle-container {
-  /* Opcional: Ajusta el padding para que la vista del documento se ajuste mejor a la tarjeta */
   padding: 10px 0;
 }
 
 /* ==========================================================
-   ESTILOS PARA BADGES DE CONTEO (Asegúrate de que esta clase exista)
+   BADGES DE CONTEO
    ========================================================== */
 
 .count-badge {

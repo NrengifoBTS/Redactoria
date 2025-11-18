@@ -89,12 +89,25 @@ body {
 /* Table controls */
 .table-controls {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: space-between; /* Distribuye el espacio entre filtros y acciones */
+  align-items: flex-start; /* Alinea los grupos al inicio */
   margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 15px;
 }
+
+.actions-group {
+  display: flex;
+  flex-direction: column; /* Apila los elementos verticalmente */
+  gap: 8px; /* Espacio entre los botones apilados */
+}
+
+/* Ajuste para que los botones tengan un ancho consistente */
+.btn-create,
+.btn-clear-filters {
+  /* Establece un ancho fijo para que se vean alineados al ser apilados */
+  width: 150px;
+  text-align: center;
+}
+
 .filters {
   display: flex;
   gap: 10px;
@@ -173,7 +186,7 @@ tbody tr:hover {
 }
 
 .btn-action {
-  padding: 6px 10px;
+  padding: 10px 12px;
   border: none;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -195,6 +208,16 @@ tbody tr:hover {
 }
 .btn-action.download {
   background: #6c5ce7;
+}
+
+.btn-action.assign {
+  background: #fdcb6e;
+  color: #333;
+}
+
+.btn-action.user {
+  background: #00b894;
+  color: #fff;
 }
 
 .btn-action:hover {
@@ -300,4 +323,79 @@ tbody tr:hover {
 
 .btn-generate:hover {
   background-color: #0056b3;
+}
+
+/* Estilos para el Dropdown de Asignación en la tabla */
+.dropdown-menu {
+  position: absolute; /* Posición relativa al contenedor 'acciones' */
+  top: 100%; /* Justo debajo del botón */
+  right: 0;
+  width: 200px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 50; /* Asegura que esté por encima de las filas de la tabla */
+  padding: 8px 0;
+  margin-top: 5px; /* Pequeño espacio entre el botón y el menú */
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 15px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+  transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #f0f6ff; /* Fondo suave al pasar el ratón */
+}
+
+.dropdown-item.desasignar {
+  color: #d63031; /* Color rojo para la acción de desasignar */
+  border-bottom: 1px solid #eee; /* Separador */
+  padding-bottom: 12px;
+  margin-bottom: 5px;
+}
+
+.dropdown-title {
+  padding: 5px 15px;
+  font-size: 0.8rem;
+  color: #777;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+/* Estilo para el botón Borrar Filtros */
+.btn-clear-filters {
+  background: #ff6b6b; /* Un color rojo suave para indicar reset */
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s;
+  height: 40px; /* Igualar la altura de los selects */
+}
+
+.btn-clear-filters:hover {
+  background: #ee5253;
+}
+
+.btn-clear-filters i {
+  margin-right: 5px;
+}
+
+/* Asegura que el contenedor de filtros maneje el nuevo botón */
+.table-controls .filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }

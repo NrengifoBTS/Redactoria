@@ -1,3 +1,4 @@
+//redactoria/fronted/auth-app/src/app.js
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Login from "./Login";
@@ -18,7 +19,7 @@ function App() {
           <Route path="/protected" element={<ProtectedPage />} />
           <Route path="/redactor/:lpId" element={<Redactor />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/blog_generacion" element={<BlogGeneracion />} />
+          <Route path="/blog/edit/:blogId" element={<BlogGeneracion />} />
           <Route path="/dashboard_blog" element={<Dashboard_Blog />} />
         </Routes>
       </Router>

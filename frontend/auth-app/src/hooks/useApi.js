@@ -469,6 +469,116 @@ export const useSearch = (data, searchFields) => {
   };
 };
 
+//_______________________________________________________________
+// Hook específico para blogs
+//_______________________________________________________________
+export const useBlogs = (filters = {}) => {
+  const [blogs, setBlogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Cargar blogs
+  const loadBlogs = useCallback(async (newFilters = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      // ASUMIMOS que apiService tiene una función getBlogs
+      const data = await apiService.getBlogs({ ...filters, ...newFilters });
+      setBlogs(data);
+      return data;
+    } catch (err) {
+      setError(err.message);
+      console.error("Error loading blogs:", err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Crear blog
+  const createBlog = useCallback(async (blogData) => {
+    try {
+      // ASUMIMOS que apiService tiene una función createBlog
+      const newBlog = await apiService.createBlog(blogData);
+      setBlogs((prev) => [...prev, newBlog]);
+      return newBlog;
+    } catch (err) {
+      console.error("Error creating blog:", err);
+      throw err;
+    }
+  }, []);
+
+  // Actualizar blog
+  const updateBlog = useCallback(async (id, updates) => {
+    try {
+      // ASUMIMOS que apiService tiene una función updateBlog
+      const updatedBlog = await apiService.updateBlog(id, updates);
+      setBlogs((prev) => prev.map((b) => (b.id === id ? updatedBlog : b)));
+      return updatedBlog;
+    } catch (err) {
+      console.error("Error updating blog:", err);
+      throw err;
+    }
+  }, []);
+
+  // Eliminar blog
+  const deleteBlog = useCallback(async (id) => {
+    try {
+      // ASUMIMOS que apiService tiene una función deleteBlog
+      await apiService.deleteBlog(id);
+      setBlogs((prev) => prev.filter((b) => b.id !== id));
+    } catch (err) {
+      console.error("Error deleting blog:", err);
+      throw err;
+    }
+  }, []);
+
+  // Asignar blog (análogo a assignProyecto)
+  const assignBlog = useCallback(async (blogId, userId) => {
+    try {
+      // Llama a la API, la cual espera { assigned_to: userId }
+      const updatedBlog = await apiService.assignBlog(blogId, userId);
+      // Actualiza el estado de la lista de blogs en el frontend (CRÍTICO)
+      setBlogs((prev) => prev.map((b) => (b.id === blogId ? updatedBlog : b)));
+      return updatedBlog;
+    } catch (err) {
+      console.error("Error al asignar blog:", err);
+      throw err;
+    }
+  }, []);
+
+  // Cambiar estado de blog (análogo a updateEstadoProyecto)
+  const updateEstadoBlog = useCallback(async (blogId, estado) => {
+    try {
+      // ASUMIMOS que apiService tiene una función updateEstadoBlog
+      const updatedBlog = await apiService.updateEstadoBlog(blogId, estado);
+      setBlogs((prev) => prev.map((b) => (b.id === blogId ? updatedBlog : b)));
+      return updatedBlog;
+    } catch (err) {
+      console.error("Error updating blog estado:", err);
+      throw err;
+    }
+  }, []);
+
+  // Cargar datos iniciales
+  useEffect(() => {
+    loadBlogs();
+  }, []);
+
+  return {
+    blogs,
+    loading,
+    error,
+    loadBlogs,
+    createBlog,
+    updateBlog,
+    deleteBlog,
+    assignBlog,
+    updateEstadoBlog,
+    setBlogs,
+  };
+};
+
 export default {
   useApi,
   useProyectos,
@@ -479,4 +589,8 @@ export default {
   usePagination,
   useFilters,
   useSearch,
+  //---------------------------
+  //EXPORT PARA BLOGS
+  //---------------------------
+  useBlogs,
 };

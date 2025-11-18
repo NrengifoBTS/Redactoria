@@ -3,98 +3,99 @@ import React, {
   useRef,
   useCallback,
   useMemo,
-  useEffect,
+  useEffect, // <-- Asegúrate de que useEffect esté importado
 } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom"; // <-- Añadimos useParams y useNavigate
 import "@iconscout/unicons/css/line.css";
 import "./css/styles_generacion.css";
-import apiService from "./services/apiService";
+// import { useBlogs } from "./hooks/useApi.js"; // Lo comentamos, usaremos fetch directo
 
 const GeneracionBlog = () => {
+  // <-- ¡Firma del componente adaptada para routing!
   // =======================================================================
   // 0. HOOKS PRINCIPALES Y DE NAVEGACIÓN (INICIO ABSOLUTO)
   // =======================================================================
   const { blogId } = useParams(); // Obtiene el ID de la ruta /blog/edit/:blogId
   const navigate = useNavigate(); // Hook para redireccionar si es necesario
 
+  // SOLUCIÓN 'authToken' not defined & HOOKS RULE: Se obtiene de localStorage.
   const authToken = useMemo(() => localStorage.getItem("authToken"), []);
-  // =======================================================================
-  // // 1. REFERENCIAS DE ELEMENTOS Y CONTROL (useRef)
-  // // =======================================================================
 
+  // =======================================================================
+  // 1. REFERENCIAS DE ELEMENTOS Y CONTROL (useRef)
+  // =======================================================================
   const referenciaUrls = useRef(null);
   const referenciaControladorAborto = useRef(null);
-  // =======================================================================
-  // // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS (useState)
-  // // =======================================================================
 
-  const [datosFinales, setDatosFinales] = useState(null); // <-- Fuente de verdad
+  // =======================================================================
+  // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS (useState)
+  // =======================================================================
+  const [datosFinales, setDatosFinales] = useState(null);
   const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [estimatedWordCount, setEstimatedWordCount] = useState(null);
   const [, setTotalGeneratedWords] = useState(0);
   const [titleSuggestions, setTitleSuggestions] = useState([]);
-  const [isEditingStructure, setIsEditingStructure] = useState(true); // *** Nota: Aquí se declara formData si solo contiene los campos editables que SÍ se modificarán. // Si todos los campos de generación (title, categoria, keywords, etc.) son fijos, // este estado ya no tiene sentido para esos campos. Si lo necesitas para campos // *diferentes* (como la estructura o contenido), déjalo. Si no hay formulario de edición, // puedes eliminarlo. Dejaré la declaración comentada por si la requieres más adelante. // const [formData, setFormData] = useState({ ... campos editables ... }); // --- FEEDBACK PARA GUARDADO ---
+  const [isEditingStructure, setIsEditingStructure] = useState(true);
+
+  // --- FEEDBACK PARA GUARDADO ---
   const [localBlogId, setLocalBlogId] = useState(null); // ID del proyecto (aquí se cargará el blogId de la BD)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [, setNotification] = useState({ message: "", type: "" });
+  const [notification, setNotification] = useState({ message: "", type: "" });
+
   // -----------------------------------------------------------------------
-  // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
-  // // -----------------------------------------------------------------------
+  // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
+  // -----------------------------------------------------------------------
+  const [blogData, setBlogData] = useState(null); // Almacena la respuesta de la BD
+  const [loadingBlog, setLoadingBlog] = useState(true); // Control de carga inicial
+  const [fetchError, setFetchError] = useState(null); // Control de error de carga
 
-  const [, setLoadingBlog] = useState(true); // Control de carga inicial
-  const [, setFetchError] = useState(null); // Control de error de carga
-
-  useEffect(() => {
-    // Evita la ejecución si no hay un ID de blog
-    if (!blogId) return;
-
-    const loadBlogData = async () => {
-      setLoadingBlog(true); // Inicia la carga
-      setFetchError(null); // Limpia errores previos
-
-      try {
-        // 1. Llamar a la API con el ID
-        const data = await apiService.getBlogById(blogId);
-
-        if (data) {
-          // 2. Guardar el objeto Blog de la BD en el estado principal
-          setDatosFinales(data); // *** ELIMINAMOS setFormData *** // Ya no es necesario poblar formData, ya que todos los datos // se leerán directamente de 'datosFinales'. // 3. Poblar los estados de resultados
-
-          if (data.estructura_blog_json) {
-            setTablaEstructuraFinal(data.estructura_blog_json);
-          }
-          if (data.consolidated_content) {
-            setContenidoConsolidado(data.consolidated_content);
-          } // Opcional: setLocalBlogId
-          setLocalBlogId(data.id);
-        } else {
-          setFetchError("No se pudieron cargar los datos del blog.");
-        }
-      } catch (error) {
-        console.error("Error al cargar los datos del blog:", error);
-        setFetchError("Hubo un error en la comunicación con la API.");
-      } finally {
-        // 4. Finaliza la carga
-        setLoadingBlog(false);
-      }
-    };
-
-    loadBlogData();
-  }, [blogId, navigate]);
   // =======================================================================
-  // // 3. CONSTANTES Y DATOS INICIALES
-  // // =======================================================================
-  // //--- URLs de la API del backend ---
-
+  // 3. CONSTANTES Y DATOS INICIALES
+  // =======================================================================
+  //--- URLs de la API del backend ---
   const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
   const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
-  const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/";
+  const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/"; // <-- URL para el GET /blogs/{id}
   const URL_API_IA_COMPLETO =
-    "http://192.168.1.129:8000/ai/generate_full_content"; // ----------------------------------------------------------------------- // ESTADO DEL FORMULARIO INICIAL (ELIMINADO o MOVIDO) // ----------------------------------------------------------------------- // ELIMINAMOS la declaración de formData y initialParams si solo contenían los // parámetros fijos (title, categoria, keywords, etc.) que se cargan. // --- Título de la vista ---
+    "http://192.168.1.129:8000/ai/generate_full_content";
 
-  const mainTitle = datosFinales?.title || "Generación de Blog"; // <-- ¡Lee directo de datosFinales!
+  // -----------------------------------------------------------------------
+  // ESTADO DEL FORMULARIO INICIAL (Valores por defecto para el primer render)
+  // -----------------------------------------------------------------------
+  const [formData, setFormData] = useState({
+    // Estos valores serán sobreescritos en useEffect con los datos de la BD
+    titulo: "",
+    categoria: "",
+    keywords: "",
+    idioma: "es",
+    tecnica: "persuasiva",
+    acento: "neutral",
+    tono: "profesional",
+    priority: "medium",
+  });
+
+  // LOGICA PREVIA DE PARÁMETROS: Sigue dependiendo de formData
+  const initialParams = useMemo(
+    () => ({
+      title: formData.titulo, // Mapeamos formData.titulo a initialParams.title
+      categoria: formData.categoria,
+      keywords: formData.keywords,
+      idioma: formData.idioma,
+      tecnica: formData.tecnica,
+      acento: formData.acento,
+      tono: formData.tono,
+      priority: formData.priority,
+      // Puedes añadir el resto de los campos de formData aquí si son usados
+    }),
+    [formData]
+  );
+
+  //--- Título de la vista (AHORA DEPENDE DE initialParams) ---
+  const mainTitle =
+    initialParams.title || blogData?.name || "Generación de Blog";
+
   // =======================================================================
   // 4. ESTADOS DE CARGA Y CONTROL DE FLUJO GLOBAL
   // =======================================================================
@@ -156,68 +157,35 @@ const GeneracionBlog = () => {
   }, [hasUnsavedChanges]);
 
   // 3. Lógica principal de Guardado (POST/PUT)
-  // Blog_Generacion.jsx (Función handleSaveProject)
-
   const handleSaveProject = async () => {
-    // Validación: Previene el envío si no hay ID para guardar (PUT) y es solo para actualizar el contenido generado
-    // Para la creación inicial (POST), necesitaríamos más validación. Asumimos que si no hay ID, se crea.
-    if (isSaving || !datosFinales) return;
+    // Validación: Previene el envío si no hay estructura o no hay cambios
+    if (isSaving || !tablaEstructuraFinal || !hasUnsavedChanges) return;
 
     setIsSaving(true);
 
-    // Si localBlogId existe, es PUT (actualización). Si no, es POST (creación).
     const method = localBlogId ? "PUT" : "POST";
 
     let URL_API_SAVE;
     let payload;
 
-    // 1. CONSTRUCCIÓN DEL OBJETO DE DATOS A ENVIAR (PAYLOAD)
-    // Usamos el objeto de estado 'datosFinales' como fuente principal de verdad.
-    const payloadData = {
-      // Campos existentes que se guardan en el modelo Blog
-      title: datosFinales.title,
-      categoria: datosFinales.categoria,
-      keywords: datosFinales.keywords,
-      idioma: datosFinales.idioma,
-      tecnica: datosFinales.tecnica,
-      acento: datosFinales.acento,
-      tono: datosFinales.tono,
-
-      // 🟢 NUEVOS CAMPOS DE CONTENIDO GENERADO/ANALIZADO
-      // Usamos la estructura JSON directamente del estado 'datosFinales'
-      estructura_blog_json: datosFinales.estructura_blog_json || null,
-
-      // Usamos el contenido consolidado (viene del stream y fue fusionado en datosFinales)
-      consolidated_content: datosFinales.consolidated_content || null,
-
-      // Usamos los bloques de scraping (asumimos que están en 'datosFinales.results' o 'datosFinales.scrape_blocks_json')
-      // *AJUSTA* el nombre del campo de origen según cómo se fusionó en el estado 'datosFinales'.
-      scrape_blocks_json:
-        datosFinales.scrape_blocks_json || datosFinales.results || null,
+    // Los datos esenciales que se enviarán al backend
+    const blogData = {
+      name: initialParams.titulo,
+      // Enviamos la cadena de Markdown para que el BE la guarde en el campo correspondiente (Text/JSON)
+      estructura_blog_json: tablaEstructuraFinal,
+      consolidated_content: contenidoConsolidado,
     };
-
-    // Filtramos para enviar solo campos que tienen un valor (útil para el PUT parcial)
-    const filteredPayload = Object.fromEntries(
-      Object.entries(payloadData).filter(
-        ([, v]) => v !== null && v !== undefined
-      )
-    );
-
-    // Si no es un POST inicial, verificamos que haya algo que actualizar
-    if (method === "PUT" && Object.keys(filteredPayload).length === 0) {
-      showNotification("No hay datos para actualizar.", "warning");
-      setIsSaving(false);
-      return;
-    }
 
     if (method === "POST") {
       URL_API_SAVE = URL_API_BASE_BLOGS + "/";
-      // En un POST, enviamos todos los datos (incluyendo el ID si es necesario)
-      payload = filteredPayload;
+      payload = {
+        ...initialParams, // Parámetros del formulario inicial (titulo, categoria, etc.)
+        ...blogData,
+      };
     } else {
-      // En un PUT, solo necesitamos el ID en la URL y los datos en el body
+      // El PUT solo necesita el ID y los datos a actualizar
       URL_API_SAVE = `${URL_API_BASE_BLOGS}/${localBlogId}`;
-      payload = filteredPayload;
+      payload = blogData;
     }
 
     try {
@@ -231,15 +199,19 @@ const GeneracionBlog = () => {
       });
 
       if (!response.ok) {
-        // ... (Manejo de errores igual)
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail ||
+            `Fallo al ${
+              method === "POST" ? "crear" : "actualizar"
+            } el proyecto.`
+        );
       }
 
       const result = await response.json();
 
       if (method === "POST") {
-        setLocalBlogId(result.id);
-        // 🟢 IMPORTANTE: Actualizar el estado datosFinales con el ID del servidor si es POST
-        setDatosFinales((prevDatos) => ({ ...prevDatos, id: result.id }));
+        setLocalBlogId(result.id); // Guarda el ID
         showNotification(
           `Proyecto CREADO con éxito. ID: ${result.id.substring(0, 8)}...`,
           "success"
@@ -248,9 +220,10 @@ const GeneracionBlog = () => {
         showNotification("Guardado exitoso. Proyecto actualizado.", "success");
       }
 
-      setHasUnsavedChanges(false);
+      setHasUnsavedChanges(false); // Resetear bandera de cambios pendientes
     } catch (error) {
-      // ... (Manejo de errores igual)
+      console.error("Fallo la operación de guardado:", error);
+      showNotification(`Error al guardar: ${error.message}`, "error");
     } finally {
       setIsSaving(false);
     }
@@ -663,7 +636,7 @@ const GeneracionBlog = () => {
   };
 
   // =======================================================================
-  // CÁLCULOS DE ESTRUCTURA Y CONTEO
+  // CÁLCULOS DE ESTRUCTURA Y CONTEO (Código simple - SIN FUNCIONES NUEVAS)
   // =======================================================================
 
   // 2. Crear una NUEVA estructura inyectando 'wordCount'
@@ -1148,6 +1121,7 @@ const GeneracionBlog = () => {
     // 1. Resetear estados al iniciar
     setCargandoScraping(true);
     setError(null);
+    setDatosFinales(null);
     setTablaEstructuraFinal("");
     setContenidoConsolidado(null);
     setSelectedSectionForRegen(null);
@@ -1180,12 +1154,12 @@ const GeneracionBlog = () => {
     }
 
     // Extracción de initialParams
-    const title_base = datosFinales?.title || consulta;
-    const categoria = datosFinales?.categoria || "";
-    const idioma = datosFinales?.idioma || "";
-    const tecnica = datosFinales?.tecnica || "";
-    const acento = datosFinales?.acento || "";
-    const tono = datosFinales?.tono || "";
+    const title_base = initialParams.titulo || consulta;
+    const categoria = initialParams.categoria || "SEO";
+    const idioma = initialParams.idioma || "es";
+    const tecnica = initialParams.tecnica || "SEO";
+    const acento = initialParams.acento || "neutral";
+    const tono = initialParams.tono || "profesional";
 
     try {
       // 3. LLAMADA AL ENDPOINT DE SCRAPING
@@ -1243,8 +1217,7 @@ const GeneracionBlog = () => {
             if (currentEvent === "final_data") {
               try {
                 const parsed = JSON.parse(dataLine);
-                setDatosFinales((prevDatos) => ({ ...prevDatos, ...parsed }));
-
+                setDatosFinales(parsed);
                 finalDataReceived = true;
                 setContenidoConsolidado(parsed.consolidated_content || null);
 
@@ -1364,12 +1337,12 @@ const GeneracionBlog = () => {
       datosFinales?.query || referenciaUrls.current.value.split("\n")[0].trim();
 
     // Reutilizar parámetros de initialParams para la llamada a la IA
-    const title_base = datosFinales?.title || consulta;
-    const categoria = datosFinales?.categoria || "";
-    const idioma = datosFinales?.idioma || "";
-    const tecnica = datosFinales?.tecnica || "";
-    const acento = datosFinales?.acento || "";
-    const tono = datosFinales?.tono || "";
+    const title_base = initialParams.titulo || consulta;
+    const categoria = initialParams.categoria || "SEO";
+    const idioma = initialParams.idioma || "es";
+    const tecnica = initialParams.tecnica || "SEO";
+    const acento = initialParams.acento || "neutral";
+    const tono = initialParams.tono || "profesional";
 
     try {
       // LLamada al endpoint de generación de estructura con el contenido consolidado
@@ -1629,10 +1602,10 @@ const GeneracionBlog = () => {
       consolidated_content: textoConsolidado,
       section_type: sectionType,
       previous_content: historyArray,
-      idioma: datosFinales?.idioma || "",
-      acento: datosFinales?.acento || "",
-      tono: datosFinales?.tono || "",
-      tecnica: datosFinales?.tecnica || "",
+      idioma: initialParams.idioma || "es",
+      acento: initialParams.acento || "neutral",
+      tono: initialParams.tono || "profesional",
+      tecnica: initialParams.tecnica || "SEO",
       regenerate_data: undefined,
     };
 
@@ -2396,11 +2369,11 @@ const GeneracionBlog = () => {
             {cardVisibility.temasKeywords && (
               <div className="analysis-detail">
                 <span className="analysis-title">Título Base:</span>
-                <p>{datosFinales?.title || "N/A"}</p>
+                <p>{initialParams.titulo || "N/A"}</p>
 
                 <span className="analysis-title">Keywords Secundarias:</span>
                 <p className="keywords-output">
-                  {datosFinales?.keywords || "N/A"}
+                  {initialParams.keywords || "N/A"}
                 </p>
               </div>
             )}
@@ -2431,11 +2404,11 @@ const GeneracionBlog = () => {
             {cardVisibility.estiloTono && (
               <div className="analysis-detail">
                 <span className="analysis-title">Tono:</span>
-                <p>{datosFinales?.tono || "N/A"}</p>
+                <p>{initialParams.tono || "N/A"}</p>
                 <span className="analysis-title">Acento:</span>
-                <p>{datosFinales?.acento || "N/A"}</p>
+                <p>{initialParams.acento || "N/A"}</p>
                 <span className="analysis-title">Técnica:</span>
-                <p>{datosFinales?.tecnica || "N/A"}</p>
+                <p>{initialParams.tecnica || "N/A"}</p>
               </div>
             )}
           </section>
@@ -2465,9 +2438,9 @@ const GeneracionBlog = () => {
             {cardVisibility.contexto && (
               <div className="analysis-detail">
                 <span className="analysis-title">Idioma:</span>
-                <p>{datosFinales?.idioma || "N/A"}</p>
+                <p>{initialParams.idioma || "N/A"}</p>
                 <span className="analysis-title">Proyecto:</span>
-                <p>{datosFinales?.categoria || "N/A"}</p>
+                <p>{initialParams.categoria || "N/A"}</p>
               </div>
             )}
           </section>
