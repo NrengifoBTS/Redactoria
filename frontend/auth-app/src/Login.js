@@ -9,7 +9,7 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login } = useApp(); // <- NUEVO
+  const { login } = useApp(); 
   const navigate = useNavigate();
 
   const handleSubmit = async (event) => {

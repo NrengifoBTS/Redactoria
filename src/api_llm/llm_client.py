@@ -132,7 +132,6 @@ class LLMClient:
             - Sin Deducibles ->	Sin Responsabilidad Económica -> Latam to Usa
             - Beneficio en Cobertura del IOF ->	No tiene ->	Brasil
             recuerda mantener su estructura
-            <think> para tus pensamientos </think> \n
             |tit: tit| |desc: desc|\n |desc2: desc2| etc... y mantener los bloques correspondientes si aplica, como los de ip_.
             """
             
@@ -184,10 +183,8 @@ class LLMClient:
             tu tarea principal es revisar los textos en busca de errores de estructura, corregirlos de la mejor manera, siguiendo la logica del texto y la estructura general, revisa que se abran y cierren las estructuras:
             si encuentras mas palabras que la cantidad de palabras que se te indica, debes modificar sutilmente el texto para que se ajuste a la cantidad de palabras, sin perder el sentido del texto. no cuanta las etiquetas de marcado, solo el texto dentro de ellas.
             estructura de output deseado:
-            de no ser un excepcion a la regla, el output deseado cuenta con 3 bloques, think, titulo, redaccion o descripcion y en ese orden.
-            <think> para tus pensamientos </think> \n
+            de no ser un excepcion a la regla, el output deseado cuenta con 2 bloques, titulo, redaccion o descripcion y en ese orden.
             |tit: tit| |desc: desc|\n |desc2: desc2| etc...   y mantener los bloques correspondientes si aplica, como los de ip_.
-            
             """
             
         data = {
