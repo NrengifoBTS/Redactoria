@@ -236,7 +236,7 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
             </select>
           </div>
 
-          <button type="submit" className="btn-generate" disabled={loading}>
+          <button type="submit" className="btn-create" disabled={loading}>
             {loading ? "Guardando Idea..." : "Generar Idea y Borrador"}
           </button>
         </form>
@@ -449,7 +449,6 @@ export const DashboardBlog = () => {
     }
   };
 
-  // ... (El resto de las funciones de renderizado de Header, Stats, Footer se mantienen) ...
   const statsData = useMemo(() => {
     const totalBlogs = blogs ? blogs.length : 0;
     return [
@@ -463,7 +462,7 @@ export const DashboardBlog = () => {
     <header className="navbar">
       <h1>Analíticas</h1>
       <nav>
-        <button className="btn" onClick={() => navigate(-1)}>
+        <button className="btn-create" onClick={() => navigate(-1)}>
           Volver
         </button>
       </nav>
@@ -543,9 +542,9 @@ const BlogsTable = ({
           value={searchTerm} // Estado controlado
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        {/* 2. FILTRO DE ESTADOS (CONECTAR useFilters) */}
+        {/* 2. FILTRO DE ESTADOS */}
         <select
-          value={filters.estado || ""} // Añade el valor del estado
+          value={filters.estado || ""}
           onChange={(e) => updateFilter("estado", e.target.value)}
         >
           <option value="">Todos los Estados</option>
@@ -555,7 +554,7 @@ const BlogsTable = ({
           <option value="completed">Publicado</option>
           <option value="approved">Aprobado</option>
         </select>
-        {/* 3. FILTRO DE FECHAS  */}
+        {/* 3. FILTRO DE FECHAS */}
         <select>
           <option>Todas las fechas</option>
           <option value="last_7_days">Últimos 7 días</option>
@@ -563,14 +562,13 @@ const BlogsTable = ({
           <option value="last_90_days">Últimos 90 días</option>
         </select>
 
-        {/* 4. FILTRO DE USUARIOS ASIGNADOS (CONECTAR useFilters) */}
+        {/* 4. FILTRO DE USUARIOS ASIGNADOS */}
         <select
           disabled={loadingUsers}
-          value={filters.assigned_to || ""} // Añade el valor del asignado
-          onChange={(e) => updateFilter("assigned_to", e.target.value)} // Clave 'assigned_to'
+          value={filters.assigned_to || ""}
+          onChange={(e) => updateFilter("assigned_to", e.target.value)}
         >
           <option value="">Todos los asignados</option>
-          {/* Opción para blogs sin asignar */}
           <option value="unassigned">Sin asignar</option>
           {users &&
             users.map((user) => (
@@ -580,9 +578,9 @@ const BlogsTable = ({
             ))}
         </select>
 
-        {/* 5. FILTRO DE PRIORIDADES (CONECTAR useFilters) */}
+        {/* 5. FILTRO DE PRIORIDADES */}
         <select
-          value={filters.prioridad || ""} // Añade el valor de la prioridad
+          value={filters.prioridad || ""}
           onChange={(e) => updateFilter("prioridad", e.target.value)}
         >
           <option value="">Todas las prioridades</option>
@@ -590,19 +588,8 @@ const BlogsTable = ({
           <option value="Media">Media</option>
           <option value="Alta">Alta</option>
         </select>
-      </div>
 
-      <div className="actions-group">
-        {/* 1. BOTÓN CREAR BLOG */}
-        <button
-          className="btn-create"
-          onClick={() => setIsModalOpen(true)}
-          disabled={loadingBlogs}
-        >
-          + Crear Blog
-        </button>
-
-        {/* 2. BOTÓN BORRAR FILTROS (Debajo de Crear Blog) */}
+        {/* AHORA EL BOTÓN BORRAR FILTROS ESTÁ AQUÍ, JUNTO A LOS FILTROS */}
         {(Object.keys(filters).length > 0 || searchTerm) && (
           <button
             className="btn-clear-filters"
@@ -616,8 +603,19 @@ const BlogsTable = ({
           </button>
         )}
       </div>
-    </div>
 
+      <div className="actions-group">
+        {/* 1. BOTÓN CREAR BLOG (QUEDA APILADO ARRIBA) */}
+        <button
+          className="btn-create"
+          onClick={() => setIsModalOpen(true)}
+          disabled={loadingBlogs}
+        >
+          + Crear Blog
+        </button>
+        {/* NOTA: El actions-group ahora solo tiene el botón de crear */}
+      </div>
+    </div>
     <h3>Últimos Archivos Generados</h3>
     <table>
       <thead>

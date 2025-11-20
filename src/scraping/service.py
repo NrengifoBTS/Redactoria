@@ -1449,6 +1449,9 @@ class AnalysisOrchestrator:
         
         MIN_BLOCKS = 1 
         MIN_CONTENT_CHARS = 300
+        
+        # --- NUEVA VARIABLE 1: Acumulador de contenido crudo por URL ---
+        raw_acumulado_urls = [] 
 
         yield f"data: Iniciando scraping de {len(urls)} URLs...\n\n"
 
@@ -1484,26 +1487,27 @@ class AnalysisOrchestrator:
                 
                 yield f"data: Éxito! Se recuperó texto forzado (Plan C revisado) en un solo bloque.\n\n"
             
-            ai_analysis_result = " ".join([c['content'] for c in structured_chunks]) 
-            context_data = ai_analysis_result
-            
-            # 3. FASE 3: Iteración sobre Bloques (Análisis de IA por Chunk)
-            summaries = []
-            
+            # Contenido crudo consolidado con el formato de bloques (el que quieres guardar)
             url_consolidated_content = "\n\n".join([
                 f"--- SECCIÓN {j+1}: {chunk_data['heading']} ---\nCONTENIDO:\n{chunk_data['content']}" 
                 for j, chunk_data in enumerate(structured_chunks)
             ])
             
+            ai_analysis_result = " ".join([c['content'] for c in structured_chunks]) 
+            context_data = ai_analysis_result # Inicialmente contexto con texto crudo
+
             # El texto consolidado se empaqueta como el ÚNICO 'bloque' para el análisis final
             chunk_data_for_ai = {
                 'heading': title,
-                'content': url_consolidated_content,
+                'content': url_consolidated_content, # Este es el contenido que usa la IA
                 'media_elements': [
                     media for b in structured_chunks for media in b.get('media_elements', [])
                 ]
             }
             
+            # 3. FASE 3: Iteración sobre Bloques (Análisis de IA por Chunk)
+            summaries = []
+
             if url_consolidated_content:
                 
                 # RE-INTRODUCCIÓN DEL LOGGING DETALLADO PARA EL DEBUG DEL FRONT-END
@@ -1530,7 +1534,7 @@ class AnalysisOrchestrator:
                 # 2. LLAMADA A IA CONSOLIDADA 
                 yield f"data: Análisis de IA en curso sobre el contenido CONSOLIDADO de la URL...\n\n"
                 
-                chunk_content = chunk_data_for_ai['content'] # Contenido consolidado
+                chunk_content = chunk_data_for_ai['content'] # Contenido consolidado (verbose)
                 chunk_heading = chunk_data_for_ai['heading'] # Título principal
                 chunk_media = chunk_data_for_ai['media_elements'] # Media consolidada
                 
@@ -1547,6 +1551,7 @@ class AnalysisOrchestrator:
                     chunk_data_for_ai['ai_chunk_summary'] = summary
                     yield "data: Resumen de IA por URL completado.\n\n"
                 else:
+                    # Si no hay IA, el resumen es el contenido crudo (para el campo ai_analysis posterior)
                     summaries.append(chunk_content)
                     chunk_data_for_ai['ai_chunk_summary'] = chunk_content
                         
@@ -1570,7 +1575,8 @@ class AnalysisOrchestrator:
                 title=title,
                 ai_titles=[],
                 subtitles=[],
-                text_content=context_data,
+                # text_content ahora contiene el resumen de IA o el texto crudo para el contexto
+                text_content=context_data, 
                 headers={"main_heading": [structured_chunks[0]['heading']] if structured_chunks else [title], "count": [str(len(structured_chunks))]},
                 ai_analysis=ai_analysis_result,
                 title_suggestions=[], 
@@ -1579,15 +1585,25 @@ class AnalysisOrchestrator:
                 status='OK' 
             )
             all_results.append(result)
+            
+            # --- NUEVA LÓGICA: Acumular el contenido crudo (verbose) para la respuesta final ---
+            if url_consolidated_content:
+                 # Añadimos un separador claro
+                raw_acumulado_urls.append(f"### [INICIO DE CONTENIDO CRUDO URL: {url}]\n\n{url_consolidated_content}")
+
 
         # 4. FASE 4: Preparación para Análisis Manual (Omisión de LLAMADAS IA FINALES)
         valid_results = [r for r in all_results if r.status == 'OK'] 
-        consolidated_text = ""
+        
+        # Generamos el string final del contenido crudo y lo separamos del contexto de IA
+        # --- NUEVA VARIABLE 2: Contenido crudo final (string) ---
+        raw_consolidado_final = "\n\n---\n\n".join(raw_acumulado_urls)
 
+        # Consolidación del texto para la FASE 4 (Análisis Final) - ESTE ES EL CONTEXTO DE IA
+        structured_context_parts = []
+        block_counter = 0 
+        
         if valid_results and req.use_ai: 
-            # Consolidación del texto para la FASE 4 (Análisis Final)
-            structured_context_parts = []
-            block_counter = 0 
             for r in valid_results: 
                 structured_context_parts.append(f"\n\n--- INICIO DE ANÁLISIS DE URL: {r.url} ---")
                 blocks_to_process = getattr(r, 'article_blocks', []) 
@@ -1600,8 +1616,7 @@ class AnalysisOrchestrator:
                             structured_context_parts.append(f"### [SECCIÓN {block_counter}] {heading}")
                             structured_context_parts.append(f"CONTENIDO CLAVE SINTETIZADO:\n{analysis}")
                             
-            consolidated_text = "\n\n".join(structured_context_parts)
-            
+            # consolidated_text ya no se asigna, se usaba para el contexto de IA
             
             final_structure_text = "Contenido consolidado listo para análisis IA."
 
@@ -1620,12 +1635,12 @@ class AnalysisOrchestrator:
             results=all_results, 
             final_structure=final_structure_text, 
             log=log,
-            consolidated_content=consolidated_text 
+            # ¡CORRECCIÓN CRÍTICA! Usar la nueva variable con el texto CRUDO/RAW acumulado.
+            consolidated_content=raw_consolidado_final 
         )
 
         yield "event: final_data\n"
         yield f"data: {final_response.model_dump_json()}\n\n"
-
 
 
 def execute_scraping(req: models.ScrapeRequest) -> Generator[str, None, None]:

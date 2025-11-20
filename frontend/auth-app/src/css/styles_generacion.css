@@ -86,178 +86,162 @@ select {
 .btn-add-h2,
 .btn-add-h3 {
   /* Estilos Estructurales Comunes */
-  height: 55px;
+  height: 48px; /* Tamaño ligeramente mayor para look premium */
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
-  font-weight: bold;
-  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 6px; /* Bordes suaves */
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
   text-decoration: none;
+  border: none;
 }
 
+/* Efecto Hover: Sutil elevación y cambio de color */
+.btn:hover,
+.btn-generate:hover,
+.btn-regenerar:hover,
+.btn-download:hover,
+.btn-generate-image:hover,
+.btn-contenido:hover,
+.btn-estructura:hover,
+.btn-add-h2:hover,
+.btn-add-h3:not(:disabled):hover {
+  transform: translateY(-1px); /* Elevación sutil */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
 /* ----------------------------------------------------------
-   2. BOTONES PRINCIPALES (COLOR/HOVER) - ESTILO SOFISTICADO
+   2. BOTONES PRINCIPALES (COLOR/HOVER) - ESTILO MODERNO
    ---------------------------------------------------------- */
 
-/* Botón Principal (Generar, Imagen, Navbar) - Azul Zafiro */
+/* Botón Principal (Generar, Imagen, Navbar) - Azul de Acento */
 .btn,
 .btn-generate,
 .btn-generate-image,
 .navbar .btn {
-  background: linear-gradient(
-    135deg,
-    #0056b3,
-    #00c6ff
-  ); /* Azul Zafiro a Celeste Intenso */
+  background: #007bff; /* Azul Corporativo */
   color: #fff;
 }
+
+.btn-generate {
+  background: #007bff; /* Azul Corporativo */
+  color: #fff;
+  width: 100%;
+}
+
 .btn-generate:hover,
 .btn-generate-image:hover,
 .navbar .btn:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(0, 198, 255, 0.4);
+  background: #0056b3; /* Azul más oscuro en hover */
 }
 
-/* Botón Regenerar - Púrpura Amatista */
+/* Botón Regenerar - Morado Limpio */
 .btn-regenerar {
-  background: linear-gradient(
-    135deg,
-    #7c4dff,
-    #a020f0
-  ); /* Violeta Profundo a Amatista */
+  background: #6f42c1; /* Morado Limpio Sólido */
   color: #ffffff;
   flex: 1;
 }
 .btn-regenerar:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(160, 32, 240, 0.4);
+  background: #5b36a1;
 }
 
-/* NUEVO: Botón Contenido - Verde Esmeralda/Militar */
+/* Botón Contenido - Teal Profesional */
 .btn-contenido {
-  background: linear-gradient(
-    135deg,
-    #009688,
-    #4db6ac
-  ); /* Verde Marino Oscuro a Esmeralda */
+  background: #17a2b8; /* Teal Sólido */
   color: #fff;
   flex: 1;
 }
 .btn-contenido:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(77, 182, 172, 0.4);
+  background: #138496;
 }
 
-/* NUEVO: Botón Estructura - Coral/Salmón */
+/* Botón Estructura - Gris Oscuro/Cálido */
 .btn-estructura {
-  background: linear-gradient(
-    135deg,
-    #ff7043,
-    #ffcc80
-  ); /* Naranja Coral a Melocotón */
+  background: #5e539c; /* Gris Pizarra Oscuro Sólido */
   color: #fff;
   flex: 1;
 }
 .btn-estructura:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(255, 204, 128, 0.4);
+  background: #5a6268;
 }
 
-/* Botón Descargar (Mantiene color original) */
+/* Botón Descargar - Verde Éxito */
 .btn-download {
-  background: linear-gradient(135deg, #0583ff, #9900ff);
+  background: #28a745; /* Verde de Éxito Sólido */
   color: #fff;
-  flex: 1;
 }
-
 .btn-download:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(57, 58, 148, 0.4);
+  background: #1e7e34;
 }
 
 /* ----------------------------------------------------------
-   2.1. BOTONES DE AGREGAR SECCIÓN (H2 y H3) - CON ESTILO PRINCIPAL
+   2.1. BOTONES DE AGREGAR SECCIÓN (H2 y H3)
    ---------------------------------------------------------- */
 
-/* Botón H2: Principal - Dorado/Amarillo Ámbar */
+/* Botón H2: Principal - Amarillo Naranja Suave */
 .btn-add-h2 {
-  background: linear-gradient(
-    135deg,
-    #ffb300,
-    #ffecb3
-  ); /* Dorado Oscuro a Ámbar Claro */
-  color: #fff;
-  border: none;
+  background: #ffc107; /* Amarillo Ámbar */
+  color: #333;
 }
 .btn-add-h2:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(255, 179, 0, 0.4);
+  background: #e0a800;
 }
 
-/* Botón H3: Secundario - Vino Tinto/Rubí */
+/* Botón H3: Secundario - Rojo/Coral Suave */
 .btn-add-h3:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    #d32f2f,
-    #ef9a9a
-  ); /* Rojo Vino a Rubí Suave */
+  background: #dc3545; /* Rojo de Alerta */
   color: #fff;
-  border: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .btn-add-h3:not(:disabled):hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(200, 40, 40, 0.4);
+  background: #c82333;
 }
 
-/* Estado Desactivado para H3 */
+/* Estado Desactivado */
 .btn-add-h3:disabled {
-  background-color: #e5e7eb; /* Gris muy claro (desactivado) */
-  color: #9ca3af; /* Texto gris (desactivado) */
+  background-color: #e9ecef;
+  color: #adb5bd;
   cursor: not-allowed;
   box-shadow: none;
-  opacity: 0.7;
+  opacity: 0.8;
   transform: none;
 }
 
 /* ----------------------------------------------------------
    3. BOTONES MODIFICADORES (CANCELAR Y GUARDAR)
    ---------------------------------------------------------- */
-/* Botón de Cancelación (Modificador) */
-.btn-generate.btn-cancel {
-  background: linear-gradient(135deg, #ff6b6b, #ff9a9e);
+/* Botón Cancelar */
+.btn-cancel {
+  background: #b11515; /* Gris */
+  color: #fff;
 }
-.btn-generate.btn-cancel:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.3);
-}
-
-/* ESTILOS PARA EL BOTÓN DE GUARDAR EDICIÓN LOCAL */
-.btn-generate.btn-save-edit {
-  height: auto; /* Anula el height: 55px de .btn-generate */
-  padding: 10px 15px;
-  background: #1d4ed8; /* Azul oscuro */
-  color: white;
-  border-radius: 6px;
-  font-weight: bold;
-  transition: background-color 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border: none;
-}
-
-.btn-generate.btn-save-edit:hover {
-  background: #1e40af; /* Tono más oscuro */
-  transform: none; /* Anula el transform de .btn-generate */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+.btn-cancel:hover {
+  background: rgb(119, 15, 15);
 }
 
 /* ----------------------------------------------------------
-   4. BOTONES DE AGREGAR (H2 y H3) - (SE ELIMINA SECCIÓN DE ESTILO ANTIGUO)
+   4. TARJETAS (CARDS) Y RESULTADOS - DISEÑO LIMPIO
    ---------------------------------------------------------- */
+.info-card,
+.analysis-result,
+.log-card {
+  background-color: #ffffff;
+  padding: 30px;
+  border-radius: 10px; /* Redondeo más suave y moderno */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); /* Sombra de elevación limpia */
+  border: 1px solid #e0e6ec; /* Borde muy claro */
+  transition: all 0.3s ease;
+}
+
+.analysis-title {
+  color: #007bff; /* Color de título de sección de acento */
+  border-bottom: 2px solid #e0e6ec;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
 
 /* ----------------------------------------------------------
    5. BOTONES DE ACCIÓN (Mover/Eliminar, Pequeños)
@@ -364,7 +348,7 @@ select {
 
 .generadores-derecha {
   flex: 1 1 50%;
-  height: calc(87vh);
+  height: calc(94vh);
   overflow-y: auto;
   background-color: #ffffff;
   padding: 20px; /* Asegura que el contenido tenga un buen margen interno */
@@ -411,6 +395,7 @@ select {
   display: flex;
   gap: 10px;
   width: 100%;
+  margin-top: 10px;
 }
 
 /* Logs y Preview */
@@ -419,19 +404,6 @@ select {
   padding: 15px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  white-space: pre-wrap;
-}
-
-/* Log de Debug (Terminal) */
-.terminal-content {
-  background-color: #aaaaaa;
-  color: #000000;
-  padding: 15px;
-  border-radius: 8px;
-  font-family: "Consolas", "Courier New", monospace;
-  font-size: 14px;
-  max-height: 80vh;
-  overflow-y: auto;
   white-space: pre-wrap;
 }
 
@@ -472,37 +444,86 @@ select {
    LAYOUT Y ESTILOS ESPECÍFICOS DE LAS CARDS DE CONFIGURACIÓN
    ========================================================== */
 
-/* Contenedor de las 3 tarjetas de Configuración (Debajo de URLs) */
-.config-cards-wrapper {
+/* 1. Contenedor de las configuraciones */
+.config-unified-content {
   display: flex;
+  flex-direction: column; /* Apila el grupo wide y el contenedor de columnas */
   gap: 20px;
-  padding: 0 20px 20px 20px;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  margin: 0 auto;
+  padding: 15px 0;
 }
 
-/* Reglas para que las tarjetas de configuración ocupen un tercio del ancho */
-.config-cards-wrapper .analysis-result {
-  flex: 1 1 300px;
-  min-width: 250px;
-  /* Ajustes visuales para que sean tarjetas de información más compactas (Override del padding de 40px) */
-  padding: 25px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-}
-
-.config-cards-wrapper .analysis-result:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
-/* Contenedor de las Tarjetas de Resumen (Query, Intención, Keywords) */
-.summary-cards-container {
+/* 2. Estilos para la fila Key/Value (Título Base, Keywords) */
+.config-item-row {
   display: flex;
+  flex-direction: column; /* Por defecto: Label arriba, Value abajo (mejor para móviles) */
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+/* Ajuste del título para que actúe como label y pierda el margin-bottom/border-bottom */
+.config-item-row .analysis-title {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+  white-space: nowrap; /* Evita que la etiqueta se rompa */
+  /* Re-aplicar el color corporativo para la etiqueta (ajusta si tienes una variable CSS) */
+  color: #1a2e44;
+}
+
+/* 3. Contenedor de los chips */
+.config-chips-container {
+  display: flex;
+  flex-wrap: wrap; /* Permite que los chips floten y se organicen mejor */
+  gap: 8px; /* Espacio entre chips */
+  margin-top: 5px; /* Separación del label */
+}
+
+/* Ajuste para que los chips usen el 'gap' del contenedor y no su propio margen */
+.data-chip-container .data-chip,
+.keywords-tags .keyword-chip {
+  margin: 0;
+}
+
+/* 4. Contenedor para los grupos de 2 columnas (Estilo y Contexto) */
+.config-group-columns-container {
+  display: flex;
+  flex-direction: column; /* Stacked por defecto para móvil */
   gap: 20px;
-  padding: 20px;
-  justify-content: space-between;
-  flex-wrap: wrap;
+}
+
+/* Media Query para Desktop: Habilitar diseño de columnas */
+@media (min-width: 768px) {
+  /* 2. Estilos para la fila Key/Value en Desktop */
+  .config-item-row {
+    flex-direction: row; /* En desktop: Label y Value en la misma línea */
+    align-items: flex-start;
+    gap: 15px; /* Espacio entre Label y Value */
+  }
+
+  .config-label {
+    min-width: 180px; /* Ancho fijo para las etiquetas, ajusta si es necesario */
+    flex-shrink: 0;
+  }
+
+  .config-value {
+    flex-grow: 1;
+    font-size: 1em;
+  }
+
+  .config-value-break {
+    word-break: break-all; /* Para asegurar que títulos largos no rompan el layout */
+  }
+
+  /* 4. Contenedor para los grupos de 2 columnas en Desktop */
+  .config-group-columns-container {
+    flex-direction: row; /* Side-by-side en desktop */
+    justify-content: space-between;
+  }
+
+  .config-group-column-item {
+    flex: 1; /* Distribuye el espacio equitativamente */
+    min-width: 45%; /* Asegura que no se aprieten demasiado */
+  }
 }
 
 /* ==========================================================
@@ -567,15 +588,6 @@ select {
     font-size: 1rem;
   }
 
-  /* DEBUG LOG */
-  .generadores-derecha {
-    order: 10;
-  }
-  .terminal-content {
-    max-height: 300px;
-    font-size: 12px;
-  }
-
   /* PRECONFIG */
   .preconfig {
     margin: 10px;
@@ -606,7 +618,7 @@ select {
   display: block;
   font-weight: bold;
   margin-bottom: 8px;
-  border-bottom: 2px solid #20c997;
+  border-bottom: 2px solid #000f96;
   padding-bottom: 3px;
   font-size: 1.1em;
 }
@@ -643,26 +655,19 @@ select {
 
 /* Contenedor principal para la lista */
 .structure-list {
+  padding-left: 0;
   list-style: none;
-  padding: 0;
-  margin: 0;
-  /* Espacio entre los elementos de la lista */
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 /* Estilos base para cada título  */
 .structure-item {
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease-in-out;
-  line-height: 1.4;
-  font-size: 0.95rem;
-
-  padding: 10px 15px;
-  margin-bottom: 5px;
-  position: relative;
+  border: 1px solid #e0e6ec;
+  border-radius: 6px;
+  padding: 12px 18px; /* Más padding */
+  margin-bottom: 10px;
+  transition: all 0.2s ease;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 /* Efecto Hover */
@@ -674,12 +679,9 @@ select {
 
 /* Estilo para los encabezados H2 (Nivel principal) */
 .structure-item-h2 {
-  background-color: #f3f3f3;
-  font-weight: bold;
-  color: #333;
-  /* No hay margin-left para H2 */
+  background-color: #f7f9fb; /* Ligeramente diferente para H2 */
+  border-left: 5px solid #007bff; /* Barra azul de acento a la izquierda */
 }
-
 /* Estilo para los encabezados H3 (Nivel anidado) */
 .structure-item-h3 {
   background-color: #fff;
@@ -690,11 +692,12 @@ select {
 
 /* Estilo para el elemento seleccionado (Resaltado) */
 .structure-item-selected {
-  border-color: #00eba7;
-  background-color: #e6fff3;
-  font-weight: bold;
-  box-shadow: 0 0 10px rgba(0, 235, 167, 0.3);
-  transform: scale(1.01);
+  /* Estilo para el elemento seleccionado (Resaltado MODERNO) */
+  border-color: #007bff;
+  background-color: #eaf3ff; /* Fondo azul muy claro */
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+  transform: none;
 }
 
 /* Estilo para los iconos dentro de la estructura */
@@ -702,10 +705,10 @@ select {
   margin-right: 8px;
 }
 .structure-icon-h2 {
-  color: #00eba7;
+  color: #007bff; /* Azul de acento */
 }
 .structure-icon-h3 {
-  color: #666;
+  color: #6c757d; /* Gris */
 }
 
 /* Nuevo estilo para el contenedor flex de texto y botón */
@@ -862,23 +865,29 @@ select {
 .toast-notification i {
   font-size: 1.5em;
 }
+.toast-notification.show {
+  opacity: 1;
+  transform: translateY(0);
+}
 
-.toast-notification span {
-  font-weight: bold;
+.toast-notification i {
+  margin-right: 10px;
+  font-size: 1.2rem;
 }
 
 /* Tipos de Toast */
 .toast-success {
-  background-color: #10b981;
+  background-color: #28a745;
 }
 .toast-error {
-  background-color: #ef4444;
+  background-color: #dc3545;
 }
 .toast-info {
-  background-color: #4f46e5;
+  background-color: #007bff;
 }
 .toast-warning {
-  background-color: #f59e0b;
+  background-color: #ffc107;
+  color: #333;
 }
 
 /* ============================================= */
@@ -900,38 +909,35 @@ select {
 
 /* Estilo del Título Principal (H1) */
 .blog-title {
-  font-size: 2.5em;
-  font-weight: 500;
-  color: #212529;
-  margin-bottom: 0.5em;
-  text-align: center;
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: #1a2e44;
+  margin-bottom: 25px;
+  border-bottom: 2px solid #e0e6ec;
+  padding-bottom: 10px;
 }
 
 /* Estilo de los Títulos de Sección (H2) */
 .section-h2 {
-  font-size: 2em;
-  font-weight: 400;
-  color: #000000;
-  margin-top: 1.5em;
-  margin-bottom: 0.5em;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 5px;
+  font-size: 1.9rem;
+  font-weight: 600;
+  color: #007bff;
+  margin-top: 35px;
+  margin-bottom: 18px;
 }
 
 /* Estilo de los Subtítulos (H3) */
 .subsection-h3 {
-  font-size: 1.5em;
+  font-size: 1.5rem;
   font-weight: 500;
-  color: #000000;
-  margin-top: 1.2em;
-  margin-bottom: 0.5em;
+  color: #333333;
+  margin-top: 25px;
+  margin-bottom: 12px;
 }
 
 /* Estilo del Contenido de Párrafo */
 .content-block p {
-  font-size: 1em;
-  color: #464646;
-  margin-bottom: 1em;
+  margin-bottom: 18px; /* Mayor espaciado entre párrafos */
   text-align: justify;
 }
 
@@ -978,28 +984,29 @@ select {
 /* ==========================================================
    BADGES DE CONTEO
    ========================================================== */
-
 .count-badge {
-  /* Estilos base para todos los contadores */
   display: inline-flex;
   align-items: center;
-  padding: 5px 10px;
-  border-radius: 4px;
+  padding: 6px 12px;
+  border-radius: 12px; /* Más redondeado para moderno */
   font-size: 0.9rem;
   font-weight: 600;
-  margin-right: 15px;
+}
+.count-badge i {
+  margin-right: 5px;
 }
 
-/* Estilo para el contador de palabras RESTANTES */
+.count-badge.total {
+  background-color: #6c757d; /* Gris para total */
+  color: #ffffff;
+}
 .count-badge.remaining {
-  background-color: #e6f7ff; /* Fondo azul claro */
-  color: #2cb1b6; /* Texto azul oscuro */
-  border: 1px solid #91d5ff;
+  background-color: #eaf3ff; /* Azul claro */
+  color: #007bff;
+  border: 1px solid #007bff;
 }
-
-/* Estilo para cuando se ha EXCEDIDO el límite */
 .count-badge.remaining.exceeded {
-  background-color: #fff1f0; /* Fondo rojo muy claro */
-  color: #cf1322; /* Texto rojo intenso */
-  border: 1px solid #ffa39e;
+  background-color: #ffe0e6; /* Fondo de peligro suave */
+  color: #dc3545; /* Rojo de peligro */
+  border: 1px solid #dc3545;
 }

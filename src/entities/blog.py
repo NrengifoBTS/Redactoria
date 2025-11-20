@@ -59,6 +59,5 @@ class Blog(Base):
     consolidated_content = Column(Text, nullable=True) 
 
     
-
     def __repr__(self):
         return f"<Blog(id='{self.id}', title='{self.title}', estado='{self.estado}')>"
