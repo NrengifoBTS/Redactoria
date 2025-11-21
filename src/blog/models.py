@@ -45,13 +45,12 @@ class BlogBase(BaseModel):
     prioridad: PrioridadBlog
     
     # --- Campos de Generación/Contenido (NUEVOS EN EL CONTEXTO) ---
-    estructura_blog_json: Optional[str] = None      # Estructura detallada como TEXTO PLANO
-    consolidated_content: Optional[str] = None # Contenido final generado (Markdown/HTML)# -----------------------------------------------------------------
-    
+    estructura_blog_json: Optional[Dict[str, Any]] = None      # Estructura detallada H1/H2/H3 (JSON)
+    consolidated_content: Optional[str] = None # Contenido final generado (Markdown/HTML)
+    # -----------------------------------------------------------------
 
     # Asignación de usuario
     assigned_to: Optional[UUID] = None
-
 
 # =======================================================================
 # 3. MODELOS DE PETICIÓN (Request Models)
@@ -70,10 +69,11 @@ class BlogUpdate(BaseModel):
     prioridad: Optional[PrioridadBlog] = None
     
     # Permite actualizar la estructura y el contenido
-    estructura_blog_json: Optional[str] = None  
+    estructura_blog_json: Optional[Dict[str, Any]] = None 
     consolidated_content: Optional[str] = None 
+    
+    
     assigned_to: Optional[UUID] = None
-
 
 class AssignBlogRequest(BaseModel):
     """Modelo específico para la asignación a un usuario."""

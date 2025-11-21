@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Lista de IDs de administradores (Manteniendo el snippet original)
 ADMIN_USER_IDS = [
-  '874f68d3-afed-4d20-85dc-86e71eca5919',
+  '66eacbaf-048c-4c71-b828-618002ca6bfa',
   'f49cda9b-2138-435e-a497-fda85be87e63',
   'c7c17838-074d-44fa-9248-8dc87c15edd5',
   '152c46be-e2f4-48da-86b1-592af570624a'
@@ -52,12 +52,15 @@ def get_blog(current_user: CurrentUser, db: Session, blog_id: UUID) -> Blog:
     if not blog:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Blog no encontrado.")
 
+    # 🛑 Se eliminó el IF que verificaba created_by/assigned_to y lanzaba 403.
     
     return blog
 
 # =======================================================================
 # 2. CRUD BÁSICO
 # =======================================================================
+
+# En service.py, en la función create_blog
 
 def create_blog(current_user: CurrentUser, db: Session, blog_request: models.BlogCreate) -> Blog:
     user_id = current_user.get_uuid()
@@ -74,12 +77,16 @@ def create_blog(current_user: CurrentUser, db: Session, blog_request: models.Blo
         created_by=user_id,
         created_at=datetime.now(timezone.utc),
         last_modified=datetime.now(timezone.utc),
+        
+
         categoria=blog_request.categoria,
         keywords=blog_request.keywords,
         idioma=blog_request.idioma,
         tecnica=blog_request.tecnica,
         acento=blog_request.acento,
         tono=blog_request.tono,
+
+        
     )
     
     # 4. Persistir en la base de datos
@@ -110,23 +117,16 @@ def update_blog(current_user: CurrentUser, db: Session, blog_id: UUID, blog_upda
     # Mapear los campos del modelo Pydantic al ORM
     for key, value in update_data.items():
         if value is not None:
-            # === MODIFICACIÓN CLAVE AQUÍ: Manejar la estructura JSON ===
-            if key == 'estructura_blog_json':
-                # Asignar el diccionario JSON directamente.
-                setattr(blog, key, value) 
-            # ==========================================================
-            elif key in ('estado', 'prioridad'):
-                # Lógica existente para Enums
-                setattr(blog, key, value)
+            if key in ('estado', 'prioridad'):
+                setattr(blog, key, value.value) # Para enums
             else:
-                # Lógica existente para otros campos (title, keywords, consolidated_content, etc.)
                 setattr(blog, key, value)
                 
     blog.last_modified = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(blog)
-    logging.info(f"Blog {blog_id} actualizado por usuario {user_id}. Estructura guardada.")
+    logging.info(f"Blog {blog_id} actualizado por usuario {user_id}")
     return blog
 
 

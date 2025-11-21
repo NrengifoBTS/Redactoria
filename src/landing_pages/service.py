@@ -11,11 +11,10 @@ import logging
 
 # Lista de IDs de administradores 
 ADMIN_USER_IDS = [
-  '874f68d3-afed-4d20-85dc-86e71eca5919',
+  'b43f1d04-f339-4cf9-8e4e-4f127f12af5a',
   'f49cda9b-2138-435e-a497-fda85be87e63',
   'c7c17838-074d-44fa-9248-8dc87c15edd5',
-  '152c46be-e2f4-48da-86b1-592af570624a',
-  '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+  '152c46be-e2f4-48da-86b1-592af570624a'
   ]
 
 def is_admin_user(user_uuid) -> bool:
