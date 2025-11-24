@@ -4,7 +4,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone
 from sqlalchemy.orm import relationship
 from uuid import uuid4
-import json
 from ..database.core import Base 
 
 
@@ -58,7 +57,9 @@ class Blog(Base):
     # Contenido final consolidado (Markdown o HTML)
     consolidated_content = Column(Text, nullable=True) 
 
-    
 
+    ai_analysis_text = Column(Text, nullable=True) 
+
+    
     def __repr__(self):
         return f"<Blog(id='{self.id}', title='{self.title}', estado='{self.estado}')>"

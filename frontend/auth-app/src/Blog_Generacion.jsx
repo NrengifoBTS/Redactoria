@@ -17,7 +17,7 @@ const GeneracionBlog = () => {
   const { blogId } = useParams(); // Obtiene el ID de la ruta /blog/edit/:blogId
   const navigate = useNavigate(); // Hook para redireccionar si es necesario
 
-  const authToken = useMemo(() => localStorage.getItem("authToken"), []);
+  const authToken = useMemo(() => localStorage.getItem("token"), []);
   // =======================================================================
   // // 1. REFERENCIAS DE ELEMENTOS Y CONTROL (useRef)
   // // =======================================================================
@@ -27,9 +27,8 @@ const GeneracionBlog = () => {
   // =======================================================================
   // // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS (useState)
   // // =======================================================================
-
   const [datosFinales, setDatosFinales] = useState(null); // <-- Fuente de verdad
-  const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
+  const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState(null);
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [estimatedWordCount, setEstimatedWordCount] = useState(null);
   const [, setTotalGeneratedWords] = useState(0);
@@ -38,7 +37,6 @@ const GeneracionBlog = () => {
   const [localBlogId, setLocalBlogId] = useState(null); // ID del proyecto (aquí se cargará el blogId de la BD)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [, setNotification] = useState({ message: "", type: "" });
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
   // // -----------------------------------------------------------------------
@@ -60,8 +58,7 @@ const GeneracionBlog = () => {
 
         if (data) {
           // 2. Guardar el objeto Blog de la BD en el estado principal
-          setDatosFinales(data); // *** ELIMINAMOS setFormData *** // Ya no es necesario poblar formData, ya que todos los datos // se leerán directamente de 'datosFinales'. // 3. Poblar los estados de resultados
-
+          setDatosFinales(data);
           if (data.estructura_blog_json) {
             setTablaEstructuraFinal(data.estructura_blog_json);
           }
@@ -139,15 +136,6 @@ const GeneracionBlog = () => {
     }, 3000);
   };
 
-  // 1. Función para mostrar la notificación de guardado (Toast)
-  const showNotification = (message, type) => {
-    setNotification({ message, type });
-    // Oculta la notificación después de 4 segundos
-    setTimeout(() => {
-      setNotification({ message: "", type: "" });
-    }, 4000);
-  };
-
   // 2. Función para marcar que algo ha cambiado (activa el botón de guardar)
   const markAsChanged = useCallback(() => {
     if (!hasUnsavedChanges) {
@@ -155,74 +143,33 @@ const GeneracionBlog = () => {
     }
   }, [hasUnsavedChanges]);
 
-  // 3. Lógica principal de Guardado (POST/PUT)
-  // Blog_Generacion.jsx (Función handleSaveProject)
+  // 3. Lógica principal de Guardado de la estructura (POST/PUT)
 
-  const handleSaveProject = async () => {
-    // Validación: Previene el envío si no hay ID para guardar (PUT) y es solo para actualizar el contenido generado
-    // Para la creación inicial (POST), necesitaríamos más validación. Asumimos que si no hay ID, se crea.
-    if (isSaving || !datosFinales) return;
-
-    setIsSaving(true);
-
-    // Si localBlogId existe, es PUT (actualización). Si no, es POST (creación).
-    const method = localBlogId ? "PUT" : "POST";
-
-    let URL_API_SAVE;
-    let payload;
-
-    // 1. CONSTRUCCIÓN DEL OBJETO DE DATOS A ENVIAR (PAYLOAD)
-    // Usamos el objeto de estado 'datosFinales' como fuente principal de verdad.
-    const payloadData = {
-      // Campos existentes que se guardan en el modelo Blog
-      title: datosFinales.title,
-      categoria: datosFinales.categoria,
-      keywords: datosFinales.keywords,
-      idioma: datosFinales.idioma,
-      tecnica: datosFinales.tecnica,
-      acento: datosFinales.acento,
-      tono: datosFinales.tono,
-
-      // 🟢 NUEVOS CAMPOS DE CONTENIDO GENERADO/ANALIZADO
-      // Usamos la estructura JSON directamente del estado 'datosFinales'
-      estructura_blog_json: datosFinales.estructura_blog_json || null,
-
-      // Usamos el contenido consolidado (viene del stream y fue fusionado en datosFinales)
-      consolidated_content: datosFinales.consolidated_content || null,
-
-      // Usamos los bloques de scraping (asumimos que están en 'datosFinales.results' o 'datosFinales.scrape_blocks_json')
-      // *AJUSTA* el nombre del campo de origen según cómo se fusionó en el estado 'datosFinales'.
-      scrape_blocks_json:
-        datosFinales.scrape_blocks_json || datosFinales.results || null,
-    };
-
-    // Filtramos para enviar solo campos que tienen un valor (útil para el PUT parcial)
-    const filteredPayload = Object.fromEntries(
-      Object.entries(payloadData).filter(
-        ([, v]) => v !== null && v !== undefined
-      )
-    );
-
-    // Si no es un POST inicial, verificamos que haya algo que actualizar
-    if (method === "PUT" && Object.keys(filteredPayload).length === 0) {
-      showNotification("No hay datos para actualizar.", "warning");
-      setIsSaving(false);
+  const handleSaveProject = useCallback(async () => {
+    if (isSaving || !localBlogId) {
+      if (!localBlogId) {
+        showToast(
+          "No se puede guardar: el artículo no ha sido creado (falta ID).",
+          "error"
+        );
+      }
       return;
     }
 
-    if (method === "POST") {
-      URL_API_SAVE = URL_API_BASE_BLOGS + "/";
-      // En un POST, enviamos todos los datos (incluyendo el ID si es necesario)
-      payload = filteredPayload;
-    } else {
-      // En un PUT, solo necesitamos el ID en la URL y los datos en el body
-      URL_API_SAVE = `${URL_API_BASE_BLOGS}/${localBlogId}`;
-      payload = filteredPayload;
+    if (!tablaEstructuraFinal) {
+      showToast("No hay estructura que guardar.", "warning");
+      return;
     }
+
+    setIsSaving(true);
+    const payload = {
+      estructura_blog_json: tablaEstructuraFinal,
+    };
+    const URL_API_SAVE = `${URL_API_BASE_BLOGS}${localBlogId}`;
 
     try {
       const response = await fetch(URL_API_SAVE, {
-        method: method,
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
@@ -231,30 +178,37 @@ const GeneracionBlog = () => {
       });
 
       if (!response.ok) {
-        // ... (Manejo de errores igual)
+        // ... (Lógica de manejo de error que genera errorMessage)
+        const errorText = await response.text();
+        let errorMessage = `Error ${response.status}: Falló la actualización del blog.`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.detail) {
+            errorMessage =
+              errorJson.detail[0].msg || JSON.stringify(errorJson.detail);
+          } else {
+            errorMessage = JSON.stringify(errorJson);
+          }
+        } catch {}
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json();
-
-      if (method === "POST") {
-        setLocalBlogId(result.id);
-        // 🟢 IMPORTANTE: Actualizar el estado datosFinales con el ID del servidor si es POST
-        setDatosFinales((prevDatos) => ({ ...prevDatos, id: result.id }));
-        showNotification(
-          `Proyecto CREADO con éxito. ID: ${result.id.substring(0, 8)}...`,
-          "success"
-        );
-      } else {
-        showNotification("Guardado exitoso. Proyecto actualizado.", "success");
-      }
-
+      showToast("Guardado exitoso. Estructura actualizada.", "success");
       setHasUnsavedChanges(false);
     } catch (error) {
-      // ... (Manejo de errores igual)
+      console.error("Error al guardar la estructura:", error);
+      showToast(`Error de guardado: ${error.message}`, "error");
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [
+    localBlogId,
+    tablaEstructuraFinal,
+    isSaving,
+    setHasUnsavedChanges,
+    authToken,
+    URL_API_BASE_BLOGS,
+  ]);
 
   // Visibilidad de tarjetas en el front
   const toggleCardVisibility = (cardName) => {
@@ -1166,7 +1120,7 @@ const GeneracionBlog = () => {
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
     const consulta = lineasConsulta[0];
-    const urls = lineasConsulta.slice(1);
+    const urls = lineasConsulta.slice(1); // 👈 URLs que queremos guardar
     const numResultados = urls.length > 0 ? urls.length : 3;
 
     if (!consulta || numResultados < 1) {
@@ -1186,6 +1140,30 @@ const GeneracionBlog = () => {
     const tecnica = datosFinales?.tecnica || "";
     const acento = datosFinales?.acento || "";
     const tono = datosFinales?.tono || "";
+
+    // 🆕 2.5. Definir URL de guardado y GUARDAR LAS URLS INICIALES (PUT request, no bloqueante)
+    const URL_API_SAVE = `${URL_API_BASE_BLOGS}${blogId}`;
+
+    if (urls.length > 0) {
+      fetch(URL_API_SAVE, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          scraped_urls: urls, // El array de URLs del input
+        }),
+      })
+        .then((res) => {
+          if (!res.ok)
+            console.warn(
+              `[SCRAPING] Aviso: Falló el guardado de URLs con estado ${res.status}`
+            );
+          else console.log("[SCRAPING] URLs iniciales guardadas en el blog.");
+        })
+        .catch((err) => console.error("[SCRAPING] Error al enviar URLs:", err));
+    }
 
     try {
       // 3. LLAMADA AL ENDPOINT DE SCRAPING
@@ -1246,7 +1224,37 @@ const GeneracionBlog = () => {
                 setDatosFinales((prevDatos) => ({ ...prevDatos, ...parsed }));
 
                 finalDataReceived = true;
-                setContenidoConsolidado(parsed.consolidated_content || null);
+                const consolidatedContent = parsed.consolidated_content || null; // Extraer contenido
+
+                // 🆕 GUARDADO DEL CONTENIDO CONSOLIDADO (No bloqueante)
+                if (consolidatedContent) {
+                  fetch(URL_API_SAVE, {
+                    method: "PUT",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${authToken}`,
+                    },
+                    body: JSON.stringify({
+                      consolidated_content: consolidatedContent,
+                    }),
+                  })
+                    .then((res) => {
+                      if (!res.ok)
+                        console.warn(
+                          `[SCRAPING] Aviso: Falló el guardado de Contenido Consolidado con estado ${res.status}`
+                        );
+                      else
+                        showToast("Contenido consolidado guardado.", "success");
+                    })
+                    .catch((err) =>
+                      console.error(
+                        "[SCRAPING] Error al enviar Contenido:",
+                        err
+                      )
+                    );
+                }
+
+                setContenidoConsolidado(consolidatedContent); // Actualizar estado local
 
                 if (parsed.log && Array.isArray(parsed.log)) {
                   console.log("[SCRAPING - LOGS DETALLADOS]");
@@ -2282,31 +2290,30 @@ const GeneracionBlog = () => {
       <div className="blog-generation-page">
         {/* Header */}
         <header className="navbar">
-          <a href="/dashboard_blog" className="btn">
+          <a href="/dashboard_blog" className="btn-generate-image">
             Volver al Dashboard
           </a>
-          <h1>Generación de Blog con Análisis SEO Final</h1>
+          <h1>Generación de Blog</h1>
 
-          {/* Indicador de cambios pendientes  */}
-          {hasUnsavedChanges && (
-            <span className="unsaved-badge">
-              <i className="uil uil-exclamation-triangle"></i> Cambios
-              Pendientes
-            </span>
-          )}
-
-          {/* --- BOTÓN DE GUARDAR CONDICIONAL  --- */}
+          {/* --- BOTÓN DE GUARDAR ESTRUCTURA --- */}
           <button
-            className={`btn btn-save ${
+            className={`btn-download ${
               hasUnsavedChanges ? "btn-active-save" : ""
             }`}
-            onClick={handleSaveProject}
-            // DESHABILITADO SI: No hay estructura O está guardando O no hay cambios pendientes
-            disabled={!tablaEstructuraFinal || isSaving || !hasUnsavedChanges}
+            onClick={handleSaveProject} // Llama a la función con el useCallback
+            // Deshabilitado si: no hay ID O no hay estructura (objeto/null) O está guardando O no hay cambios pendientes
+            disabled={
+              !localBlogId ||
+              !tablaEstructuraFinal ||
+              isSaving ||
+              !hasUnsavedChanges
+            }
             title={
-              !tablaEstructuraFinal
-                ? "Genere la estructura antes de guardar"
-                : "Guardar el progreso actual"
+              !localBlogId
+                ? "Cree primero el artículo base para poder guardar la estructura."
+                : !tablaEstructuraFinal
+                ? "Genere la estructura antes de guardar."
+                : "Guardar la estructura actual del blog."
             }
           >
             {isSaving ? (
@@ -2315,8 +2322,7 @@ const GeneracionBlog = () => {
               </>
             ) : (
               <>
-                <i className="uil uil-save"></i> Guardar (
-                {localBlogId ? "Actualizar" : "Crear"})
+                <i className="uil uil-save"></i> Guardar Estructura
               </>
             )}
           </button>
@@ -2368,110 +2374,107 @@ const GeneracionBlog = () => {
         {/* ========================================================= */}
         {/* --- SECCIÓN: TARJETAS DE CONFIGURACIÓN INICIAL (INPUTS) --- */}
         {/* ========================================================= */}
-        <div className="config-cards-wrapper">
-          {/* Card 1: Temas y Keywords */}
-          <section className="analysis-result info-card">
-            <h2
-              className="analysis-title"
-              style={{
-                borderBottomColor: "#20c997",
-                cursor: "pointer",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-              onClick={() => toggleCardVisibility("temasKeywords")}
-            >
-              <div>
-                <i className="uil uil-tag-alt"></i> Temas y Keywords
-              </div>
-              <i
-                className={`uil ${
-                  cardVisibility.temasKeywords
-                    ? "uil-angle-up"
-                    : "uil-angle-down"
-                }`}
-              ></i>
-            </h2>
-            {cardVisibility.temasKeywords && (
-              <div className="analysis-detail">
-                <span className="analysis-title">Título Base:</span>
-                <p>{datosFinales?.title || "N/A"}</p>
 
-                <span className="analysis-title">Keywords Secundarias:</span>
-                <p className="keywords-output">
-                  {datosFinales?.keywords || "N/A"}
-                </p>
-              </div>
-            )}
-          </section>
+        <section className="config-panel-unified analysis-result info-card">
+          <h2
+            className="analysis-title"
+            style={{
+              borderBottomColor: "#1A2E44", // Color corporativo oscuro
+              cursor: "pointer",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+            onClick={() => toggleCardVisibility("preconfiguracionUnificada")} // Usar una clave única
+          >
+            <div>
+              <i className="uil uil-setting"></i> Preconfiguraciones
+            </div>
+            <i
+              className={`uil ${
+                cardVisibility.preconfiguracionUnificada
+                  ? "uil-angle-up"
+                  : "uil-angle-down"
+              }`}
+            ></i>
+          </h2>
 
-          {/* Card 2: Estilo y Tono */}
-          <section className="analysis-result info-card">
-            <h2
-              className="analysis-title"
-              style={{
-                borderBottomColor: "#20c997",
-                cursor: "pointer",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-              onClick={() => toggleCardVisibility("estiloTono")}
-            >
-              <div>
-                <i className="uil uil-palette"></i> Estilo y Tono
-              </div>
-              <i
-                className={`uil ${
-                  cardVisibility.estiloTono ? "uil-angle-up" : "uil-angle-down"
-                }`}
-              ></i>
-            </h2>
-            {cardVisibility.estiloTono && (
-              <div className="analysis-detail">
-                <span className="analysis-title">Tono:</span>
-                <p>{datosFinales?.tono || "N/A"}</p>
-                <span className="analysis-title">Acento:</span>
-                <p>{datosFinales?.acento || "N/A"}</p>
-                <span className="analysis-title">Técnica:</span>
-                <p>{datosFinales?.tecnica || "N/A"}</p>
-              </div>
-            )}
-          </section>
+          {cardVisibility.preconfiguracionUnificada && (
+            <div className="analysis-detail config-unified-content">
+              {/* GRUPO 1: Título y Keywords (Items que ocupan todo el ancho) */}
+              <div className="config-group config-group-wide">
+                {/* Título Base: Etiqueta y valor en una misma fila en escritorio */}
+                <div className="config-item-row">
+                  <span className="analysis-title config-label">
+                    <i className="uil uil-tag-alt"></i> Título Base:
+                  </span>
+                  <p className="main-title-output config-value config-value-break">
+                    {datosFinales?.title || "N/A"}
+                  </p>
+                </div>
 
-          {/* Card 3: Metadatos/Contexto */}
-          <section className="analysis-result info-card">
-            <h2
-              className="analysis-title"
-              style={{
-                borderBottomColor: "#00eba7",
-                cursor: "pointer",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-              onClick={() => toggleCardVisibility("contexto")}
-            >
-              <div>
-                <i className="uil uil-globe"></i> Contexto
+                {/* Keywords: Etiqueta y chips en una misma fila en escritorio */}
+                <div className="config-item-row">
+                  <span className="analysis-title config-label">
+                    <i className="uil uil-key-skeleton"></i> Keywords
+                    Secundarias:
+                  </span>
+                  <div className="keywords-tags config-value config-chips-container">
+                    {(datosFinales?.keywords || "")
+                      .split(",")
+                      .map((keyword, index) =>
+                        keyword.trim() ? (
+                          <span key={index} className="keyword-chip">
+                            {keyword.trim()}
+                          </span>
+                        ) : null
+                      )}
+                    {!datosFinales?.keywords && (
+                      <span className="data-chip missing">N/A</span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <i
-                className={`uil ${
-                  cardVisibility.contexto ? "uil-angle-up" : "uil-angle-down"
-                }`}
-              ></i>
-            </h2>
-            {cardVisibility.contexto && (
-              <div className="analysis-detail">
-                <span className="analysis-title">Idioma:</span>
-                <p>{datosFinales?.idioma || "N/A"}</p>
-                <span className="analysis-title">Proyecto:</span>
-                <p>{datosFinales?.categoria || "N/A"}</p>
+
+              {/* Contenedor Flex/Grid para Grupos 2 y 3: Estilo/Tono y Contexto (Lado a lado en escritorio) */}
+              <div className="config-group-columns-container">
+                {/* GRUPO 2: Estilo y Tono */}
+                <div className="config-group config-group-column-item">
+                  <span className="analysis-title">
+                    <i className="uil uil-palette"></i> Estilo y Tono:
+                  </span>
+                  <div className="data-chip-container config-chips-container">
+                    <span className="data-chip primary">
+                      Tono: <strong>{datosFinales?.tono || "N/A"}</strong>
+                    </span>
+                    <span className="data-chip secondary">
+                      Acento: <strong>{datosFinales?.acento || "N/A"}</strong>
+                    </span>
+                    <span className="data-chip tertiary">
+                      Técnica: <strong>{datosFinales?.tecnica || "N/A"}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* GRUPO 3: Metadatos/Contexto */}
+                <div className="config-group config-group-column-item">
+                  <span className="analysis-title">
+                    <i className="uil uil-globe"></i> Contexto:
+                  </span>
+                  <div className="data-chip-container config-chips-container">
+                    <span className="data-chip context-lang">
+                      Idioma: <strong>{datosFinales?.idioma || "N/A"}</strong>
+                    </span>
+                    <span className="data-chip context-project">
+                      Proyecto:{" "}
+                      <strong>{datosFinales?.categoria || "N/A"}</strong>
+                    </span>
+                  </div>
+                </div>
               </div>
-            )}
-          </section>
-        </div>
+            </div>
+          )}
+        </section>
 
         {/* Contenedores Principales (Izquierda y Derecha) */}
         <div className="generadores-container">
@@ -2711,7 +2714,7 @@ const GeneracionBlog = () => {
                   </button>
                   <button
                     onClick={generarContenidoIA}
-                    className="btn-generate"
+                    className="btn-regenerar"
                     style={{ flexGrow: 1 }}
                     disabled={cargandoIA || !contenidoConsolidado}
                   >
@@ -2801,12 +2804,10 @@ const GeneracionBlog = () => {
                 {isEditingStructure ? (
                   <>
                     <i className="uil uil-sitemap"></i> Estructura del Blog
-                    (Editable)
                   </>
                 ) : (
                   <>
                     <i className="uil uil-file-alt"></i> Vista de Documento
-                    (Word-like)
                   </>
                 )}
 
@@ -2850,7 +2851,11 @@ const GeneracionBlog = () => {
                     }}
                   >
                     {/* Botón para Añadir H2 */}
-                    <button onClick={agregarSeccionH2} className="btn-add-h2">
+                    <button
+                      onClick={agregarSeccionH2}
+                      className="btn-add-h2"
+                      disabled={!tablaEstructuraFinal}
+                    >
                       <i className="uil uil-plus-circle"></i> Agregar Sección H2
                     </button>
 

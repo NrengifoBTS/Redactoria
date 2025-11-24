@@ -45,12 +45,13 @@ class BlogBase(BaseModel):
     prioridad: PrioridadBlog
     
     # --- Campos de Generación/Contenido (NUEVOS EN EL CONTEXTO) ---
-    estructura_blog_json: Optional[Dict[str, Any]] = None      # Estructura detallada H1/H2/H3 (JSON)
-    consolidated_content: Optional[str] = None # Contenido final generado (Markdown/HTML)
-    # -----------------------------------------------------------------
+    estructura_blog_json: Optional[str] = None      # Estructura detallada como TEXTO PLANO
+    consolidated_content: Optional[str] = None # Contenido final generado (Markdown/HTML)# -----------------------------------------------------------------
+    
 
     # Asignación de usuario
     assigned_to: Optional[UUID] = None
+
 
 # =======================================================================
 # 3. MODELOS DE PETICIÓN (Request Models)
@@ -69,11 +70,12 @@ class BlogUpdate(BaseModel):
     prioridad: Optional[PrioridadBlog] = None
     
     # Permite actualizar la estructura y el contenido
-    estructura_blog_json: Optional[Dict[str, Any]] = None 
+    estructura_blog_json: Optional[str] = None  
     consolidated_content: Optional[str] = None 
-    
-    
     assigned_to: Optional[UUID] = None
+
+    #URLs de origen
+    original_urls: Optional[str] = None
 
 class AssignBlogRequest(BaseModel):
     """Modelo específico para la asignación a un usuario."""
@@ -86,8 +88,8 @@ class AssignBlogRequest(BaseModel):
 class BlogResponse(BlogBase, InitialParams):
     """Modelo usado para devolver la entidad Blog al cliente."""
     id: UUID
-    created_by: UUID
-    created_at: datetime
+    created_by: UUID 
     last_modified: datetime
+    original_urls: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True) # Habilitar compatibilidad con el ORM de SQLAlchemy

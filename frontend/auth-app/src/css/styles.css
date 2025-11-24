@@ -1,3 +1,10 @@
+/* Paleta Formal
+  - Color Principal (Branding/Headers): #1A2E44 (Azul Oscuro/Medianoche)
+  - Color de Acento (Botones/Links): #007BFF (Azul Corporativo)
+  - Fondo: #F8F9FA (Gris muy claro)
+  - Sombra Suave: rgba(0, 0, 0, 0.05)
+*/
+
 /* Reset */
 * {
   margin: 0;
@@ -6,9 +13,9 @@
 }
 
 body {
-  font-family: Arial, sans-serif;
-  background: #e6e6e6;
-  color: #000;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; /* Tipografía más sobria */
+  background: #f8f9fa; /* Fondo muy claro */
+  color: #343a40; /* Texto principal gris oscuro */
   line-height: 1.6;
 }
 
@@ -17,31 +24,37 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 30px;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 15px 40px;
+  background: #ffffff; /* Fondo Blanco */
+  border-bottom: 1px solid #e9ecef; /* Borde sutil */
 }
 .navbar h1 {
-  color: #0583ff;
-  font-size: 1.8rem;
+  color: #1a2e44; /* Azul Oscuro como color principal */
+  font-size: 1.7rem;
+  font-weight: 600; /* Un poco más de peso */
 }
 .navbar .btn {
-  background: linear-gradient(135deg, #0583ff, #00eba7);
+  background: #6c757d; /* Gris Oscuro para acción secundaria */
   color: #fff;
-  padding: 8px 15px;
-  border-radius: 6px;
+  padding: 8px 18px;
+  border-radius: 4px; /* Bordes más cuadrados */
   text-decoration: none;
-  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
 }
 .navbar .btn:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(0, 235, 167, 0.3);
+  background-color: #5a6268;
+  transform: none; /* Eliminar transformación de movimiento */
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Container */
 .container {
-  padding: 40px;
-  max-width: 1200px;
+  padding: 30px 40px;
+  max-width: 1300px;
   margin: auto;
 }
 
@@ -49,97 +62,110 @@ body {
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px;
+  gap: 25px;
+  margin-bottom: 30px;
 }
 .stat-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 30px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-  text-align: center;
+  background: #ffffff;
+  border-radius: 6px; /* Bordes más sutiles */
+  padding: 25px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Sombra más suave */
+  text-align: left; /* Alineación formal a la izquierda */
   transition: transform 0.2s ease, box-shadow 0.3s ease;
+  border-left: 5px solid #007bff; /* Toque de color corporativo */
 }
 .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 .stat-card h2 {
-  font-size: 2rem;
-  color: #0583ff;
-  margin-bottom: 10px;
+  font-size: 1.8rem;
+  color: #1a2e44;
+  margin-bottom: 5px;
+  font-weight: 700;
 }
 .stat-card p {
-  color: #555;
+  color: #6c757d;
+  font-size: 0.9rem;
 }
 
 /* Table section */
 .table-section {
   background: #fff;
   padding: 30px;
-  border-radius: 16px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
 }
 .table-section h3 {
-  color: #0583ff;
+  color: #1a2e44;
   margin-bottom: 20px;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 10px;
 }
 
 /* Table controls */
 .table-controls {
   display: flex;
-  justify-content: space-between; /* Distribuye el espacio entre filtros y acciones */
-  align-items: flex-start; /* Alinea los grupos al inicio */
-  margin-bottom: 20px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 25px;
 }
 
 .actions-group {
   display: flex;
-  flex-direction: column; /* Apila los elementos verticalmente */
-  gap: 8px; /* Espacio entre los botones apilados */
+  flex-direction: column;
+  gap: 8px;
 }
 
-/* Ajuste para que los botones tengan un ancho consistente */
 .btn-create,
 .btn-clear-filters {
-  /* Establece un ancho fijo para que se vean alineados al ser apilados */
-  width: 150px;
+  width: 180px; /* Un poco más de ancho para ser más visible */
   text-align: center;
+  font-size: 1rem;
 }
 
 .filters {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .filters input,
 .filters select {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 0.95rem;
+  padding: 10px 12px;
+  border: 1px solid #ced4da; /* Borde más formal */
+  border-radius: 4px;
+  font-size: 0.9rem;
   background: #fff;
-  transition: border 0.3s, box-shadow 0.3s;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  width: auto;
+  min-width: 150px;
 }
 .filters input:focus,
 .filters select:focus {
-  border-color: #00eba7;
-  box-shadow: 0 0 8px rgba(0, 235, 167, 0.4);
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* Sombra de foco azul */
   outline: none;
 }
 .btn-create {
-  background: linear-gradient(135deg, #0583ff, #00eba7);
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: bold;
-  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  background-color: #1a2e44;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 1.05em;
+  margin-top: 20px;
+  font-weight: 600;
+  transition: background-color 0.2s;
 }
 .btn-create:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(0, 235, 167, 0.3);
+  background-color: #007bff;
+  transform: none;
+  box-shadow: 0 3px 6px rgba(0, 123, 255, 0.2);
 }
 
 /* Table */
@@ -149,83 +175,121 @@ table {
   margin-top: 10px;
 }
 thead {
-  background: #f0f6ff;
+  background: #f8f9fa; /* Fondo muy claro */
 }
 thead th {
   text-align: left;
-  padding: 12px;
-  color: #0583ff;
-  font-size: 0.95rem;
+  padding: 15px 12px;
+  color: #1a2e44;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border-bottom: 2px solid #e9ecef;
+  text-transform: uppercase;
 }
 tbody tr {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #e9ecef;
 }
 tbody td {
   padding: 12px;
-  font-size: 0.95rem;
-  color: #333;
+  font-size: 0.85rem;
+  color: #495057;
 }
 tbody tr:hover {
-  background: #f9fafb;
+  background: #f8f9fa;
 }
+
+/* Colores de Estado (Más formales) */
+.status-draft {
+  color: #6c757d;
+} /* Gris */
+.status-review {
+  color: #ffc107;
+  font-weight: bold;
+} /* Amarillo-Naranja */
+.status-in_progress {
+  color: #007bff;
+  font-weight: bold;
+} /* Azul */
+.status-completed {
+  color: #28a745;
+  font-weight: bold;
+} /* Verde */
+.status-approved {
+  color: #1a2e44;
+  font-weight: bold;
+} /* Azul Oscuro */
+
+/* Colores de Prioridad (Más formales) */
+.priority-Baja {
+  color: #28a745;
+} /* Verde */
+.priority-Media {
+  color: #ffc107;
+  font-weight: bold;
+} /* Amarillo-Naranja */
+.priority-Alta {
+  color: #dc3545;
+  font-weight: bold;
+} /* Rojo */
 
 /* Footer */
 .footer {
-  margin-top: 40px;
+  margin-top: 30px;
   padding: 20px;
   text-align: center;
-  font-size: 0.85rem;
-  color: #777;
+  font-size: 0.8rem;
+  color: #6c757d;
 }
 
 /* Acciones en la tabla */
-.acciones {
+.options-container {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
 .btn-action {
-  padding: 10px 12px;
+  padding: 8px 10px; /* Reducir un poco el padding */
   border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: bold;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
+  transition: background 0.3s, opacity 0.2s;
   color: #fff;
+  line-height: 1; /* Para centrar bien el ícono */
+}
+.btn-action i {
+  font-size: 1.1rem;
 }
 
-/* Colores por tipo */
+/* Colores por tipo (Más oscuros y sólidos) */
 .btn-action.edit {
-  background: #0583ff;
+  background: #007bff;
 }
 .btn-action.view {
-  background: #00b894;
+  background: #17a2b8; /* Cian */
 }
 .btn-action.delete {
-  background: #d63031;
+  background: #dc3545;
 }
 .btn-action.download {
-  background: #6c5ce7;
+  background: #6f42c1; /* Morado */
 }
-
 .btn-action.assign {
-  background: #fdcb6e;
-  color: #333;
+  background: #ffc107; /* Amarillo suave */
+  color: #1a2e44; /* Texto oscuro para contraste */
 }
-
 .btn-action.user {
-  background: #00b894;
+  background: #28a745;
   color: #fff;
 }
-
 .btn-action:hover {
-  transform: translateY(-2px);
-  opacity: 0.9;
+  transform: none;
+  opacity: 0.85;
 }
 
-/* Necesitarás añadir esto a tu archivo './css/styles.css' */
+/* Modal */
 
 /* Fondo oscuro (Backdrop) */
 .modal-backdrop {
@@ -234,21 +298,21 @@ tbody tr:hover {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7); /* Oscurece el fondo */
+  background-color: rgba(0, 0, 0, 0.6); /* Oscuridad media */
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000; /* Asegura que esté por encima de otros elementos */
+  z-index: 1000;
 }
 
 /* Contenido del Modal */
 .modal-content {
   background: white;
   padding: 30px;
-  border-radius: 8px;
+  border-radius: 6px;
   width: 90%;
-  max-width: 600px; /* Tamaño máximo */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  max-width: 550px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   max-height: 80vh;
   overflow-y: auto;
 }
@@ -259,18 +323,26 @@ tbody tr:hover {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 15px;
 }
 
 .modal-header h2 {
   margin: 0;
+  font-size: 1.4rem;
+  color: #1a2e44;
 }
 
 .btn-close {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 28px;
   cursor: pointer;
-  color: #333;
+  color: #6c757d;
+  transition: color 0.2s;
+}
+.btn-close:hover {
+  color: #343a40;
 }
 
 /* Formulario */
@@ -281,8 +353,9 @@ tbody tr:hover {
 .modal-form label {
   display: block;
   margin-bottom: 5px;
-  font-weight: bold;
+  font-weight: 600; /* Más peso */
   font-size: 0.9em;
+  color: #343a40;
 }
 
 .modal-form input[type="text"],
@@ -290,112 +363,104 @@ tbody tr:hover {
 .modal-form textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid #ced4da;
   border-radius: 4px;
-  box-sizing: border-box; /* Incluir padding y borde en el ancho */
+  box-sizing: border-box;
+  font-size: 0.9rem;
 }
 
 .modal-form textarea {
   resize: vertical;
-  min-height: 80px;
+  min-height: 70px;
 }
 
 .form-group-inline {
   display: flex;
-  gap: 20px;
+  gap: 15px;
 }
 
 .form-group-inline .form-group {
   flex: 1;
 }
 
-.btn-generate {
-  background-color: #007bff; /* Color principal */
-  color: white;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  width: 100%;
-  font-size: 1.1em;
-  margin-top: 20px;
-}
-
-.btn-generate:hover {
-  background-color: #0056b3;
-}
-
-/* Estilos para el Dropdown de Asignación en la tabla */
+/* Dropdown de Asignación en la tabla */
 .dropdown-menu {
-  position: absolute; /* Posición relativa al contenedor 'acciones' */
-  top: 100%; /* Justo debajo del botón */
+  position: absolute;
+  top: 100%;
   right: 0;
   width: 200px;
   background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 50; /* Asegura que esté por encima de las filas de la tabla */
-  padding: 8px 0;
-  margin-top: 5px; /* Pequeño espacio entre el botón y el menú */
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  padding: 5px 0;
+  margin-top: 5px;
 }
 
 .dropdown-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 10px 15px;
+  padding: 8px 15px;
   background: none;
   border: none;
   text-align: left;
   cursor: pointer;
-  font-size: 0.9rem;
-  color: #333;
+  font-size: 0.85rem;
+  color: #343a40;
   transition: background-color 0.2s;
 }
 
 .dropdown-item:hover {
-  background-color: #f0f6ff; /* Fondo suave al pasar el ratón */
+  background-color: #f8f9fa;
+}
+
+.dropdown-item i {
+  font-size: 1rem;
 }
 
 .dropdown-item.desasignar {
-  color: #d63031; /* Color rojo para la acción de desasignar */
-  border-bottom: 1px solid #eee; /* Separador */
-  padding-bottom: 12px;
+  color: #dc3545;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 10px;
   margin-bottom: 5px;
 }
 
 .dropdown-title {
   padding: 5px 15px;
-  font-size: 0.8rem;
-  color: #777;
-  font-weight: bold;
+  font-size: 0.75rem;
+  color: #6c757d;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
 /* Estilo para el botón Borrar Filtros */
 .btn-clear-filters {
-  background: #ff6b6b; /* Un color rojo suave para indicar reset */
-  color: white;
+  background: #adb5bd; /* Gris suave, menos agresivo */
+  color: #1a2e44;
   border: none;
-  padding: 8px 15px;
-  border-radius: 6px;
+  padding: 10px 15px;
+  border-radius: 4px;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 500;
   transition: background 0.2s;
-  height: 40px; /* Igualar la altura de los selects */
+  height: 40px;
 }
 
 .btn-clear-filters:hover {
-  background: #ee5253;
+  background: #6c757d;
+  color: #fff;
 }
 
 .btn-clear-filters i {
   margin-right: 5px;
 }
 
-/* Asegura que el contenedor de filtros maneje el nuevo botón */
+/* Asegura que el contenedor de controles maneje bien la alineación */
 .table-controls .filters {
   display: flex;
   gap: 10px;
-  align-items: center;
+  align-items: center; /* ESTA LÍNEA ES CLAVE */
 }

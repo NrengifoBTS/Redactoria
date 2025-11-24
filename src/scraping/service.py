@@ -326,9 +326,9 @@ class AIService:
                                      full_structure_markdown: str,
                                      section_to_regenerate: str,
                                      new_prompt: Optional[str] = None,
-                                     idioma: str = "es", 
-                                     acento: str = "neutral",
-                                     tono: str = "profesional", 
+                                     idioma: str = "", 
+                                     acento: str = "",
+                                     tono: str = "", 
                                      **kwargs
                                     ) -> List[str]:
         
@@ -1625,7 +1625,6 @@ class AnalysisOrchestrator:
 
         yield "event: final_data\n"
         yield f"data: {final_response.model_dump_json()}\n\n"
-
 
 
 def execute_scraping(req: models.ScrapeRequest) -> Generator[str, None, None]:
