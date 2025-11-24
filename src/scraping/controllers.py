@@ -26,6 +26,7 @@ def scrape_stream(req: models.ScrapeRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en el proceso de scraping: {str(e)}")
 
+
 # =======================================================================
 # 2. ROUTER DE IA (GENERACIÓN Y ANÁLISIS)
 # =======================================================================

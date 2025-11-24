@@ -3,95 +3,99 @@ import React, {
   useRef,
   useCallback,
   useMemo,
-  useEffect,
+  useEffect, // <-- Asegúrate de que useEffect esté importado
 } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom"; // <-- Añadimos useParams y useNavigate
 import "@iconscout/unicons/css/line.css";
 import "./css/styles_generacion.css";
-import apiService from "./services/apiService";
+// import { useBlogs } from "./hooks/useApi.js"; // Lo comentamos, usaremos fetch directo
 
 const GeneracionBlog = () => {
+  // <-- ¡Firma del componente adaptada para routing!
   // =======================================================================
   // 0. HOOKS PRINCIPALES Y DE NAVEGACIÓN (INICIO ABSOLUTO)
   // =======================================================================
   const { blogId } = useParams(); // Obtiene el ID de la ruta /blog/edit/:blogId
   const navigate = useNavigate(); // Hook para redireccionar si es necesario
 
-  const authToken = useMemo(() => localStorage.getItem("token"), []);
-  // =======================================================================
-  // // 1. REFERENCIAS DE ELEMENTOS Y CONTROL (useRef)
-  // // =======================================================================
+  // SOLUCIÓN 'authToken' not defined & HOOKS RULE: Se obtiene de localStorage.
+  const authToken = useMemo(() => localStorage.getItem("authToken"), []);
 
+  // =======================================================================
+  // 1. REFERENCIAS DE ELEMENTOS Y CONTROL (useRef)
+  // =======================================================================
   const referenciaUrls = useRef(null);
   const referenciaControladorAborto = useRef(null);
+
   // =======================================================================
-  // // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS (useState)
-  // // =======================================================================
-  const [datosFinales, setDatosFinales] = useState(null); // <-- Fuente de verdad
-  const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState(null);
+  // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS (useState)
+  // =======================================================================
+  const [datosFinales, setDatosFinales] = useState(null);
+  const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [estimatedWordCount, setEstimatedWordCount] = useState(null);
   const [, setTotalGeneratedWords] = useState(0);
   const [titleSuggestions, setTitleSuggestions] = useState([]);
-  const [isEditingStructure, setIsEditingStructure] = useState(true); // *** Nota: Aquí se declara formData si solo contiene los campos editables que SÍ se modificarán. // Si todos los campos de generación (title, categoria, keywords, etc.) son fijos, // este estado ya no tiene sentido para esos campos. Si lo necesitas para campos // *diferentes* (como la estructura o contenido), déjalo. Si no hay formulario de edición, // puedes eliminarlo. Dejaré la declaración comentada por si la requieres más adelante. // const [formData, setFormData] = useState({ ... campos editables ... }); // --- FEEDBACK PARA GUARDADO ---
+  const [isEditingStructure, setIsEditingStructure] = useState(true);
+
+  // --- FEEDBACK PARA GUARDADO ---
   const [localBlogId, setLocalBlogId] = useState(null); // ID del proyecto (aquí se cargará el blogId de la BD)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [notification, setNotification] = useState({ message: "", type: "" });
+
   // -----------------------------------------------------------------------
-  // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
-  // // -----------------------------------------------------------------------
+  // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
+  // -----------------------------------------------------------------------
+  const [blogData, setBlogData] = useState(null); // Almacena la respuesta de la BD
+  const [loadingBlog, setLoadingBlog] = useState(true); // Control de carga inicial
+  const [fetchError, setFetchError] = useState(null); // Control de error de carga
 
-  const [, setLoadingBlog] = useState(true); // Control de carga inicial
-  const [, setFetchError] = useState(null); // Control de error de carga
-
-  useEffect(() => {
-    // Evita la ejecución si no hay un ID de blog
-    if (!blogId) return;
-
-    const loadBlogData = async () => {
-      setLoadingBlog(true); // Inicia la carga
-      setFetchError(null); // Limpia errores previos
-
-      try {
-        // 1. Llamar a la API con el ID
-        const data = await apiService.getBlogById(blogId);
-
-        if (data) {
-          // 2. Guardar el objeto Blog de la BD en el estado principal
-          setDatosFinales(data);
-          if (data.estructura_blog_json) {
-            setTablaEstructuraFinal(data.estructura_blog_json);
-          }
-          if (data.consolidated_content) {
-            setContenidoConsolidado(data.consolidated_content);
-          } // Opcional: setLocalBlogId
-          setLocalBlogId(data.id);
-        } else {
-          setFetchError("No se pudieron cargar los datos del blog.");
-        }
-      } catch (error) {
-        console.error("Error al cargar los datos del blog:", error);
-        setFetchError("Hubo un error en la comunicación con la API.");
-      } finally {
-        // 4. Finaliza la carga
-        setLoadingBlog(false);
-      }
-    };
-
-    loadBlogData();
-  }, [blogId, navigate]);
   // =======================================================================
-  // // 3. CONSTANTES Y DATOS INICIALES
-  // // =======================================================================
-  // //--- URLs de la API del backend ---
-
+  // 3. CONSTANTES Y DATOS INICIALES
+  // =======================================================================
+  //--- URLs de la API del backend ---
   const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
   const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
-  const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/";
+  const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/"; // <-- URL para el GET /blogs/{id}
   const URL_API_IA_COMPLETO =
-    "http://192.168.1.129:8000/ai/generate_full_content"; // ----------------------------------------------------------------------- // ESTADO DEL FORMULARIO INICIAL (ELIMINADO o MOVIDO) // ----------------------------------------------------------------------- // ELIMINAMOS la declaración de formData y initialParams si solo contenían los // parámetros fijos (title, categoria, keywords, etc.) que se cargan. // --- Título de la vista ---
+    "http://192.168.1.129:8000/ai/generate_full_content";
 
-  const mainTitle = datosFinales?.title || "Generación de Blog"; // <-- ¡Lee directo de datosFinales!
+  // -----------------------------------------------------------------------
+  // ESTADO DEL FORMULARIO INICIAL (Valores por defecto para el primer render)
+  // -----------------------------------------------------------------------
+  const [formData, setFormData] = useState({
+    // Estos valores serán sobreescritos en useEffect con los datos de la BD
+    titulo: "",
+    categoria: "",
+    keywords: "",
+    idioma: "es",
+    tecnica: "persuasiva",
+    acento: "neutral",
+    tono: "profesional",
+    priority: "medium",
+  });
+
+  // LOGICA PREVIA DE PARÁMETROS: Sigue dependiendo de formData
+  const initialParams = useMemo(
+    () => ({
+      title: formData.titulo, // Mapeamos formData.titulo a initialParams.title
+      categoria: formData.categoria,
+      keywords: formData.keywords,
+      idioma: formData.idioma,
+      tecnica: formData.tecnica,
+      acento: formData.acento,
+      tono: formData.tono,
+      priority: formData.priority,
+      // Puedes añadir el resto de los campos de formData aquí si son usados
+    }),
+    [formData]
+  );
+
+  //--- Título de la vista (AHORA DEPENDE DE initialParams) ---
+  const mainTitle =
+    initialParams.title || blogData?.name || "Generación de Blog";
+
   // =======================================================================
   // 4. ESTADOS DE CARGA Y CONTROL DE FLUJO GLOBAL
   // =======================================================================
@@ -136,6 +140,15 @@ const GeneracionBlog = () => {
     }, 3000);
   };
 
+  // 1. Función para mostrar la notificación de guardado (Toast)
+  const showNotification = (message, type) => {
+    setNotification({ message, type });
+    // Oculta la notificación después de 4 segundos
+    setTimeout(() => {
+      setNotification({ message: "", type: "" });
+    }, 4000);
+  };
+
   // 2. Función para marcar que algo ha cambiado (activa el botón de guardar)
   const markAsChanged = useCallback(() => {
     if (!hasUnsavedChanges) {
@@ -143,33 +156,41 @@ const GeneracionBlog = () => {
     }
   }, [hasUnsavedChanges]);
 
-  // 3. Lógica principal de Guardado de la estructura (POST/PUT)
-
-  const handleSaveProject = useCallback(async () => {
-    if (isSaving || !localBlogId) {
-      if (!localBlogId) {
-        showToast(
-          "No se puede guardar: el artículo no ha sido creado (falta ID).",
-          "error"
-        );
-      }
-      return;
-    }
-
-    if (!tablaEstructuraFinal) {
-      showToast("No hay estructura que guardar.", "warning");
-      return;
-    }
+  // 3. Lógica principal de Guardado (POST/PUT)
+  const handleSaveProject = async () => {
+    // Validación: Previene el envío si no hay estructura o no hay cambios
+    if (isSaving || !tablaEstructuraFinal || !hasUnsavedChanges) return;
 
     setIsSaving(true);
-    const payload = {
+
+    const method = localBlogId ? "PUT" : "POST";
+
+    let URL_API_SAVE;
+    let payload;
+
+    // Los datos esenciales que se enviarán al backend
+    const blogData = {
+      name: initialParams.titulo,
+      // Enviamos la cadena de Markdown para que el BE la guarde en el campo correspondiente (Text/JSON)
       estructura_blog_json: tablaEstructuraFinal,
+      consolidated_content: contenidoConsolidado,
     };
-    const URL_API_SAVE = `${URL_API_BASE_BLOGS}${localBlogId}`;
+
+    if (method === "POST") {
+      URL_API_SAVE = URL_API_BASE_BLOGS + "/";
+      payload = {
+        ...initialParams, // Parámetros del formulario inicial (titulo, categoria, etc.)
+        ...blogData,
+      };
+    } else {
+      // El PUT solo necesita el ID y los datos a actualizar
+      URL_API_SAVE = `${URL_API_BASE_BLOGS}/${localBlogId}`;
+      payload = blogData;
+    }
 
     try {
       const response = await fetch(URL_API_SAVE, {
-        method: "PUT",
+        method: method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
@@ -178,37 +199,35 @@ const GeneracionBlog = () => {
       });
 
       if (!response.ok) {
-        // ... (Lógica de manejo de error que genera errorMessage)
-        const errorText = await response.text();
-        let errorMessage = `Error ${response.status}: Falló la actualización del blog.`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.detail) {
-            errorMessage =
-              errorJson.detail[0].msg || JSON.stringify(errorJson.detail);
-          } else {
-            errorMessage = JSON.stringify(errorJson);
-          }
-        } catch {}
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail ||
+            `Fallo al ${
+              method === "POST" ? "crear" : "actualizar"
+            } el proyecto.`
+        );
       }
 
-      showToast("Guardado exitoso. Estructura actualizada.", "success");
-      setHasUnsavedChanges(false);
+      const result = await response.json();
+
+      if (method === "POST") {
+        setLocalBlogId(result.id); // Guarda el ID
+        showNotification(
+          `Proyecto CREADO con éxito. ID: ${result.id.substring(0, 8)}...`,
+          "success"
+        );
+      } else {
+        showNotification("Guardado exitoso. Proyecto actualizado.", "success");
+      }
+
+      setHasUnsavedChanges(false); // Resetear bandera de cambios pendientes
     } catch (error) {
-      console.error("Error al guardar la estructura:", error);
-      showToast(`Error de guardado: ${error.message}`, "error");
+      console.error("Fallo la operación de guardado:", error);
+      showNotification(`Error al guardar: ${error.message}`, "error");
     } finally {
       setIsSaving(false);
     }
-  }, [
-    localBlogId,
-    tablaEstructuraFinal,
-    isSaving,
-    setHasUnsavedChanges,
-    authToken,
-    URL_API_BASE_BLOGS,
-  ]);
+  };
 
   // Visibilidad de tarjetas en el front
   const toggleCardVisibility = (cardName) => {
@@ -617,7 +636,7 @@ const GeneracionBlog = () => {
   };
 
   // =======================================================================
-  // CÁLCULOS DE ESTRUCTURA Y CONTEO
+  // CÁLCULOS DE ESTRUCTURA Y CONTEO (Código simple - SIN FUNCIONES NUEVAS)
   // =======================================================================
 
   // 2. Crear una NUEVA estructura inyectando 'wordCount'
@@ -1102,6 +1121,7 @@ const GeneracionBlog = () => {
     // 1. Resetear estados al iniciar
     setCargandoScraping(true);
     setError(null);
+    setDatosFinales(null);
     setTablaEstructuraFinal("");
     setContenidoConsolidado(null);
     setSelectedSectionForRegen(null);
@@ -1120,7 +1140,7 @@ const GeneracionBlog = () => {
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
     const consulta = lineasConsulta[0];
-    const urls = lineasConsulta.slice(1); // 👈 URLs que queremos guardar
+    const urls = lineasConsulta.slice(1);
     const numResultados = urls.length > 0 ? urls.length : 3;
 
     if (!consulta || numResultados < 1) {
@@ -1134,36 +1154,12 @@ const GeneracionBlog = () => {
     }
 
     // Extracción de initialParams
-    const title_base = datosFinales?.title || consulta;
-    const categoria = datosFinales?.categoria || "";
-    const idioma = datosFinales?.idioma || "";
-    const tecnica = datosFinales?.tecnica || "";
-    const acento = datosFinales?.acento || "";
-    const tono = datosFinales?.tono || "";
-
-    // 🆕 2.5. Definir URL de guardado y GUARDAR LAS URLS INICIALES (PUT request, no bloqueante)
-    const URL_API_SAVE = `${URL_API_BASE_BLOGS}${blogId}`;
-
-    if (urls.length > 0) {
-      fetch(URL_API_SAVE, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          scraped_urls: urls, // El array de URLs del input
-        }),
-      })
-        .then((res) => {
-          if (!res.ok)
-            console.warn(
-              `[SCRAPING] Aviso: Falló el guardado de URLs con estado ${res.status}`
-            );
-          else console.log("[SCRAPING] URLs iniciales guardadas en el blog.");
-        })
-        .catch((err) => console.error("[SCRAPING] Error al enviar URLs:", err));
-    }
+    const title_base = initialParams.titulo || consulta;
+    const categoria = initialParams.categoria || "SEO";
+    const idioma = initialParams.idioma || "es";
+    const tecnica = initialParams.tecnica || "SEO";
+    const acento = initialParams.acento || "neutral";
+    const tono = initialParams.tono || "profesional";
 
     try {
       // 3. LLAMADA AL ENDPOINT DE SCRAPING
@@ -1221,40 +1217,9 @@ const GeneracionBlog = () => {
             if (currentEvent === "final_data") {
               try {
                 const parsed = JSON.parse(dataLine);
-                setDatosFinales((prevDatos) => ({ ...prevDatos, ...parsed }));
-
+                setDatosFinales(parsed);
                 finalDataReceived = true;
-                const consolidatedContent = parsed.consolidated_content || null; // Extraer contenido
-
-                // 🆕 GUARDADO DEL CONTENIDO CONSOLIDADO (No bloqueante)
-                if (consolidatedContent) {
-                  fetch(URL_API_SAVE, {
-                    method: "PUT",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${authToken}`,
-                    },
-                    body: JSON.stringify({
-                      consolidated_content: consolidatedContent,
-                    }),
-                  })
-                    .then((res) => {
-                      if (!res.ok)
-                        console.warn(
-                          `[SCRAPING] Aviso: Falló el guardado de Contenido Consolidado con estado ${res.status}`
-                        );
-                      else
-                        showToast("Contenido consolidado guardado.", "success");
-                    })
-                    .catch((err) =>
-                      console.error(
-                        "[SCRAPING] Error al enviar Contenido:",
-                        err
-                      )
-                    );
-                }
-
-                setContenidoConsolidado(consolidatedContent); // Actualizar estado local
+                setContenidoConsolidado(parsed.consolidated_content || null);
 
                 if (parsed.log && Array.isArray(parsed.log)) {
                   console.log("[SCRAPING - LOGS DETALLADOS]");
@@ -1372,12 +1337,12 @@ const GeneracionBlog = () => {
       datosFinales?.query || referenciaUrls.current.value.split("\n")[0].trim();
 
     // Reutilizar parámetros de initialParams para la llamada a la IA
-    const title_base = datosFinales?.title || consulta;
-    const categoria = datosFinales?.categoria || "";
-    const idioma = datosFinales?.idioma || "";
-    const tecnica = datosFinales?.tecnica || "";
-    const acento = datosFinales?.acento || "";
-    const tono = datosFinales?.tono || "";
+    const title_base = initialParams.titulo || consulta;
+    const categoria = initialParams.categoria || "SEO";
+    const idioma = initialParams.idioma || "es";
+    const tecnica = initialParams.tecnica || "SEO";
+    const acento = initialParams.acento || "neutral";
+    const tono = initialParams.tono || "profesional";
 
     try {
       // LLamada al endpoint de generación de estructura con el contenido consolidado
@@ -1637,10 +1602,10 @@ const GeneracionBlog = () => {
       consolidated_content: textoConsolidado,
       section_type: sectionType,
       previous_content: historyArray,
-      idioma: datosFinales?.idioma || "",
-      acento: datosFinales?.acento || "",
-      tono: datosFinales?.tono || "",
-      tecnica: datosFinales?.tecnica || "",
+      idioma: initialParams.idioma || "es",
+      acento: initialParams.acento || "neutral",
+      tono: initialParams.tono || "profesional",
+      tecnica: initialParams.tecnica || "SEO",
       regenerate_data: undefined,
     };
 
@@ -2290,30 +2255,31 @@ const GeneracionBlog = () => {
       <div className="blog-generation-page">
         {/* Header */}
         <header className="navbar">
-          <a href="/dashboard_blog" className="btn-generate-image">
+          <a href="/dashboard_blog" className="btn">
             Volver al Dashboard
           </a>
-          <h1>Generación de Blog</h1>
+          <h1>Generación de Blog con Análisis SEO Final</h1>
 
-          {/* --- BOTÓN DE GUARDAR ESTRUCTURA --- */}
+          {/* Indicador de cambios pendientes  */}
+          {hasUnsavedChanges && (
+            <span className="unsaved-badge">
+              <i className="uil uil-exclamation-triangle"></i> Cambios
+              Pendientes
+            </span>
+          )}
+
+          {/* --- BOTÓN DE GUARDAR CONDICIONAL  --- */}
           <button
-            className={`btn-download ${
+            className={`btn btn-save ${
               hasUnsavedChanges ? "btn-active-save" : ""
             }`}
-            onClick={handleSaveProject} // Llama a la función con el useCallback
-            // Deshabilitado si: no hay ID O no hay estructura (objeto/null) O está guardando O no hay cambios pendientes
-            disabled={
-              !localBlogId ||
-              !tablaEstructuraFinal ||
-              isSaving ||
-              !hasUnsavedChanges
-            }
+            onClick={handleSaveProject}
+            // DESHABILITADO SI: No hay estructura O está guardando O no hay cambios pendientes
+            disabled={!tablaEstructuraFinal || isSaving || !hasUnsavedChanges}
             title={
-              !localBlogId
-                ? "Cree primero el artículo base para poder guardar la estructura."
-                : !tablaEstructuraFinal
-                ? "Genere la estructura antes de guardar."
-                : "Guardar la estructura actual del blog."
+              !tablaEstructuraFinal
+                ? "Genere la estructura antes de guardar"
+                : "Guardar el progreso actual"
             }
           >
             {isSaving ? (
@@ -2322,7 +2288,8 @@ const GeneracionBlog = () => {
               </>
             ) : (
               <>
-                <i className="uil uil-save"></i> Guardar Estructura
+                <i className="uil uil-save"></i> Guardar (
+                {localBlogId ? "Actualizar" : "Crear"})
               </>
             )}
           </button>
@@ -2374,107 +2341,110 @@ const GeneracionBlog = () => {
         {/* ========================================================= */}
         {/* --- SECCIÓN: TARJETAS DE CONFIGURACIÓN INICIAL (INPUTS) --- */}
         {/* ========================================================= */}
-
-        <section className="config-panel-unified analysis-result info-card">
-          <h2
-            className="analysis-title"
-            style={{
-              borderBottomColor: "#1A2E44", // Color corporativo oscuro
-              cursor: "pointer",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-            onClick={() => toggleCardVisibility("preconfiguracionUnificada")} // Usar una clave única
-          >
-            <div>
-              <i className="uil uil-setting"></i> Preconfiguraciones
-            </div>
-            <i
-              className={`uil ${
-                cardVisibility.preconfiguracionUnificada
-                  ? "uil-angle-up"
-                  : "uil-angle-down"
-              }`}
-            ></i>
-          </h2>
-
-          {cardVisibility.preconfiguracionUnificada && (
-            <div className="analysis-detail config-unified-content">
-              {/* GRUPO 1: Título y Keywords (Items que ocupan todo el ancho) */}
-              <div className="config-group config-group-wide">
-                {/* Título Base: Etiqueta y valor en una misma fila en escritorio */}
-                <div className="config-item-row">
-                  <span className="analysis-title config-label">
-                    <i className="uil uil-tag-alt"></i> Título Base:
-                  </span>
-                  <p className="main-title-output config-value config-value-break">
-                    {datosFinales?.title || "N/A"}
-                  </p>
-                </div>
-
-                {/* Keywords: Etiqueta y chips en una misma fila en escritorio */}
-                <div className="config-item-row">
-                  <span className="analysis-title config-label">
-                    <i className="uil uil-key-skeleton"></i> Keywords
-                    Secundarias:
-                  </span>
-                  <div className="keywords-tags config-value config-chips-container">
-                    {(datosFinales?.keywords || "")
-                      .split(",")
-                      .map((keyword, index) =>
-                        keyword.trim() ? (
-                          <span key={index} className="keyword-chip">
-                            {keyword.trim()}
-                          </span>
-                        ) : null
-                      )}
-                    {!datosFinales?.keywords && (
-                      <span className="data-chip missing">N/A</span>
-                    )}
-                  </div>
-                </div>
+        <div className="config-cards-wrapper">
+          {/* Card 1: Temas y Keywords */}
+          <section className="analysis-result info-card">
+            <h2
+              className="analysis-title"
+              style={{
+                borderBottomColor: "#20c997",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+              onClick={() => toggleCardVisibility("temasKeywords")}
+            >
+              <div>
+                <i className="uil uil-tag-alt"></i> Temas y Keywords
               </div>
+              <i
+                className={`uil ${
+                  cardVisibility.temasKeywords
+                    ? "uil-angle-up"
+                    : "uil-angle-down"
+                }`}
+              ></i>
+            </h2>
+            {cardVisibility.temasKeywords && (
+              <div className="analysis-detail">
+                <span className="analysis-title">Título Base:</span>
+                <p>{initialParams.titulo || "N/A"}</p>
 
-              {/* Contenedor Flex/Grid para Grupos 2 y 3: Estilo/Tono y Contexto (Lado a lado en escritorio) */}
-              <div className="config-group-columns-container">
-                {/* GRUPO 2: Estilo y Tono */}
-                <div className="config-group config-group-column-item">
-                  <span className="analysis-title">
-                    <i className="uil uil-palette"></i> Estilo y Tono:
-                  </span>
-                  <div className="data-chip-container config-chips-container">
-                    <span className="data-chip primary">
-                      Tono: <strong>{datosFinales?.tono || "N/A"}</strong>
-                    </span>
-                    <span className="data-chip secondary">
-                      Acento: <strong>{datosFinales?.acento || "N/A"}</strong>
-                    </span>
-                    <span className="data-chip tertiary">
-                      Técnica: <strong>{datosFinales?.tecnica || "N/A"}</strong>
-                    </span>
-                  </div>
-                </div>
-
-                {/* GRUPO 3: Metadatos/Contexto */}
-                <div className="config-group config-group-column-item">
-                  <span className="analysis-title">
-                    <i className="uil uil-globe"></i> Contexto:
-                  </span>
-                  <div className="data-chip-container config-chips-container">
-                    <span className="data-chip context-lang">
-                      Idioma: <strong>{datosFinales?.idioma || "N/A"}</strong>
-                    </span>
-                    <span className="data-chip context-project">
-                      Proyecto:{" "}
-                      <strong>{datosFinales?.categoria || "N/A"}</strong>
-                    </span>
-                  </div>
-                </div>
+                <span className="analysis-title">Keywords Secundarias:</span>
+                <p className="keywords-output">
+                  {initialParams.keywords || "N/A"}
+                </p>
               </div>
-            </div>
-          )}
-        </section>
+            )}
+          </section>
+
+          {/* Card 2: Estilo y Tono */}
+          <section className="analysis-result info-card">
+            <h2
+              className="analysis-title"
+              style={{
+                borderBottomColor: "#20c997",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+              onClick={() => toggleCardVisibility("estiloTono")}
+            >
+              <div>
+                <i className="uil uil-palette"></i> Estilo y Tono
+              </div>
+              <i
+                className={`uil ${
+                  cardVisibility.estiloTono ? "uil-angle-up" : "uil-angle-down"
+                }`}
+              ></i>
+            </h2>
+            {cardVisibility.estiloTono && (
+              <div className="analysis-detail">
+                <span className="analysis-title">Tono:</span>
+                <p>{initialParams.tono || "N/A"}</p>
+                <span className="analysis-title">Acento:</span>
+                <p>{initialParams.acento || "N/A"}</p>
+                <span className="analysis-title">Técnica:</span>
+                <p>{initialParams.tecnica || "N/A"}</p>
+              </div>
+            )}
+          </section>
+
+          {/* Card 3: Metadatos/Contexto */}
+          <section className="analysis-result info-card">
+            <h2
+              className="analysis-title"
+              style={{
+                borderBottomColor: "#00eba7",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+              onClick={() => toggleCardVisibility("contexto")}
+            >
+              <div>
+                <i className="uil uil-globe"></i> Contexto
+              </div>
+              <i
+                className={`uil ${
+                  cardVisibility.contexto ? "uil-angle-up" : "uil-angle-down"
+                }`}
+              ></i>
+            </h2>
+            {cardVisibility.contexto && (
+              <div className="analysis-detail">
+                <span className="analysis-title">Idioma:</span>
+                <p>{initialParams.idioma || "N/A"}</p>
+                <span className="analysis-title">Proyecto:</span>
+                <p>{initialParams.categoria || "N/A"}</p>
+              </div>
+            )}
+          </section>
+        </div>
 
         {/* Contenedores Principales (Izquierda y Derecha) */}
         <div className="generadores-container">
@@ -2714,7 +2684,7 @@ const GeneracionBlog = () => {
                   </button>
                   <button
                     onClick={generarContenidoIA}
-                    className="btn-regenerar"
+                    className="btn-generate"
                     style={{ flexGrow: 1 }}
                     disabled={cargandoIA || !contenidoConsolidado}
                   >
@@ -2804,10 +2774,12 @@ const GeneracionBlog = () => {
                 {isEditingStructure ? (
                   <>
                     <i className="uil uil-sitemap"></i> Estructura del Blog
+                    (Editable)
                   </>
                 ) : (
                   <>
                     <i className="uil uil-file-alt"></i> Vista de Documento
+                    (Word-like)
                   </>
                 )}
 
@@ -2851,11 +2823,7 @@ const GeneracionBlog = () => {
                     }}
                   >
                     {/* Botón para Añadir H2 */}
-                    <button
-                      onClick={agregarSeccionH2}
-                      className="btn-add-h2"
-                      disabled={!tablaEstructuraFinal}
-                    >
+                    <button onClick={agregarSeccionH2} className="btn-add-h2">
                       <i className="uil uil-plus-circle"></i> Agregar Sección H2
                     </button>
 
