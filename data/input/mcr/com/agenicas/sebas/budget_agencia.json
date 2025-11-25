@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "tema": "",
+    "descripcion": "",
+    "idioma": ""
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Alquiler de autos Budget",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "Alquiler de autos Budget"
+      }
+    },
+    {
+      "fleet": {
+        "h2": "Oferta de autos baratos Budget",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "¡Conduce más, ahorra al máximo! Aprovecha la variada selección de autos de alquiler Budget que puedes encontrar en Miles Car Rental y escoge el vehículo ideal para explorar los principales destinos del mundo. Elige entre carros compactos, de lujo, convertibles, SUVs, vans y más; reserva hoy mismo y paga menos con nuestros descuentos hasta del 35%. Tu oportunidad es ahora, asegura tu movilidad por el mejor precio.\nBudget Rental Car es el aliado idóneo que mejora todas tus aventuras en Estados Unidos, el Caribe y Europa, sus numerosos años de experiencia y costos bajos te respaldarán en cada trayecto. Descúbrelo, renta ya y aprovecha los beneficios exclusivos que tenemos para ti, como Seguro de Viaje Gratis (para turistas extranjeros), Modificaciones Flexibles, Kilómetros Ilimitados, Tarifas Todo Incluido y mucho más.",
+        "ip_usa": "¡Conduce más, ahorra al máximo! Aprovecha la variada selección de autos de alquiler Budget que puedes encontrar en Miles Car Rental y escoge el vehículo ideal para explorar los principales destinos del mundo. Elige entre carros compactos, de lujo, convertibles, SUVs, vans y más; reserva hoy mismo y paga menos con nuestros descuentos hasta del 35%. Tu oportunidad es ahora, asegura tu movilidad por el mejor precio.\nBudget Rental Car es el aliado idóneo que mejora todas tus aventuras en Estados Unidos, el Caribe y Europa, sus numerosos años de experiencia y costos bajos te respaldarán en cada trayecto. Descúbrelo, renta ya y aprovecha los beneficios exclusivos que tenemos para ti, como Kilómetros Ilimitados, Asistencia Básica en Carretera, Tarifas Preferenciales y mucho más. ¡Lidera el camino al volante del auto perfecto!",
+        "ip_bra": "¡Conduce más, ahorra al máximo! Aprovecha la variada selección de autos de alquiler Budget que puedes encontrar en Miles Car Rental y escoge el vehículo ideal para explorar los principales destinos del mundo. Elige entre carros compactos, de lujo, convertibles, SUVs, vans y más; reserva hoy mismo y paga menos con nuestros descuentos hasta del 35%. Tu oportunidad es ahora, asegura tu movilidad por el mejor precio.\nBudget Rental Car es el aliado idóneo que mejora todas tus aventuras en Estados Unidos, el Caribe y Europa, sus numerosos años de experiencia y costos bajos te respaldarán en cada trayecto. Descúbrelo, renta ya y aprovecha las ventajas exclusivas que tenemos para ti, como Seguro de Viaje Gratis (para extranjeros), Kilómetros Ilimitados, Asistencia Básica en Carretera, beneficio en cobertura del IOF y mucho más."
+      }
+    },
+    {
+      "questions": {
+        "h2": "Preguntas frecuentes sobre renta de autos Budget",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Elimina las dudas y los precios altos! Aquí te damos respuestas claras a todas tus preguntas frecuentes sobre alquiler de carros Budget. Deja la incertidumbre atrás, realiza una inversión inteligente con esta prestigiosa compañía y consigue las tarifas más cómodas para tu bolsillo.",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta alquilar un auto en Budget?",
+          "h3_faq_2": "¿Se puede rentar un auto Budget por horas?",
+          "h3_faq_3": "¿Cuál es el carro más barato para alquilar con Budget?",
+          "h3_faq_4": "¿Por qué elegir Budget?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "Rentar un carro Budget tiene un costo que va desde los USD $8 al día.\nTen en cuenta que, este valor puede variar según la temporada de viaje, el tipo de auto que elijas o los servicios adicionales en tu reserva.",
+          "faq_2": "Sí, puedes alquilar un carro Budget por horas; sin embargo, debes tener en cuenta que esto tendrá el mismo valor que rentar el auto por un día entero.",
+          "faq_3": "Los autos más económicos que puedes rentar con Budget son:\n**\n- Ford Focus (o similar) de categoría Compacto.\n- Hyundai Elantra (o similar) de categoría Intermedio.\n- Ford Fusion (o similar) de categoría Full-size.\n**\nEncuentra estos y otros carros Budget desde USD $8/día a través de nuestro website. Recuerda que esta tarifa puede presentar cambios de acuerdo al tipo de vehículo, la temporada de viaje y los servicios adicionales que agregues a la reserva.",
+          "faq_4": "Elegir Budget Car Rental te ofrece una serie de ventajas estratégicas que la convierten en solución ideal para tu próximo alquiler de autos:\n**\n- Líder en la industria: Budget es una de las marcas más reconocidas a nivel mundial en renta de carros, ya que cuenta con más de cinco décadas de experiencia ofreciendo un excelente servicio a clientes en todo el mundo.\n- Precios exclusivos: aumenta tu ahorro gracias a las tarifas económicas que te da esta compañía.\n- Política amigable para jóvenes: Budget ofrece la posibilidad de alquilar carros a conductores entre 21 y 24 años, con términos claros adaptados a cierto grupo de vehículos.\n**"
+        }
+      }
+    },
+    {
+      "fleetcarrusel": {
+        "h2": "Tipos de autos de alquiler en Budget",
+        "h2_desc": "Hay un tipo de auto idóneo para cada aventura. ¡Renta el tuyo aquí por el precio más barato! Accede a una impresionante selección de carros de alquiler Budget con nosotros. Compara, escoge el más adecuado para tu plan de viaje y explora cada destino a tu manera. Consigue desde veloces autos compactos, hasta lujosos vehículos, además de vans espaciosas, camionetas que asombran por su poderosa capacidad de tracción, y mucho más a través de nuestro website.",
+        "h3": {
+          "h3_1": "Autos Económicos",
+          "h3_2": "SUV",
+          "h3_3": "Vans",
+          "h3_4": "Convertibles",
+          "h3_5": "Autos de Lujo",
+          "h3_6": "Autos de Eléctricos"
+        },
+        "h3_desc": {
+          "h3_desc_1": "¡Conduce más y paga menos! Alquila un carro económico Budget y explora cada destino por el precio más bajo.",
+          "h3_desc_2": "Olvídate de los caminos difíciles, renta una SUV con Budget y disfruta de tracción superior para enfrentarte a cada carretera.",
+          "h3_desc_3": "¡Todos a bordo! Alquila una van Budget en tu destino preferido y realiza una aventura en grupo con todos los que te importan.",
+          "h3_desc_4": "¡Baja el techo, no tus expectativas! Renta un carro convertible con Budget y presume tu estilo en cada sección del camino.",
+          "h3_desc_5": "Alquila un carro de lujo con Budget y lleva tu elegancia a todas partes. Transpórtate mientras enseñas todo tu prestigio.",
+          "h3_desc_6": "Renta un vehículo eléctrico Budget, ponte al volante y cuida al planeta kilómetro a kilómetro gracias a sus bajas emisiones."
+        }
+      }
+    },
+    {
+      "locationscarrusel": {
+        "h2": "Renta de autos Budget alrededor del mundo",
+        "h2_desc": "¡Budget está en todo el mundo! Encuentra tu sucursal favorita con nosotros y reserva en cuestión de minutos. Con alrededor de 2700 oficinas en cerca de 120 países, esta agencia te ofrece múltiples ubicaciones estratégicas para recoger y devolver tu carro de alquiler. Además, con Miles Car Rental, el proceso de renta será sencillo, rápido y libre de cobros ocultos. Escoge el mostrador más cercano a los destinos de tu interés y alquila antes de que los mejores vehículos se agoten."
+      }
+    },
+    {
+      "bloquehistoria": {
+        "h2": "",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": ""
+      }
+    },
+    {
+      "rentcompanies": {
+        "h2": "Mejores empresas de renta de autos",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "¡Las mejores agencias de alquiler de vehículos están aquí! En Miles Car Rental no solo trabajamos con Budget, también somos partners preferenciales de otras destacadas compañías como Avis, Alamo, Dollar, National y más. Compara las diferentes tarifas, escoge la empresa que mejor se adapta a tu plan de viaje y renta con nosotros. Además de darte mayor variedad de opciones, también te damos procesos de reserva confiables, ágiles y totalmente libres de cobros ocultos. ¡Dale la bienvenida al ahorro ahora!"
+      }
+    }
+  ]
+}

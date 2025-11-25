@@ -101,6 +101,34 @@ class ContentGenerator:
         ter= self.llm_client.post_generate_dos(sec, regla= vol_h2)
         return ter
     
+    def generate_reviews(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        # Acceder directamente al reviews de la sección        
+        vol_h1 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+        print("----------------")
+        print(vol_h1)
+        
+        #Restricciones por bloque
+        #restric= "Esta es una lista de KW(key words) y expreciones que puedes utilizar: Di adiós a los gastos ocultos, ¡Reserva fácil y en poco tiempo!, ¡Haz el viaje, nosotros los descuentos!, Experimenta la excelencia en la renta de carros, Elige a los mejores, elige a Viajemos, Descuentos Relámpago, ¡Conquista la ciudad con Viajemos!, Encuentra al compañero ideal, Pequeño en precio, grande en aventuras, Excelencia sobre Ruedas, ¡A rodar!, Economía y Lujo en Uno, ¡Descubre el lujo sobre ruedas con Viajemos!, ¡En Viajemos tenemos la solución al alcance de un clic!, ¡Viaja con confianza, viaja con Viajemos!, la fórmula perfecta: calidad, atractivo y precios bajos, ¡Con Viajemos, comodidad y economía van de la mano!, ¡En precios bajos, somos imbatibles!, Nuestros precios bajos son una realidad, no una promesa, ¡Descuentos tan tentadores como tus ganas de viajar!, ¡Personaliza tu aventura sobre ruedas con Viajemos!, ¡Descubre más, gastando menos con Viajemos!, ¡Estamos seguros de que una parte de ti se quiere ir de viaje… y la otra también!, Un viaje se mide mejor en experiencias que en kilómetros, ¡así que Viajemos!, ¡Viajemos te ofrece un mundo de posibilidades mientras ahorras!, ¡En Viajemos tenemos lo que buscas!, ¡Activa tu superpoder al volante!, El auto y tú, ¡serán tal para cual!, ¡Alquila, conduce, impresiona!, Alquila un carro para que descubras (ciudad) en 3D: Dirección, Diversión, y Distinción, (Ciudad) te espera, y nuestros precios también, Ahorros inmediatos, Ahorra sin sacrificar la calidad, Alquila con confianza, ahorra con estilo, ¡Viajes llenos de ahorros!, Viajemos, te acompaña en tus mejores trayectos, ¡Sé un verdadero campeón del ahorro con Viajemos!, ¡Viaja tranquilo, viaja mejor!, Escoger te da ventajas y Viajemos te las ofrece, Tú bajas el techo y nosotros los precios , ¡Viaja más, paga menos!, Dale play a tus recorridos, Aterriza directamente en el ahorro, Tu cita más elegante es un coche de lujo, renta el tuyo en _______, Alquila, disfruta y vuelve pronto."
+
+        # crear ejemplos para el prompt
+        ejemplos_texto= "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('h2', '')}, desc_h2: {ejemplo.get('h2_desc', '')}\n" for i, ejemplo in enumerate(ejemplos)]
+        )
+
+        # Crear el prompt para quicksearch
+        prompt = (
+            #f"{restric}\n"
+            f"{ejemplos_texto}\n\n"
+            f"nuevo tema: {nuevo_tema}, tit:{tit_seo}\n"
+            f"reglas a tener en cuenta para desc_h2: cantidad de palabras{vol_h1} minimo a maximo.\n"
+            f"ahora genera tu la desc_h2, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: {tit_seo}|\n |desc_h2: redaccion|\n"
+        )
+        # Llamar al LLM y obtener respuesta
+        ini= self.llm_client.generate(prompt, self.system_message)
+        sec= self.llm_client.post_generate_uno(ini, regla= vol_h1)
+        ter= self.llm_client.post_generate_dos(sec, regla= vol_h1)
+        return ter
+    
     def generate_agencies(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
         """
         Genera la sección de agencias.
@@ -338,6 +366,80 @@ class ContentGenerator:
         )
         return self.llm_client.generate(prompt_city, self.system_message) 
 
+    def generate_rentacar(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera la sección de rentacar (título, desc, desc_h2, desc_h3).
+        
+        Args:
+            tit_seo: Título SEO
+            template_data: Datos de la plantilla
+            nuevo_tema: Nuevo tema para generar contenido
+            ejemplos: Lista de ejemplos
+            
+        Returns:
+            Texto generado
+        """
+        # Extraer volúmenes de palabras de los ejemplos
+        vol_desc = ejemplos[0].get('vol_desc', '') if ejemplos else ''
+        vol_h2 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+        vol_h3 = ejemplos[0].get('vol_h3', '') if ejemplos else ''
+        
+        # Crear ejemplos para el prompt
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('tit', '')}, desc: {ejemplo.get('desc', '')}, desc_h2: {ejemplo.get('desc_h2', '')}, desc_h3: {ejemplo.get('desc_h3', '')}\n" 
+            for i, ejemplo in enumerate(ejemplos)]
+        )
+        
+        # Crear el prompt para rentacar
+        prompt = (
+            f"{ejemplos_texto}\n"
+            f"nuevo tema: {nuevo_tema}, tit: {tit_seo}\n"
+            f"reglas a tener en cuenta para desc: cantidad de palabras {vol_desc}, para desc_h2: cantidad de palabras {vol_h2}, para desc_h3: cantidad de palabras {vol_h3} mínimo a máximo.\n"
+            f"ahora genera el contenido, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: {tit_seo}|\n |desc: redaccion_principal|\n |desc_h2: redaccion_h2|\n |desc_h3: redaccion_h3|\n"
+        )
+        
+        # Llamar al LLM con tres pasadas
+        ini = self.llm_client.generate(prompt, self.system_message)
+        sec = self.llm_client.post_generate_uno(ini, regla=f"desc: {vol_desc}, desc_h2: {vol_h2}, desc_h3: {vol_h3}")
+        ter = self.llm_client.post_generate_dos(sec, regla=f"desc: {vol_desc}, desc_h2: {vol_h2}, desc_h3: {vol_h3}")
+        return ter
+
+    def generate_advicestipocarrusel(self, titulo_limpio: str, nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera contenido principal para el bloque de consejos
+        """
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('tit', '')}, desc: {ejemplo.get('desc', '')}\n" 
+            for i, ejemplo in enumerate(ejemplos)]
+        )
+        
+        prompt = (
+            f"{ejemplos_texto}\n"
+            f"nuevo tema: {nuevo_tema}, tit: {titulo_limpio}\n"
+            f"ahora genera el contenido, sigue esta estructura: <think> aquí pondrás tus pensamientos </think>\n |tit: {titulo_limpio}|\n |desc: redaccion_desc|\n"
+        )
+        
+        return self.llm_client.generate(prompt, self.system_message)
+
+    def generate_advice_type(self, advice_types: List[str], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera descripciones individuales para cada tipo de consejo
+        """
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: {ejemplo}\n" for i, ejemplo in enumerate(ejemplos[:3])]
+        ) if ejemplos else ""
+        
+        consejos_texto = "\n".join([f"desc_{i+1}: {consejo}" for i, consejo in enumerate(advice_types)])
+        
+        prompt = (
+            f"{ejemplos_texto}\n"
+            f"Tema: {nuevo_tema}\n"
+            f"{consejos_texto}\n\n"
+            f"Formato: |desc_1: texto...| |desc_2: texto...| etc."
+        )
+        
+        return self.llm_client.generate(prompt, self.system_message)
+
     def process_json(self, input_path: str, nuevo_tema: str, output_path: Optional[str] = None, secciones_ejemplos: Dict[str, List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Procesa un archivo JSON completo y genera nuevo contenido.
@@ -376,6 +478,12 @@ class ContentGenerator:
         respuesta_fleet = self.generate_fleet(template_data, nuevo_tema, ejemplos_fleet)
         nuevo_contenido["respuestas"].append({
             "respuesta_fleet": respuesta_fleet
+        })
+        
+        ejemplos_reviews = secciones_ejemplos.get("reviews", [])
+        respuesta_reviews = self.generate_reviews(template_data, nuevo_tema, ejemplos_reviews)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_reviews": respuesta_reviews
         })
         
         # 3. Agencies

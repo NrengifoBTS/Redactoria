@@ -120,6 +120,24 @@ class IAService:
                     "ip_bra": extracted_fields.get("ip_bra", "")
                 }
                 
+            elif block_type == "rentacar":
+                # Bloque rentacar: tit, desc, desc_h2, desc_h3
+                result["structured_content"] = {
+                    "titulo": extracted_fields.get("tit", ""),
+                    "desc": extracted_fields.get("desc", ""),
+                    "desc_h2": extracted_fields.get("desc_h2", ""),
+                    "desc_h3": extracted_fields.get("desc_h3", "")
+    }
+                
+            
+                
+            elif block_type == "reviews":
+                # Bloque reviews: tit, desc
+                result["structured_content"]= {
+                    "titulo": extracted_fields.get("tit", ""),
+                    "desc_h2": extracted_fields.get("desc", "")
+                }
+                
             elif block_type == "agencies":
                 # Bloque 3: tit, desc_h2, desc_h3
                 result["structured_content"] = {
@@ -128,7 +146,7 @@ class IAService:
                     "desc_h3": extracted_fields.get("desc_h3", "")
                 }
                 
-            elif block_type == "faqs":
+            elif block_type == "faqs" or "questions":
                 # Bloque 4: desc 
                 result["structured_content"] = {
                     "desc": extracted_fields.get("desc", "")
@@ -142,13 +160,27 @@ class IAService:
                     if faq_key in extracted_fields:
                         result["structured_content"][faq_key] = extracted_fields[faq_key]
                 
-            elif block_type == "car_rental":
+            elif block_type == "car_rental" or "fleetcarrusel":
                 # Bloque 5: desc
                 result["structured_content"] = {
                     "desc": extracted_fields.get("desc", "")
                 }
                 
-            elif block_type == "car_rental_additional":
+            elif block_type == "advicestipocarrusel":
+                # Bloque: desc
+                result["structured_content"] = {
+                    "desc": extracted_fields.get("desc", "")
+                }
+                
+            elif block_type == "advicestipocarrusel_additional":
+                # Procesar descripciones de consejos
+                result["structured_content"] = {}
+                for i in range(1, 7):  # desc_1 hasta desc_6
+                    desc_key = f"desc_{i}"
+                    if desc_key in extracted_fields:
+                        result["structured_content"][desc_key] = extracted_fields[desc_key]
+                
+            elif block_type == "car_rental_additional" or block_type == "fleetcarrusel_additional":
                 # Procesar descripciones de tipos de autos
                 result["structured_content"] = {}
                 for i in range(1, 7):  # desc_1 hasta desc_6
@@ -156,7 +188,7 @@ class IAService:
                     if desc_key in extracted_fields:
                         result["structured_content"][desc_key] = extracted_fields[desc_key]
                 
-            elif block_type == "fav_city":
+            elif block_type == "fav_city" or "locationscarrusel":
                 # Bloque 6: tit, desc
                 result["structured_content"] = {
                     "titulo": extracted_fields.get("tit", ""),
@@ -320,7 +352,7 @@ class IAService:
             additional_content = ""
             
             try:
-                # ANTES DE: if block_type == "quicksearch":
+                
                 logging.info(f"BACKEND ANTES DEL SWITCH - block_type final: '{block_type}'")
                 if block_type == "quicksearch":
                     template_data = {}
@@ -334,32 +366,59 @@ class IAService:
                     template_data = {}
                     raw_generated_content = generator.generate_agencies(titulo_limpio, template_data, nuevo_tema, ejemplos)
                     
-                elif block_type == "faqs":
+                elif block_type == "reviews" or block_type == "rentcompanies":
+                    template_data = {}
+                    raw_generated_content = generator.generate_reviews(titulo_limpio, template_data, nuevo_tema, ejemplos)
+                    
+                elif block_type == "advicestipocarrusel":
+                    raw_generated_content = generator.generate_advicestipocarrusel(titulo_limpio, nuevo_tema, ejemplos)
+                    
+                    tipos_recibidos = request.car_types or []  # Reutilizamos car_types para los consejos
+                    tipos_validos = [t for t in tipos_recibidos if t and t.strip()]
+                    
+                    if tipos_validos:
+                        additional_content = generator.generate_advice_type(tipos_validos, nuevo_tema, ejemplos)
+                    else:
+                        logging.error("ADVICES: No se encontraron consejos válidos del frontend")
+                        tipos_default = [
+                            "Consejo sobre reservas", "Consejo sobre seguros", 
+                            "Consejo sobre combustible", "Consejo sobre documentación",
+                            "Consejo sobre inspección", "Consejo sobre devolución"
+                        ]
+                        additional_content = generator.generate_advice_type(tipos_default, nuevo_tema, ejemplos)
+                    
+                elif block_type == "rentacar":
+                    template_data = {}
+                    raw_generated_content = generator.generate_rentacar(titulo_limpio, template_data, nuevo_tema, ejemplos)
+                    
+                elif block_type == "faqs" or block_type == "questions":
                     raw_generated_content = generator.generate_faq(titulo_limpio, nuevo_tema, ejemplos)
+                    
                     preguntas_recibidas = request.faq_questions or []
                     preguntas_validas = [q for q in preguntas_recibidas if q and q.strip()]
                     
                     if preguntas_validas:
                         additional_content = generator.generate_faq_respuesta(nuevo_tema, preguntas_validas, ejemplos)
                     else:
-                        additional_content = "|error: No se encontraron preguntas FAQ válidas para generar respuestas|"
-                    
-                elif block_type == "car_rental":
+                        additional_content = "|error: No se encontraron preguntas válidas para generar respuestas|"
+                
+                elif block_type == "car_rental" or block_type == "fleetcarrusel":
                     raw_generated_content = generator.generate_car_rental(1, titulo_limpio, nuevo_tema, ejemplos)
                     
                     tipos_recibidos = request.car_types or []
                     tipos_validos = [t for t in tipos_recibidos if t and t.strip()]
+                    print(request)
                     if tipos_validos:
                         additional_content = generator.generate_car_type(tipos_validos, nuevo_tema, ejemplos)
                     else:
                         tipos_autos_default = [
-                            "Autos Económicos", "Autos Compactos", "Autos Medianos",
-                            "Autos SUV", "Autos de Lujo", "Autos Familiares"
+                            "Autos x defecto 1", "Autos x defecto 2", "Autos x defecto 3",
+                            "Autos x defecto 4", "Autos x defecto 5", "Autos x defecto 6"
                         ]
                         additional_content = generator.generate_car_type(tipos_autos_default, nuevo_tema, ejemplos)
                     
                     
-                elif block_type == "fav_city":
+                elif block_type == "fav_city" or block_type == "locationscarrusel":
                     template_data = {}
                     raw_generated_content = generator.generate_fav_city(titulo_limpio, template_data, nuevo_tema, ejemplos)
                     
@@ -461,26 +520,59 @@ class IAService:
             # Inicializar el generador para usar el LLM
             generator = ContentGenerator()
             
-            # Definir idioma destino
-            target_lang_name = "inglés estadounidense" if request.targetLanguage == "en" else "portugués brasileño"
+            # Configuración según idioma
+            if request.targetLanguage == "en":
+                target_lang_name = "inglés estadounidense"
+                specific_instructions = """
+                - Usa Mileage para referirte a Kilometraje.
+                - Usa el inglés estadounidense (US English).
+                """
+                system_examples = ""
+                
+            else:  # pt
+                target_lang_name = "portugués brasileño"
+                specific_instructions = """
+                - Usa el portugués brasileño (Brazilian Portuguese).
+                - Nunca uses la palabra 'Tarifas', usa preços, diárias o ofertas.
+                - Usa 'locadora' como preferencia principal.
+                """
+                system_examples = """
+                
+                Ejemplos de traducción de beneficios al portugués:
+                - Seguro de Viaje Gratis: Seguro Viagem Grátis
+                - Kilómetros Ilimitados: KM Livre
+                - Asistencia Básica en Carretera: Assistência na Estrada
+                - Conductor Adicional: Condutor Adicional Grátis
+                - Modificaciones sin Cargos Administrativos: Modificações sem Taxas Administrativas
+                - Cobertura de Daños al Vehículo: Seguro de Danos ao Veículo
+                - Protección de Daños a Terceros: Seguro de Danos a Terceiros
+                - Cobertura por Robo: Seguro contra Roubo do Carro
+                - Sin Deducibles: Seguros com Franquia Zero
+                - Beneficio en Cobertura del IOF: Bônus Adicional pela Taxa de IOF, o pude ser, Bônus Extra pelo IOF
+                - Cobertura de Viaje Gratis: Seguro Viagem para 5 Passageiros
+                - Millas Ilimitadas: Quilometragem Livre
+                - Soporte Básico en Carretera: Serviço de Assistência na Estrada
+                - Otro conductor sin costo extra: Condutor Adicional Incluso
+                - Modificaciones Flexibles: Modificações Flexíveis
+                - Protección Contra Daños al Auto: Seguro Auto
+                - Cobertura de Responsabilidad Civil: Proteção de Responsabilidade Civil
+                - Seguro Contra Hurto del Vehículo: Proteção contra Roubo do Veículo
+                - Sin Responsabilidad Económica: Franquia Zero
+                """
             
-            # Prompt principal de traducción
+            # Prompt de traducción
             translation_prompt = f"""
             Redacta el siguiente texto de español a {target_lang_name}.
             
             Instrucciones:
             - Ten cuidado con los signos de puntuación y los espacios antes y después de los signos.
-            - Cuando sea en Ingles, usa Mileage para referirte a Kilometraje.
-            - Cuando sea en Ingles, usa el inglés estadounidense (US English).
-            - Cuando sea en Portugués, usa el portugués brasileño (Brazilian Portuguese).
+            {specific_instructions}
             - Mantén todas las etiquetas de marcado y la estructura tal cual.
-            - No traduzcas nombres propios ni marcas (ejemplo: "Viajemos") a exepcion de ciudades, países o estados.
+            - No traduzcas nombres propios ni marcas (ejemplo: "Viajemos") a excepción de ciudades, países o estados.
             - Traduce con fluidez, usando expresiones naturales y comerciales en {target_lang_name}.
             - Asegúrate de que el tono sea persuasivo, amigable y atractivo, pensado para marketing digital (landing pages, anuncios, blogs).
             - Evita sonar robótico o forzado; prioriza naturalidad y coherencia.
-            - Cuando hables de descuentos deja en mayuscula la palabra "OFF" (ejemplo: 10% OFF).
-            - Cuando sea en Portugués, nunca uses la palabra 'Tarifas', usa preços, diárias o ofertas.
-            - cuando sea en Portugués, usa 'locadora' como preferencia principal.
+            - Cuando hables de descuentos deja en mayúscula la palabra "OFF" (ejemplo: 10% OFF).
             
             Texto en español:
             {request.sourceContent}
@@ -491,37 +583,18 @@ class IAService:
             # Mensaje de sistema
             system_message = f"""
             Eres un traductor de marketing digital.
-            Tu trabajo es redactar el contenido de español al siguiente idioma {target_lang_name} con tono comercial, persuasivo y nativo.
-            Responde solo con el texto traducido, sin explicaciones adicionales.
-            
-            Ejemplos de traducción de beneficios al portugués:
-            - Seguro de Viaje Gratis: Seguro Viagem Grátis
-            - Kilómetros Ilimitados: KM Livre
-            - Asistencia Básica en Carretera: Assistência na Estrada
-            - Conductor Adicional: Condutor Adicional Grátis
-            - Modificaciones sin Cargos Administrativos: Modificações sem Taxas Administrativas
-            - Cobertura de Daños al Vehículo: Seguro de Danos ao Veículo
-            - Protección de Daños a Terceros: Seguro de Danos a Terceiros
-            - Cobertura por Robo: Seguro contra Roubo do Carro
-            - Sin Deducibles: Seguros com Franquia Zero
-            - Beneficio en Cobertura del IOF: Bônus Adicional pela Taxa de IOF, o pude ser, Bônus Extra pelo IOF
-            - Cobertura de Viaje Gratis: Seguro Viagem para 5 Passageiros
-            - Millas Ilimitadas: Quilometragem Livre
-            - Soporte Básico en Carretera: Serviço de Assistência na Estrada
-            - Otro conductor sin costo extra: Condutor Adicional Incluso
-            - Modificaciones Flexibles: Modificações Flexíveis
-            - Protección Contra Daños al Auto: Seguro Auto
-            - Cobertura de Responsabilidad Civil: Proteção de Responsabilidade Civil
-            - Seguro Contra Hurto del Vehículo: Proteção contra Roubo do Veículo
-            - Sin Responsabilidad Económica: Franquia Zero
+            Tu trabajo es redactar el contenido de español a {target_lang_name} con tono comercial, persuasivo y nativo.
+            Responde solo con el texto traducido, mantén las etiquetas HTML (puedes quitar las etiquetas para traducir y luego ponerlas según corresponde manteniendo la lógica que se tiene en español), sin explicaciones adicionales.
+            {system_examples}
             """
             
+            # Ejecutar traducción
             translated_content = generator.llm_client.generate(
                 translation_prompt,
                 system_message
             )
             
-            logging.info(f"Translated content to {request.targetLanguage} for LP {landing_page_id}, text {request.sourceContent}++++")
+            logging.info(f"Translated content to {request.targetLanguage} for LP {landing_page_id}")
             
             return models.TranslationResponse(
                 translatedContent=translated_content.strip(),
@@ -534,5 +607,4 @@ class IAService:
             logging.error(f"Error translating content: {str(e)}")
             raise e
 
-
-        
+            

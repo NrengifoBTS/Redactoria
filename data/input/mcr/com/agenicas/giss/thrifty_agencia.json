@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "tema": "",
+    "descripcion": "",
+    "idioma": ""
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "Alquiler de autos Thrifty",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": "Alquiler de autos Thrifty"
+      }
+    },
+    {
+      "fleet": {
+        "h2": "Flota de autos baratos Thrifty",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "Thrifty es tu mejor alternativa para alquilar un carro al precio más competitivo. A través de Miles Car Rental, accede a descuentos hasta del 35%, Kilómetros Ilimitados y un Seguro de Viaje Gratis para turistas extranjeros incluido en tu reserva. Su amplia selección de vehículos y tarifas accesibles aseguran que encuentres el auto ideal sin exceder tu presupuesto. Además, disfrutarás de beneficios como Asistencia Básica en Carretera, Seguro del Auto, Protección a Terceros, y más, para que tu viaje sea cómodo y protegido. \nOlvídate de búsquedas complicadas, renta ya con Thrifty a través de nuestro sitio web y comienza a ahorrar desde el primer trayecto. ¡Garantiza tu auto hoy mismo y descubre lo sencillo que es viajar con precios bajos y total tranquilidad!",
+        "ip_usa": "Thrifty es tu mejor alternativa para alquilar un carro al precio más competitivo. A través de Miles Car Rental, accede a descuentos hasta del 35%, Kilómetros Ilimitados y Asistencia Básica en Carretera incluida en tu reserva. Su amplia selección de vehículos y tarifas accesibles aseguran que encuentres el auto ideal sin exceder tu presupuesto. Además, disfrutarás de beneficios como Tarifas Preferenciales, Pagos 100% transparentes, y más, para que tu viaje sea flexible y cómodo.  \nOlvídate de búsquedas complicadas, renta ya con Thrifty a través de nuestro sitio web y comienza a ahorrar desde el primer trayecto. ¡Garantiza tu auto hoy mismo y descubre lo sencillo que es viajar con precios bajos y total tranquilidad!",
+        "ip_bra": "Thrifty es tu mejor alternativa para alquilar un carro al precio más competitivo. A través de Miles Car Rental, accede a descuentos hasta del 35%, Kilómetros Ilimitados y un Seguro de Viaje Gratis para turistas extranjeros incluido en tu reserva. Su amplia selección de vehículos y tarifas accesibles aseguran que encuentres el auto ideal sin exceder tu presupuesto. Además, disfrutarás de beneficios como Asistencia Básica en Carretera, Seguro del Auto, Beneficio en Cobertura del IOF, y más, para que tu viaje sea cómodo y protegido. \nOlvídate de búsquedas complicadas, renta ya con Thrifty a través de nuestro sitio web y comienza a ahorrar desde el primer trayecto. ¡Garantiza tu auto hoy mismo y descubre lo sencillo que es viajar con precios bajos y total tranquilidad!"
+      }
+    },
+    {
+      "questions": {
+        "h2": "Preguntas frecuentes sobre renta de autos Thrifty",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "Aquí encontrarás respuestas claras y rápidas a las preguntas más comunes sobre alquiler de carros Thrifty. Desde conocer los costos de renta hasta descubrir cuál es el vehículo más económico. Hemos reunido la información que necesitas y te explicamos por qué Thrifty es una excelente opción para tus viajes. ¡Elige con confianza!",
+        "h3_faq": {
+          "h3_faq_1": "¿Cuánto cuesta alquilar un auto en Thrifty car rental?",
+          "h3_faq_2": "¿Se puede rentar un auto Thrifty por horas?",
+          "h3_faq_3": "¿Cuál es el carro más barato para alquilar con Thrifty?",
+          "h3_faq_4": "¿Por qué elegir Thrifty Rent a Car?"
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "Rentar un carro con Thrifty tiene un costo inicial de USD $10 por día.\nEste monto puede variar dependiendo de la temporada del viaje, el modelo de vehículo elegido y los servicios adicionales que decidas incluir en tu reserva.",
+          "faq_2": "Sí, es posible rentar un carro Thrifty por horas. Sin embargo, ten en cuenta que el costo de una hora es el mismo que el de un día completo de alquiler.",
+          "faq_3": "Los vehículos más económicos que puedes rentar con Thrifty son:\n**\n- Camioneta intermedia eléctrica (Chevrolet Bolt euv o similar)\n- Camioneta mediana (Jeep Compass o similar)\n- Compacto (Nissan Versa o similar)\n**\nPuedes rentar estos autos desde USD $10 al día, aunque el precio puede cambiar según la época del año o los servicios adicionales que elijas al hacer tu reserva.",
+          "faq_4": "Elegir Thrifty es optar por una empresa con más de 60 años de experiencia en el mercado de alquiler de autos. Con oficinas en más de 70 países, Thrifty Car Rental ofrece una amplia disponibilidad y comodidad para tus viajes. Además, cuenta con tarifas competitivas y beneficios exclusivos, como cobertura completa y opciones de vehículos para todo tipo de necesidades de viaje. Su compromiso con la calidad y el servicio hace de Thrifty una opción confiable y accesible."
+        }
+      }
+    },
+    {
+      "fleetcarrusel": {
+        "h2": "Tipos de autos de alquiler en Thrifty",
+        "h2_desc": "En Miles Car Rental, tendrás a tu disposición una amplia variedad de carros de alquiler Thrifty listos para adaptarse a tu viaje. Elige entre vehículos económicos perfectos para desplazamientos urbanos, SUVs y Vans para recorridos cómodos y autos de lujo que robarán todas las miradas a tu paso. Todos incluyen kilómetros ilimitados y seguros, garantizando trayectos tranquilos. Reserva ahora el auto que más te guste y disfruta de la libertad de explorar sin preocupaciones. ¡Haz tu aventura más cómoda hoy mismo!",
+        "h3": {
+          "h3_1": "Autos Económicos",
+          "h3_2": "SUV",
+          "h3_3": "Vans",
+          "h3_4": "Convertibles",
+          "h3_5": "Autos de Lujo",
+          "h3_6": "Autos de Eléctricos"
+        },
+        "h3_desc": {
+          "h3_desc_1": "Alquila hoy un auto barato Thrifty al mejor precio. ¡Aprovecha nuestras tarifas exclusivas y viaja sin preocupaciones!",
+          "h3_desc_2": "Disfruta de tu viaje al rentar una SUV Thrifty. Espacio, comodidad y poder para recorrer cualquier destino con estilo.",
+          "h3_desc_3": "Alquila una Van Thrifty y viaja con todos tus amigos. Perfecta para grupos grandes, con espacio y seguridad en cada trayecto.",
+          "h3_desc_4": "Renta un convertible Thrifty ahora y disfruta de un viaje único. ¡Siente la libertad en cada kilómetro, reserva ya!",
+          "h3_desc_5": "Elige conducir con máxima elegancia, confort y alto rendimiento. ¡Alquila un auto de lujo Thrifty hoy mismo!",
+          "h3_desc_6": "Renta un auto eléctrico Thrifty y disfruta de un viaje ecológico, silencioso y eficiente. ¡Reserva hoy y ahorra energía!"
+        }
+      }
+    },
+    {
+      "locationscarrusel": {
+        "h2": "Renta de autos Thrifty alrededor del mundo",
+        "h2_desc": "Con Thrifty, rentar un auto alrededor del mundo nunca fue tan fácil. Con presencia en países como Estados Unidos, México, Brasil, Colombia, Argentina, España y muchos más, encontrarás opciones de vehículos confiables que se ajustan a tus necesidades. Disfruta tarifas competitivas, reserva rápida y la libertad de viajar sin depender de horarios. Garantiza comodidad y seguridad en cada destino. ¡No esperes más! Reserva tu carro Thrifty hoy y transforma tus viajes en experiencias únicas dondequiera que vayas."
+      }
+    },
+    {
+      "bloquehistoria": {
+        "h2": "Historia de Thrifty",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "Thrifty Car Rental es una empresa de alquiler de autos fundada en 1958 en los Estados Unidos por la familia Dyson. Originalmente, se creó como un servicio de alquiler de autos de bajo costo para viajeros, dirigido a aquellos que buscaban opciones económicas para sus traslados. \nCon el tiempo, Thrifty se expandió tanto a nivel nacional como internacional, convirtiéndose en una de las principales marcas en la industria de alquiler de autos. En 1989, la empresa fue adquirida por Chrysler, y más tarde pasó a formar parte de la empresa matriz Hertz Global Holdings en 2012, aunque operó de manera independiente bajo su propia marca. \nThrifty se caracteriza por ofrecer precios competitivos, servicios accesibles y una amplia variedad de vehículos para satisfacer las necesidades de todo tipo de viajeros. A lo largo de los años, la marca ha mantenido su enfoque en ofrecer tarifas económicas sin sacrificar la calidad del servicio, siendo una opción popular para turistas y viajeros de negocios. "
+      }
+    },
+    {
+      "rentcompanies": {
+        "h2": "Mejores empresas de renta de autos",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "En nuestro portal web, no solo encontrarás las tarifas más competitivas de Thrifty, sino también una selección de las mejores compañías de renta de autos para que elijas la opción que mejor se adapte a tus necesidades. Ya sea que busques comodidad, vehículos de lujo o precios económicos, tenemos todo lo que necesitas para tu próximo viaje. ¡Haz tu reserva hoy mismo y disfruta de un servicio de calidad con las marcas más confiables del mercado!"
+      }
+    }
+  ]
+}

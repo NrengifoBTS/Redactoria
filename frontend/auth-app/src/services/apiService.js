@@ -284,7 +284,7 @@ class ApiService {
   // Generar contenido con IA
   async generateIAContent(params) {
     try {
-      const { lpId, blockNumber, blockTitle, tema, cellKey, faqQuestions = [], favCityQuestions = [], blockType, carTypes = [], templateInfo  } = params;
+      const { lpId, blockNumber, blockTitle, tema, cellKey, faqQuestions = [], favCityQuestions = [], blockType, carTypes = [], templateInfo } = params;
       const payload = {
         cellKey,
         currentContent: "",
@@ -292,7 +292,9 @@ class ApiService {
         blockType,
         tit: blockTitle,
         tema,
-        lpId
+        lpId,
+        faqQuestions,
+        favCityQuestions
       };
 
       // Agregar info del template si existe
@@ -320,7 +322,7 @@ class ApiService {
           payload.car_types = carTypes;
       }
 
-      const response = await fetch(`${this.baseURL}/ia/${lpId}/block-${blockNumber}`, {
+      const response = await fetch(`${this.baseURL}/ia/${lpId}/block-2`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(payload)

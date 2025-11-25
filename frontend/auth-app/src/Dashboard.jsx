@@ -158,7 +158,7 @@ function Dashboard() {
       pen_review: '#f59e0b',       
       pen_ajuste: '#ef4444',       
       approved: '#059669',         
-      rev_kws: '#7c3aed',          
+      rev_kws: '#E3AAAA',          
       cargue: '#0ea5e9',           
       test: '#f97316'              
     };
@@ -710,7 +710,7 @@ function ProjectsTable({
       // Abrir redactor con el proyecto_id
       window.open(`/redactor/${proyectoId}`, '_blank');
     } catch (error) {
-      console.error('❌ Error al verificar landing page:', error);
+      console.error(' Error al verificar landing page:', error);
       alert('Error al acceder a la landing page: ' + error.message);
     }
   };

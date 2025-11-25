@@ -480,59 +480,93 @@ export default function Redactor() {
   const getTitleForIAGeneration = (selectedCell, block, tableData) => {
     const [row, col] = selectedCell.split('-').map(Number);
 
-    
-  if (block.type === 'fav_city') {
-    // Recopilar TODAS las ciudades del bloque
-    const favCityQuestions = [];
-    if (block.contentMapping) {
-      Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
-        if (field.startsWith('desc_') && field !== 'desc') {
-          const [respRow] = cellKey.split('-').map(Number);
-          const questionRow = respRow - 1;
-          const questionContent = tableData[`${questionRow}-3`]?.content || '';
-          if (questionContent && questionContent.trim() !== '') {
-            favCityQuestions.push(questionContent.trim());
-          }
-        }
-      });
-    }
-    
-    // SIEMPRE usar el título del bloque principal
-    const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
-    
-    console.log('🏙️ FAV_CITY COMPLETO:', {
-      blockTitle: blockTitle,
-      ciudadesEncontradas: favCityQuestions,
-      totalCiudades: favCityQuestions.length
-    });
-    
-    return {
-      title: blockTitle, // Título del bloque, no de la celda
-      type: 'fav_city_complete',
-      faqQuestions: [],
-      favCityQuestions: favCityQuestions, // Todas las ciudades
-      carTypes: []
-    };
-  }
-
-    // Para el Bloque 4 (FAQs), SIEMPRE recopilar todas las preguntas
-    if (block.type === 'faqs') {
-      // Recopilar TODAS las preguntas FAQ del bloque usando contentMapping
-      const faqQuestions = [];
+    if (block.type === 'car_rental' || block.type === 'fleetcarrusel' || block.type === 'advicestipocarrusel') {
+      const carTypes = []; // En este caso serían "tipos de consejos"
       if (block.contentMapping) {
         Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
-          if (field.startsWith('faq_') && field !== 'desc') {
-            // Encontrar la celda de pregunta correspondiente (fila anterior)
+          if (field.startsWith('desc_') && field !== 'desc') {
+            const [respRow] = cellKey.split('-').map(Number);
+            const typeRow = respRow - 1;
+            const typeContent = tableData[`${typeRow}-3`]?.content || '';
+            const fieldType = tableData[`${typeRow}-2`]?.content || '';
+            
+            if (typeContent && typeContent.trim() !== '' && 
+                (fieldType.includes('H3') || fieldType.includes('h3'))) {
+              carTypes.push(typeContent.trim());
+            }
+          }
+        });
+      }
+      
+      const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
+      
+      console.log('🚗 CAR_RENTAL/FLEET/ADVICES:', {
+        blockType: block.type,
+        itemsEncontrados: carTypes,
+        totalItems: carTypes.length
+      });
+      
+      return {
+        title: blockTitle,
+        type: 'car_rental_complete',
+        faqQuestions: [],
+        favCityQuestions: [],
+        carTypes: carTypes
+      };
+    }
+
+    
+    if (block.type === 'fav_city' || block.type === 'locationscarrusel') {
+      
+      const favCityQuestions = [];
+      if (block.contentMapping) {
+        Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
+          
+          if (field.startsWith('desc_') && field !== 'desc') {
             const [respRow] = cellKey.split('-').map(Number);
             const questionRow = respRow - 1;
             const questionContent = tableData[`${questionRow}-3`]?.content || '';
+            
+            
+            if (questionContent && questionContent.trim() !== '') {
+              favCityQuestions.push(questionContent.trim());
+            }
+          }
+        });
+      }
+      
+      const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
+      
+      return {
+        title: blockTitle,
+        type: 'fav_city_complete',
+        faqQuestions: [],
+        favCityQuestions: favCityQuestions,
+        carTypes: []
+      };
+    }
+    //
+    if (block.type === 'faqs' || block.type === 'questions') {
+      
+      const faqQuestions = [];
+      if (block.contentMapping) {
+        Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
+          
+          // Buscar tanto faq_ como desc_ (excluyendo desc principal)
+          if ((field.startsWith('faq_') || field.startsWith('desc_')) && field !== 'desc') {
+            const [respRow] = cellKey.split('-').map(Number);
+            const questionRow = respRow - 1;
+            const questionContent = tableData[`${questionRow}-3`]?.content || '';
+            
             if (questionContent && questionContent.trim() !== '') {
               faqQuestions.push(questionContent.trim());
             }
           }
         });
       }
-      
+
+
+  
       
       // Si es la descripción principal del bloque (desc)
       if (row === block.descRow) {
@@ -540,7 +574,9 @@ export default function Redactor() {
         return {
           title: h2Title,
           type: 'h2_description',
-          faqQuestions: faqQuestions 
+          faqQuestions: faqQuestions,
+          favCityQuestions: [], 
+          carTypes: [] 
         };
       }
       
@@ -555,34 +591,60 @@ export default function Redactor() {
           return {
             title: faqQuestion,
             type: 'faq_answer',
-            faqQuestions: faqQuestions
+            faqQuestions: faqQuestions,
+            favCityQuestions: [], 
+            carTypes: [] 
           };
         } else {
           return {
             title: '',
             type: 'faq_answer_empty',
-            faqQuestions: faqQuestions
+            faqQuestions: faqQuestions,
+            favCityQuestions: [], 
+            carTypes: [] 
           };
         }
       }
     }
 
-    if (block.type === 'car_rental') {
-        const carTypes = [];
-        if (block.contentMapping) {
-          Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
-            if (field.startsWith('desc_') && field !== 'desc') {
-              const [respRow] = cellKey.split('-').map(Number);
-              const typeRow = respRow - 1; 
-              const typeContent = tableData[`${typeRow}-3`]?.content || ''; 
-              const fieldType = tableData[`${typeRow}-2`]?.content || ''; 
-              
-              if (typeContent && typeContent.trim() !== '' && fieldType.includes('H3')) {
-                carTypes.push(typeContent.trim());
-              }
+    if (block.type === 'rentacar') {
+      const blockTitle = tableData[`${block.titleRow}-3`]?.content || '';
+      
+      console.log('🚗 RENTACAR:', {
+        blockTitle: blockTitle,
+        blockType: block.type
+      });
+      
+      return {
+        title: blockTitle,
+        type: 'rentacar_block',
+        faqQuestions: [],
+        favCityQuestions: [],
+        carTypes: []
+      };
+    }
+
+
+
+    if (block.type === 'car_rental' || block.type === 'fleetcarrusel') {
+      const carTypes = [];
+      if (block.contentMapping) {
+        Object.entries(block.contentMapping).forEach(([field, cellKey]) => {
+          if (field.startsWith('desc_') && field !== 'desc') {
+            const [respRow] = cellKey.split('-').map(Number);
+            const typeRow = respRow - 1;
+            const typeContent = tableData[`${typeRow}-3`]?.content || '';
+            const fieldType = tableData[`${typeRow}-2`]?.content || '';
+            
+            // Busca H3 o h3 (case-insensitive)
+            if (typeContent && typeContent.trim() !== '' && 
+                (fieldType.includes('H3') || fieldType.includes('h3'))) {
+              carTypes.push(typeContent.trim());
             }
-          });
-        }
+          }
+        });
+      }
+        
         
         // Si es la descripción principal del bloque
         if (row === block.descRow) {
@@ -1280,7 +1342,7 @@ export default function Redactor() {
 
   const applyColorToSelection = (color) => {
     if (!editingCell || !inputRef.current || !textSelection) return;
-
+    
     const { range } = textSelection;
     if (!range) return;
 
@@ -1292,40 +1354,272 @@ export default function Redactor() {
       const selectedText = selection.toString();
       if (!selectedText) return;
 
-      document.execCommand('styleWithCSS', false, true);
-      const success = document.execCommand('foreColor', false, color);
+      // Convertir hex a RGB
+      const hexToRgb = (hex) => {
+        hex = hex.replace('#', '');
+        return {
+          r: parseInt(hex.substring(0, 2), 16),
+          g: parseInt(hex.substring(2, 4), 16),
+          b: parseInt(hex.substring(4, 6), 16)
+        };
+      };
+
+      const fragment = range.extractContents();
       
-      if (!success) {
-        const span = document.createElement('span');
-        span.style.color = color;
+      const extractTextAndFormat = (node) => {
+        const result = [];
         
-        try {
-          range.surroundContents(span);
-        } catch (e) {
-          const contents = range.extractContents();
-          span.appendChild(contents);
-          range.insertNode(span);
+        const walker = document.createTreeWalker(
+          node,
+          NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+          null
+        );
+        
+        let currentNode;
+        while (currentNode = walker.nextNode()) {
+          if (currentNode.nodeType === Node.TEXT_NODE) {
+            const text = currentNode.textContent;
+            if (text) {
+              // Verificar si está dentro de bold o italic
+              let parent = currentNode.parentElement;
+              let isBold = false;
+              let isItalic = false;
+              
+              while (parent && parent !== node) {
+                if (parent.tagName === 'B' || parent.tagName === 'STRONG') {
+                  isBold = true;
+                }
+                if (parent.tagName === 'I' || parent.tagName === 'EM') {
+                  isItalic = true;
+                }
+                parent = parent.parentElement;
+              }
+              
+              result.push({ text, isBold, isItalic });
+            }
+          }
         }
-      }
+        
+        return result;
+      };
       
+      const textParts = extractTextAndFormat(fragment);
+      
+      const span = document.createElement('span');
+      const rgb = hexToRgb(color);
+      span.style.color = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+      
+      textParts.forEach(part => {
+        if (part.isBold && part.isItalic) {
+          const strong = document.createElement('strong');
+          const em = document.createElement('em');
+          em.textContent = part.text;
+          strong.appendChild(em);
+          span.appendChild(strong);
+        } else if (part.isBold) {
+          const strong = document.createElement('strong');
+          strong.textContent = part.text;
+          span.appendChild(strong);
+        } else if (part.isItalic) {
+          const em = document.createElement('em');
+          em.textContent = part.text;
+          span.appendChild(em);
+        } else {
+          span.appendChild(document.createTextNode(part.text));
+        }
+      });
+      
+      range.insertNode(span);
+      
+      console.log('✅ Color aplicado sin anidación:', span.outerHTML);
+      
+      // Limpiar selección
       selection.removeAllRanges();
       setShowColorToolbar(false);
       setTextSelection(null);
-      
+
+      // Restaurar foco
       if (inputRef.current) {
         inputRef.current.focus();
         const newRange = document.createRange();
-        newRange.selectNodeContents(inputRef.current);
-        newRange.collapse(false);
+        newRange.setStartAfter(span);
+        newRange.collapse(true);
         selection.removeAllRanges();
         selection.addRange(newRange);
       }
-      
+
     } catch (error) {
       console.error('Error aplicando color:', error);
       setShowColorToolbar(false);
       setTextSelection(null);
     }
+  };
+
+// ✅ FUNCIÓN 1: Aplanar spans de color anidados
+const flattenColorSpans = (htmlString) => {
+  if (!htmlString) return '';
+  
+  const temp = document.createElement('div');
+  temp.innerHTML = htmlString;
+  
+  // Encontrar todos los spans con color
+  const colorSpans = temp.querySelectorAll('span[style*="color"]');
+  
+  colorSpans.forEach(span => {
+    // Buscar spans hijos que también tengan color
+    const childColorSpans = span.querySelectorAll('span[style*="color"]');
+    
+    if (childColorSpans.length > 0) {
+      console.log('🔧 Aplanando span anidado');
+      
+      // Crear fragmento para reemplazar
+      const fragment = document.createDocumentFragment();
+      
+      // Procesar cada nodo hijo
+      Array.from(span.childNodes).forEach(child => {
+        if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+          // Texto directo - crear span con color del padre
+          const newSpan = document.createElement('span');
+          newSpan.style.color = span.style.color;
+          newSpan.textContent = child.textContent;
+          fragment.appendChild(newSpan);
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          if (child.tagName === 'SPAN' && child.style.color) {
+            // Span hijo con color - usar su propio color
+            const newSpan = document.createElement('span');
+            newSpan.style.color = child.style.color;
+            newSpan.textContent = child.textContent;
+            fragment.appendChild(newSpan);
+          } else {
+            // Otro elemento - envolver en span con color del padre
+            const newSpan = document.createElement('span');
+            newSpan.style.color = span.style.color;
+            newSpan.appendChild(child.cloneNode(true));
+            fragment.appendChild(newSpan);
+          }
+        }
+      });
+      
+      // Reemplazar el span original
+      span.parentNode.replaceChild(fragment, span);
+    }
+  });
+  
+  return temp.innerHTML;
+};
+
+const applyFormatToSelection = (format) => {
+  const selection = window.getSelection();
+  if (!selection.rangeCount || selection.isCollapsed) return;
+
+  try {
+    // Usar execCommand que maneja correctamente los formatos anidados
+    if (format === 'bold') {
+      document.execCommand('bold', false, null);
+    } else if (format === 'italic') {
+      document.execCommand('italic', false, null);
+    }
+    
+  } catch (error) {
+    console.error('Error al aplicar formato:', error);
+  }
+};
+
+
+  const cleanHTMLForBackend = (htmlString) => {
+    if (!htmlString) return '';
+    
+    let cleaned = htmlString;
+    
+    // 1. Aplanar spans anidados
+    cleaned = flattenColorSpans(cleaned);
+    
+    // 2. Remover tags de Office
+    cleaned = cleaned.replace(/<o:p><\/o:p>/g, '');
+    cleaned = cleaned.replace(/<o:p>/g, '');
+    cleaned = cleaned.replace(/<\/o:p>/g, '');
+    
+    // 3. Remover class="MsoNormal"
+    cleaned = cleaned.replace(/\sclass="MsoNormal"/g, '');
+    
+    // 4. Simplificar styles - mantener SOLO color
+    cleaned = cleaned.replace(
+      /<span style="([^"]*)"/g,
+      (match, styles) => {
+        const colorMatch = styles.match(/color:\s*rgb\([^)]+\)/);
+        if (colorMatch) {
+          return `<span style="${colorMatch[0]}"`;
+        }
+        return '<span'; // Sin estilos
+      }
+    );
+    
+    // 5. Normalizar bold
+    cleaned = cleaned.replace(/<b>/g, '<strong>');
+    cleaned = cleaned.replace(/<\/b>/g, '</strong>');
+    cleaned = cleaned.replace(/<b style="[^"]*">/g, '<strong>');
+    
+    // 6. Remover spans vacíos
+    cleaned = cleaned.replace(/<span><\/span>/g, '');
+    cleaned = cleaned.replace(/<span style="[^"]*"><\/span>/g, '');
+    
+    // 7. Remover saltos de línea excesivos
+    cleaned = cleaned.replace(/\n\s*\n/g, '\n');
+    
+    console.log('🧹 HTML limpiado para backend');
+    
+    return cleaned.trim();
+  };
+
+  const validateHTMLForExport = (htmlString) => {
+    const issues = [];
+    
+    // Detectar spans anidados con color
+    const nestedPattern = /<span[^>]*color:[^>]*>[^<]*<span[^>]*color:/;
+    if (nestedPattern.test(htmlString)) {
+      issues.push('❌ Spans de color anidados');
+    }
+    
+    // Detectar tags de Office
+    if (htmlString.includes('<o:p>')) {
+      issues.push('⚠️ Tags de Office (o:p)');
+    }
+    
+    // Detectar styles innecesarios
+    if (htmlString.includes('background-image: initial')) {
+      issues.push('⚠️ Styles de background innecesarios');
+    }
+    
+    if (issues.length > 0) {
+      console.warn('⚠️ Issues detectados:', issues);
+      return false;
+    }
+    
+    console.log('✅ HTML válido');
+    return true;
+  };
+
+  // Función para limpiar HTML legacy al cargar/guardar
+  const cleanLegacyHTML = (html) => {
+    if (!html) return html;
+    
+    const invalidTags = ['g', 'mo', 'alquila', 'renta', 'auto', 'viaje'];
+    let cleaned = html;
+    
+    invalidTags.forEach(tag => {
+      cleaned = cleaned.replace(new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi'), '<span>');
+      cleaned = cleaned.replace(new RegExp(`</${tag}>`, 'gi'), '</span>');
+    });
+    
+    cleaned = cleaned.replace(/\s+\w+=""/g, ''); // Limpiar atributos vacíos
+    
+    return cleaned;
+  };
+
+  // Úsala al obtener el valor de la celda
+  const getCellValue = () => {
+    if (!inputRef.current) return '';
+    return cleanLegacyHTML(inputRef.current.innerHTML);
   };
 
   const handleTextSelection = useCallback(debounce((e) => {
@@ -1683,11 +1977,11 @@ export default function Redactor() {
       
       {/* Rich Text Color Toolbar */}
       {showColorToolbar && (
-        <div 
+        <div
           data-color-toolbar
           style={{
             position: 'absolute',
-            left: toolbarPosition.x ,
+            left: toolbarPosition.x,
             top: toolbarPosition.y,
             zIndex: 1000,
             backgroundColor: 'white',
@@ -1702,8 +1996,63 @@ export default function Redactor() {
             whiteSpace: 'nowrap'
           }}
         >
+          {/* Botones de formato */}
+          <button
+            style={{
+              padding: '4px 8px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '14px',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              applyFormatToSelection('bold');
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+            title="Negrilla"
+          >
+            B
+          </button>
+          
+          <button
+            style={{
+              padding: '4px 8px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              fontStyle: 'italic',
+              fontSize: '14px',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              applyFormatToSelection('italic');
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+            title="Cursiva"
+          >
+            I
+          </button>
+
+          {/* Separador */}
+          <div style={{ width: '1px', height: '20px', backgroundColor: '#e5e7eb' }}></div>
+
+          {/* Icono y texto de colorear */}
           <Type size={16} />
           <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>Colorear:</span>
+          
+          {/* Paleta de colores */}
           {['#000000', '#E6484B', '#0583ff', '#150a44', '#00ffff', '#00eba7', '#B45F1D', '#9900ff'].map(color => (
             <div
               key={color}
@@ -1848,17 +2197,6 @@ export default function Redactor() {
                     <span>Guardar</span>
                   </>
                 )}
-              </button>
-              
-              <button 
-                style={tableStyles.resetButton}
-                onClick={resetToTemplate}
-                onMouseOver={e => e.target.style.backgroundColor = tableStyles.resetButtonHover.backgroundColor}
-                onMouseOut={e => e.target.style.backgroundColor = tableStyles.resetButton.backgroundColor}
-                title="Resetear a template original"
-              >
-                <RotateCcw size={16} />
-                <span>Reset</span>
               </button>
 
               {/* BOTÓN DE EXPORTACIÓN CON TEMPLATE */}
@@ -2022,18 +2360,10 @@ export default function Redactor() {
                 if (!selectedCell) return;
                 try {
                   const tema = currentLP.title;
-                  console.log('🔍 TODOS los blocksMetadata:', blocksMetadata);
-                  console.log('🔍 Bloque 5 en frontend:', blocksMetadata['5']);
                   // Obtener el título correcto según el contexto
                   const titleInfo = getTitleForIAGeneration(selectedCell, block, tableData);
                   const blockTitle = titleInfo.title;
                   const currentTemplate = getCurrentTemplate();
-                  console.log('🔥 FRONTEND - Bloque elegido:', {
-                        selectedCell: selectedCell,
-                        blockNumber: block?.number,
-                        blockType: block?.type,
-                        blockName: block?.name
-                      });
                                     
                   if (!blockTitle || blockTitle.trim() === '') {
                     if (titleInfo.type === 'faq_answer_empty') {
@@ -2097,8 +2427,8 @@ export default function Redactor() {
                     cellKey: selectedCell,
                     tema: tema,
                     faqQuestions: titleInfo.faqQuestions || [],
-                    favCityQuestions: titleInfo.favCityQuestions || [], // ← SIMPLIFICADO
-                    carTypes: titleInfo.carTypes || [], // ← SIMPLIFICADO
+                    favCityQuestions: titleInfo.favCityQuestions || [], 
+                    carTypes: titleInfo.carTypes || [], 
                     blockType: block.type,
                     templateInfo: currentTemplate
                   });
@@ -2139,20 +2469,63 @@ export default function Redactor() {
                   // Actualizar la celda de descripción con el contenido generado
                   const updateTableDataByBlock = (blockNumber, content) => {
                     console.log('🔍 updateTableDataByBlock recibió:', content);
-                    console.log('🔍 structured_content:', content?.structured_content);
+                    console.log('🔍 structured_content KEYS:', Object.keys(content?.structured_content || {}));
+                    
                     setTableData(prev => {
                       const updates = { ...prev };
                       const blockKey = String(blockNumber);
                       const meta = blocksMetadata[blockKey];
-                      console.log('🔍 contentMapping para bloque', blockNumber, ':', meta?.contentMapping);
-    
+                      
+                      console.log('🔍 contentMapping KEYS:', Object.keys(meta?.contentMapping || {}));
+                      
                       if (!meta || !meta.contentMapping) {
-                        console.warn(`No hay metadata o contentMapping para el bloque ${blockNumber}`);
+                        console.warn(`❌ No hay metadata o contentMapping para el bloque ${blockNumber}`);
                         return updates;
                       }
+                      
                       Object.entries(meta.contentMapping).forEach(([field, cellKey]) => {
-                        if (content.structured_content[field] !== undefined) {
-                          updates[cellKey] = { content: content.structured_content[field] };
+                        let contentValue = content.structured_content[field];
+                        
+                        // Si no encuentra el campo exacto, buscar alternativas
+                        if (contentValue === undefined) {
+                          // desc_X ↔ faq_X
+                          if (field.startsWith('desc_')) {
+                            const number = field.replace('desc_', '');
+                            const altField = `faq_${number}`;
+                            contentValue = content.structured_content[altField];
+                            if (contentValue !== undefined) {
+                              console.log(`✅ Campo '${field}' no encontrado, pero sí '${altField}'`);
+                            }
+                          } else if (field.startsWith('faq_')) {
+                            const number = field.replace('faq_', '');
+                            const altField = `desc_${number}`;
+                            contentValue = content.structured_content[altField];
+                            if (contentValue !== undefined) {
+                              console.log(`✅ Campo '${field}' no encontrado, pero sí '${altField}'`);
+                            }
+                          }
+                          
+                          // Mapeo especial para desc_1 → desc_h2, desc_2 → desc_h3
+                          if (contentValue === undefined) {
+                            if (field === 'desc_1') {
+                              contentValue = content.structured_content['desc_h2'];
+                              if (contentValue !== undefined) {
+                                console.log(`✅ Campo '${field}' no encontrado, usando 'desc_h2'`);
+                              }
+                            } else if (field === 'desc_2') {
+                              contentValue = content.structured_content['desc_h3'];
+                              if (contentValue !== undefined) {
+                                console.log(`✅ Campo '${field}' no encontrado, usando 'desc_h3'`);
+                              }
+                            }
+                          }
+                        }
+                        
+                        if (contentValue !== undefined) {
+                          console.log(`✅ Actualizando celda ${cellKey} con contenido`);
+                          updates[cellKey] = { content: contentValue };
+                        } else {
+                          console.log(`❌ Campo '${field}' NO encontrado en structured_content`);
                         }
                       });
                       
