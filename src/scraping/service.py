@@ -37,12 +37,6 @@ def actualizar_o_crear_resultado_scraping(
     """
     Crea o actualiza de forma genérica una entidad ScrapingResult 
     para un blog específico con los datos proporcionados.
-    
-    :param db: Sesión de la base de datos.
-    :param blog_id: ID del Blog al que se vincula el resultado.
-    :param datos_a_guardar: Diccionario con los campos y valores a guardar 
-                            (ej: {'consolidated_content': 'El texto final'}).
-    :return: La entidad ScrapingResult creada o actualizada.
     """
     
     # 1. Buscar si ya existe un resultado para este blog_id
@@ -51,29 +45,36 @@ def actualizar_o_crear_resultado_scraping(
     ).first()
 
     if resultado_scraping:
-        # Si existe, actualizar los campos del diccionario
-        for key, value in datos_a_guardar.items():
-            if hasattr(resultado_scraping, key):
-                setattr(resultado_scraping, key, value)
+        # 2. Actualizar si existe
+        logging.info(f"Actualizando resultado de scraping para blog_id: {blog_id}")
         
-        # Opcional: Actualizar la marca de tiempo de modificación si la tuvieras
-        # resultado_scraping.last_modified = datetime.now(timezone.utc)
+        # Guardar el contenido consolidado (texto final)
+        if 'consolidated_content' in datos_a_guardar:
+            resultado_scraping.consolidated_content = datos_a_guardar['consolidated_content']
         
-        logging.info(f"Resultado de scraping actualizado para Blog ID: {blog_id}. Campos: {list(datos_a_guardar.keys())}")
-        
+        # Guardar los bloques de scraping (el 'puro' escrapeado)
+        if 'scrape_blocks_json' in datos_a_guardar:
+            # La columna 'scrape_blocks_json' es de tipo JSON, asignamos el diccionario/lista
+            resultado_scraping.scrape_blocks_json = datos_a_guardar['scrape_blocks_json']
+            
     else:
-        # Si no existe, crear uno nuevo
-        nuevo_resultado = Scraping(
-            blog_id=blog_id,
-            **datos_a_guardar
-        )
-        db.add(nuevo_resultado)
-        logging.info(f"Resultado de scraping creado para Blog ID: {blog_id}.")
+        # 3. Crear si no existe
+        logging.info(f"Creando nuevo resultado de scraping para blog_id: {blog_id}")
+        
+        # Mapear los datos para la creación
+        datos_para_crear = {
+            "blog_id": blog_id,
+            "consolidated_content": datos_a_guardar.get('consolidated_content'),
+            "scrape_blocks_json": datos_a_guardar.get('scrape_blocks_json')
+        }
+        
+        resultado_scraping = Scraping(**datos_para_crear)
+        db.add(resultado_scraping)
 
+    # 4. Persistir los cambios
     db.commit()
-    db.refresh(resultado_scraping or nuevo_resultado) # Refrescar la instancia correcta
-    return resultado_scraping or nuevo_resultado
-
+    db.refresh(resultado_scraping)
+    return resultado_scraping
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # --- 1. CLASE AIService: Control y Generación de IA ---
@@ -1538,7 +1539,8 @@ class AnalysisOrchestrator:
             else:
                 # Plan C: Fallback Ultra Robusto
                 yield "data: La división estructural falló COMPLETAMENTE. Intentando usar texto plano y simplificado con extracción agresiva (Plan C - Ultra Robusto).\n\n"
-                structured_chunks = self.extractor._aggressive_text_fallback(soup, title)
+                
+                structured_chunks = self._aggressive_text_fallback(soup, title)
 
                 if not structured_chunks:
                     msg = f"Contenido insuficiente en {url} (fallo en Plan A, B y C), se descarta."
@@ -1664,12 +1666,10 @@ class AnalysisOrchestrator:
                             
             consolidated_text = "\n\n".join(structured_context_parts)
             
-            # ===================================================================
-            # 🔑 AÑADIR PERSISTENCIA DEL CONSOLIDATED_TEXT (Nuevo Código)
-            # ===================================================================
             if self.db and self.blog_id and consolidated_text:
                 try:
-                    datos_a_guardar = {"consolidated_content": consolidated_text}
+                    datos_a_guardar = {"consolidated_content": consolidated_text, 'scrape_blocks_json': [res.model_dump() for res in analisis_final_ia]}
+                    
                     actualizar_o_crear_resultado_scraping(self.db, self.blog_id, datos_a_guardar)
                     log.append(f"Persistencia exitosa de consolidated_content para Blog ID: {self.blog_id}")
                 except Exception as e:
@@ -1707,6 +1707,7 @@ def execute_scraping(db: Session, blog_id: UUID, req: models.ScrapeRequest) -> G
     """
     ai_service = AIService()
     extractor = ContentExtractor()
+    # Pasa DB y blog_id al Orchestrator para que pueda guardar en la tabla 'scraping'
     orchestrator = AnalysisOrchestrator(ai_service, extractor, db, blog_id)
     return orchestrator.execute_scraping(req)
 

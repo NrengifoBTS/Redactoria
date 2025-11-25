@@ -1,28 +1,31 @@
 #redactoria/src/scraping/controllers.py
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException,Depends
 from fastapi.responses import StreamingResponse
 from typing import Dict, Any
 from . import models, service
+from sqlalchemy.orm import Session
+from src.database.core import get_db 
 
 
 # =======================================================================
 # 1. ROUTER DE SCRAPING
 # =======================================================================
-
 router = APIRouter(prefix="/scraping", tags=["Scraping"])
 
-@router.post("/stream/{blog_id}")
-# CRÍTICO: La función debe recibir blog_id: str como argumento.
-def scrape_stream(blog_id: str, req: models.ScrapeRequest):
+@router.post("/stream/{blog_id}") # <-- El blog_id está en la URL (path)
+def scrape_stream(
+    blog_id: str, # <-- Lo captura de la URL
+    req: models.ScrapeRequest,
+    db: Session = Depends(get_db) # <-- Inyección de la sesión de base de datos
+):
     """
     Inicia el proceso de scraping de URLs y devuelve los resultados 
     como un flujo de eventos (Server-Sent Events).
     """
     try:
         return StreamingResponse(
-            # CRÍTICO: Pasamos el blog_id al servicio.
-            service.execute_scraping(req, blog_id),
+            # CRÍTICO: Pasamos la sesión de DB, el blog_id (llave foránea) y el request.
+            service.execute_scraping(db, blog_id, req),
             media_type="text/event-stream"
         )
     except Exception as e:

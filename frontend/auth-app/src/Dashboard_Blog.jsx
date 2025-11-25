@@ -1,5 +1,5 @@
 import "@iconscout/unicons/css/line.css";
-import "./css/styles.css";
+import "./css/dashboard_Blog.css";
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBlogs } from "./hooks/useApi.js";

@@ -7,8 +7,8 @@ import React, {
 } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "@iconscout/unicons/css/line.css";
-import "./css/styles_generacion.css";
 import apiService from "./services/apiService";
+import "./css/blog_Generacion.css";
 
 const GeneracionBlog = () => {
   // =======================================================================
@@ -28,7 +28,7 @@ const GeneracionBlog = () => {
   // // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS (useState)
   // // =======================================================================
   const [datosFinales, setDatosFinales] = useState(null); // <-- Fuente de verdad
-  const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState(null);
+  const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [estimatedWordCount, setEstimatedWordCount] = useState(null);
   const [, setTotalGeneratedWords] = useState(0);
@@ -1166,8 +1166,10 @@ const GeneracionBlog = () => {
     }
 
     try {
-      // 3. LLAMADA AL ENDPOINT DE SCRAPING
-      const response = await fetch(URL_API_SCRAPING, {
+      const finalScrapingUrl = `${URL_API_SCRAPING}/${blogId}`;
+
+      const response = await fetch(finalScrapingUrl, {
+        // <-- Usamos la URL completa
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2568,7 +2570,7 @@ const GeneracionBlog = () => {
                     <button
                       onClick={() => regenerarSeccion("structure_section")}
                       disabled={cargandoIA || seccionRegenerando}
-                      className="btn-generate btn-regenerar"
+                      className="btn-generate btn-regenerar "
                       style={{ flexGrow: 1 }}
                     >
                       {seccionRegenerando === "structure_section"
@@ -2583,7 +2585,7 @@ const GeneracionBlog = () => {
                       setSelectedSectionForRegen(null);
                       setTitleSuggestions([]); // Limpia sugerencias al cancelar
                     }}
-                    className="btn-generate btn-cancel"
+                    className="btn btn-cancel"
                     style={{ marginTop: "10px", width: "100%", height: "45px" }}
                   >
                     <i className="uil uil-times"></i> Cancelar Edición
@@ -2714,7 +2716,7 @@ const GeneracionBlog = () => {
                   </button>
                   <button
                     onClick={generarContenidoIA}
-                    className="btn-regenerar"
+                    className="btn-generate btn-regenerar "
                     style={{ flexGrow: 1 }}
                     disabled={cargandoIA || !contenidoConsolidado}
                   >
@@ -2732,7 +2734,7 @@ const GeneracionBlog = () => {
                 {/*Botón de Cancelar Edición de Contenido */}
                 <button
                   onClick={cancelarEdicionContenido}
-                  className="btn-generate btn-cancel"
+                  className="btn btn-cancel"
                   style={{ marginTop: "10px", width: "100%", height: "45px" }}
                   disabled={cargandoIA}
                 >

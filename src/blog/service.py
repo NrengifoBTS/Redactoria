@@ -52,8 +52,6 @@ def get_blog(current_user: CurrentUser, db: Session, blog_id: UUID) -> Blog:
     if not blog:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Blog no encontrado.")
 
-    # 🛑 Se eliminó el IF que verificaba created_by/assigned_to y lanzaba 403.
-    
     return blog
 
 # =======================================================================
@@ -85,8 +83,6 @@ def create_blog(current_user: CurrentUser, db: Session, blog_request: models.Blo
         tecnica=blog_request.tecnica,
         acento=blog_request.acento,
         tono=blog_request.tono,
-
-        
     )
     
     # 4. Persistir en la base de datos
@@ -117,18 +113,24 @@ def update_blog(current_user: CurrentUser, db: Session, blog_id: UUID, blog_upda
     # Mapear los campos del modelo Pydantic al ORM
     for key, value in update_data.items():
         if value is not None:
-            if key in ('estado', 'prioridad'):
-                setattr(blog, key, value.value) # Para enums
-            else:
+            # === MODIFICACIÓN CLAVE AQUÍ: Manejar la estructura JSON ===
+            if key == 'estructura_blog_json':
+                # Asignar el diccionario JSON directamente.
+                setattr(blog, key, value) 
+            # ==========================================================
+            elif key in ('estado', 'prioridad'):
+                # Lógica existente para Enums
                 setattr(blog, key, value)
-                
+            else:
+                # Lógica existente para otros campos (title, keywords, consolidated_content, etc.)
+                setattr(blog, key, value)
+
     blog.last_modified = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(blog)
-    logging.info(f"Blog {blog_id} actualizado por usuario {user_id}")
+    logging.info(f"Blog {blog_id} actualizado por usuario {user_id}. Estructura guardada.")
     return blog
-
 
 def delete_blog(current_user: CurrentUser, db: Session, blog_id: UUID) -> bool:
     """Elimina un blog. Solo el creador o un admin pueden eliminar."""

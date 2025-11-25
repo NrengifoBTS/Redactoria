@@ -341,17 +341,20 @@ select {
 
 .generadores-izquierda {
   flex: 1 1 50%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  height: calc(99vh);
+  overflow-y: auto;
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 .generadores-derecha {
   flex: 1 1 50%;
-  height: calc(94vh);
+  height: calc(99vh);
   overflow-y: auto;
   background-color: #ffffff;
-  padding: 20px; /* Asegura que el contenido tenga un buen margen interno */
+  padding: 20px;
   border-radius: 16px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08); /* Mantenemos la sombra de tarjeta */
 }
@@ -472,90 +475,6 @@ select {
   padding: 20px;
   justify-content: space-between;
   flex-wrap: wrap;
-}
-
-/* ==========================================================
-   MEDIA QUERY PARA PANTALLAS PEQUEÑAS (Mobile / Tablet Pequeña)
-   ========================================================== */
-
-@media screen and (max-width: 768px) {
-  /* NAV BAR */
-  .navbar {
-    padding: 10px 15px;
-  }
-  .navbar h1 {
-    font-size: 1.4rem;
-  }
-  .navbar .btn {
-    padding: 6px 12px;
-    height: auto;
-    font-size: 0.9rem;
-  }
-
-  /* LAYOUT PRINCIPAL: DE COLUMNA A PILA */
-  .generadores-container {
-    flex-direction: column;
-    padding: 10px;
-    gap: 15px;
-  }
-
-  .generadores-izquierda,
-  .generadores-derecha {
-    flex: none;
-  }
-
-  /* PESTAÑAS (CARDS) */
-  .idea-generator,
-  .visual-generator,
-  .image-generator,
-  .links-generator,
-  .faq-generator,
-  .analysis-result {
-    padding: 25px 20px;
-  }
-
-  /* LAYOUTS INTERNOS (Idea y Imagen) */
-  .idea-layout,
-  .image-generator {
-    flex-direction: column;
-    gap: 20px;
-  }
-  .idea-input,
-  .image-controls,
-  .idea-output,
-  .image-output {
-    min-width: 100%;
-  }
-
-  /* BOTONES */
-  .btn-generate,
-  .btn-regenerar,
-  .btn-generate-image,
-  #btn-download {
-    height: 45px;
-    font-size: 1rem;
-  }
-
-  /* PRECONFIG */
-  .preconfig {
-    margin: 10px;
-    padding: 15px 20px;
-  }
-  .preconfig h2 {
-    font-size: 1.2rem;
-  }
-  .idea-buttons {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  /* Apila los contenedores de tarjetas en móvil */
-  .config-cards-wrapper,
-  .summary-cards-container {
-    padding: 10px;
-    gap: 15px;
-    flex-direction: column;
-  }
 }
 
 /* ==========================================================
@@ -957,4 +876,37 @@ select {
   background-color: #ffe0e6; /* Fondo de peligro suave */
   color: #dc3545; /* Rojo de peligro */
   border: 1px solid #dc3545;
+}
+
+@media screen and (max-width: 768px) {
+  /* ... estilos mobile ... */
+
+  /* LAYOUT PRINCIPAL: DE COLUMNA A PILA (MANTENIDO CORRECTAMENTE) */
+  .generadores-container {
+    flex-direction: column;
+    padding: 10px;
+    gap: 15px;
+  }
+
+  .generadores-izquierda,
+  .generadores-derecha {
+    flex: none;
+  }
+
+  .generadores-derecha {
+    order: 10;
+  }
+
+  /* Ajuste de Preconfiguraciones en móvil */
+  .config-group-content-grid {
+    grid-template-columns: 1fr; /* En móvil, la etiqueta y el contenido se apilan */
+    gap: 5px 0;
+  }
+  .config-group-content-grid > p,
+  .config-group-content-grid > div {
+    grid-column: 1 / 2;
+  }
+  .config-group .analysis-title {
+    margin-bottom: 5px;
+  }
 }

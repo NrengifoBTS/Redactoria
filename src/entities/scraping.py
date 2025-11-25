@@ -17,11 +17,11 @@ class Scraping(Base):
     # Clave primaria para la tabla de resultados de scraping
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     
-    # 🔑 Clave Foránea a la tabla de Blog (Relación One-to-One)
+    # Clave Foránea a la tabla de Blog (Relación One-to-One)
     # unique=True asegura que cada Blog tenga a lo sumo un ScrapingResult.
     blog_id = Column(UUID(as_uuid=True), ForeignKey('blogs.id'), unique=True, nullable=False)
     
-    # 📝 Campo solicitado: El texto consolidado
+    # Campo solicitado: El texto consolidado
     consolidated_content = Column(Text, nullable=True) 
     
     # Datos brutos del scraping (artículos individuales)

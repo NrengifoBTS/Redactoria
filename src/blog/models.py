@@ -45,8 +45,8 @@ class BlogBase(BaseModel):
     prioridad: PrioridadBlog
     
     # --- Campos de Generación/Contenido (NUEVOS EN EL CONTEXTO) ---
-    estructura_blog_json: Optional[Dict[str, Any]] = None      # Estructura detallada H1/H2/H3 (JSON)
-   # -----------------------------------------------------------------
+    estructura_blog_json: Optional[str] = None    
+    # -----------------------------------------------------------------
 
     # Asignación de usuario
     assigned_to: Optional[UUID] = None
@@ -68,7 +68,7 @@ class BlogUpdate(BaseModel):
     prioridad: Optional[PrioridadBlog] = None
     
     # Permite actualizar la estructura y el contenido
-    estructura_blog_json: Optional[Dict[str, Any]] = None 
+    estructura_blog_json: Optional[str] = None 
     
     
     assigned_to: Optional[UUID] = None
