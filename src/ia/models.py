@@ -50,6 +50,16 @@ class StructuredContent(BaseModel):
     desc_4: Optional[str] = None
     desc_5: Optional[str] = None
     desc_6: Optional[str] = None
+    desc_7: Optional[str] = None
+    desc_8: Optional[str] = None
+    desc_9: Optional[str] = None
+    desc_10: Optional[str] = None
+    desc_11: Optional[str] = None
+    desc_12: Optional[str] = None
+    desc_13: Optional[str] = None
+    desc_14: Optional[str] = None
+    desc_15: Optional[str] = None
+    desc_16: Optional[str] = None
 
 class FrontendReady(BaseModel):
     """Información lista para el frontend"""

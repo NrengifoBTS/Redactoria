@@ -320,6 +320,8 @@ class ApiService {
         tit: blockTitle,
         tema,
         lpId,
+        faqQuestions,
+        favCityQuestions,
       };
 
       // Agregar info del template si existe
@@ -355,14 +357,11 @@ class ApiService {
         payload.car_types = carTypes;
       }
 
-      const response = await fetch(
-        `${this.baseURL}/ia/${lpId}/block-${blockNumber}`,
-        {
-          method: "POST",
-          headers: this.getHeaders(),
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await fetch(`${this.baseURL}/ia/${lpId}/block-2`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload),
+      });
       console.log(
         "🔥 API SERVICE - Payload que se envía:",
         JSON.stringify(payload, null, 2)

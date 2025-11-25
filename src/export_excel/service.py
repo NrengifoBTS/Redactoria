@@ -18,170 +18,198 @@ from openpyxl.styles.colors import Color
 
 def _rgb_to_hex(rgb_string: str) -> str:
     """
-    Convierte formato RGB a hexadecimal
+    Convierte formato RGB a hexadecimal ARGB para Excel
     Entrada: 'rgb(59, 130, 246)' o 'rgba(59, 130, 246, 1)'
-    Salida: '3b82f6'
+    Salida: 'FF3b82f6' (con alpha FF para opacidad completa)
     """
     try:
         # Extraer números del RGB
         numbers = re.findall(r'\d+', rgb_string)
         if len(numbers) >= 3:
             r, g, b = int(numbers[0]), int(numbers[1]), int(numbers[2])
-            # Convertir a hex (sin el #)
-            hex_color = f"{r:02x}{g:02x}{b:02x}"
-            logging.info(f"Convertido RGB({r},{g},{b}) -> #{hex_color}")
+            
+            # Extraer alpha si existe (rgba)
+            alpha = 255  # Opacidad completa por defecto
+            if len(numbers) >= 4:
+                # Convertir alpha de 0-1 a 0-255
+                alpha_float = float(numbers[3]) if '.' in rgb_string else int(numbers[3])
+                if alpha_float <= 1:
+                    alpha = int(alpha_float * 255)
+                else:
+                    alpha = int(alpha_float)
+            
+            # ✅ FORMATO ARGB CORRECTO: Alpha + RGB
+            hex_color = f"{alpha:02x}{r:02x}{g:02x}{b:02x}".upper()
+            logging.info(f"✅ Convertido RGB({r},{g},{b},alpha={alpha}) -> {hex_color}")
             return hex_color
         else:
             logging.warning(f"No se pudieron extraer 3 números de: {rgb_string}")
-            return "000000"  # Negro por defecto
+            return "FF000000"  # Negro opaco por defecto
     except Exception as e:
         logging.error(f"Error convirtiendo RGB {rgb_string}: {str(e)}")
-        return "000000"
+        return "FF000000"
     
 def _normalize_color(color_value: str) -> str:
     """
-    Normaliza diferentes formatos de color a hexadecimal
+    Normaliza diferentes formatos de color a hexadecimal ARGB
+    Retorna formato ARGB de 8 caracteres para Excel
     """
     if not color_value:
-        return "000000"
+        return "FF000000"
     
     color_value = color_value.strip()
     
-    # Si ya es hexadecimal
-    if color_value.startswith('#'):
-        return color_value[1:]  # Quitar el #
-    
-    # Si es RGB/RGBA
+    # Si es RGB/RGBA - PRIORIDAD MÁXIMA
     if color_value.startswith('rgb'):
         return _rgb_to_hex(color_value)
     
+    # Si ya es hexadecimal con #
+    if color_value.startswith('#'):
+        hex_value = color_value[1:]
+        # Si es RGB (6 chars), agregar alpha FF
+        if len(hex_value) == 6:
+            return f"FF{hex_value.upper()}"
+        # Si ya es ARGB (8 chars)
+        elif len(hex_value) == 8:
+            return hex_value.upper()
+        # Si es formato corto RGB (3 chars), expandir
+        elif len(hex_value) == 3:
+            expanded = ''.join([c*2 for c in hex_value])
+            return f"FF{expanded.upper()}"
+    
     # Si es hex sin #
     if len(color_value) == 6 and all(c in '0123456789ABCDEFabcdef' for c in color_value):
-        return color_value
+        return f"FF{color_value.upper()}"
     
-    # Si es color CSS nombrado (opcional - expandir según necesidad)
+    if len(color_value) == 8 and all(c in '0123456789ABCDEFabcdef' for c in color_value):
+        return color_value.upper()
+    
+    # Colores CSS nombrados
     css_colors = {
-        'red': 'ff0000',
-        'blue': '0000ff', 
-        'green': '008000',
-        'black': '000000',
-        'white': 'ffffff'
+        'red': 'FFFF0000',
+        'blue': 'FF0000FF',
+        'green': 'FF008000',
+        'black': 'FF000000',
+        'white': 'FFFFFFFF',
+        'yellow': 'FFFFFF00',
+        'orange': 'FFFFA500',
+        'purple': 'FF800080',
+        'pink': 'FFFFC0CB',
+        'gray': 'FF808080',
+        'grey': 'FF808080',
     }
     
     if color_value.lower() in css_colors:
         return css_colors[color_value.lower()]
     
-    logging.warning(f"Formato de color no reconocido: {color_value}")
-    return "000000"
+    logging.warning(f"Formato de color no reconocido: {color_value}, usando negro")
+    return "FF000000"
 
 def _parse_html_to_rich_text(html_content: str):
     """
-    Convierte HTML con formato a RichText de Excel preservando TODOS los espacios
+    Versión corregida con mejor manejo de colores
     """
-    logging.info(f"=== PARSING HTML TO RICH TEXT ===")
+    from bs4 import BeautifulSoup, NavigableString
+    from openpyxl.cell.rich_text import TextBlock, CellRichText
+    from openpyxl.cell.text import InlineFont
+    
+    logging.info(f"=== PARSING HTML TO RICH TEXT (FIXED) ===")
     logging.info(f"Input: {html_content}")
     
     if not html_content or html_content.strip() == '':
         return ""
     
-    # Si no hay tags HTML, retornar texto plano
     if '<' not in html_content:
         return html_content
     
     try:
-        # ✅ USAR PARSER 'html.parser' CON CONFIGURACIÓN PARA PRESERVAR ESPACIOS
-        soup = BeautifulSoup(html_content, 'html.parser')
+        invalid_tags = ['g', 'mo', 'alquila', 'renta', 'auto', 'viaje']
+        for tag in invalid_tags:
+            html_content = re.sub(rf'<{tag}[^>]*>', '<span>', html_content, flags=re.IGNORECASE)
+            html_content = re.sub(rf'</{tag}>', '</span>', html_content, flags=re.IGNORECASE)
+        html_content = re.sub(r'\s+\w+=""', '', html_content)  # Limpiar attrs vacíos
         
-        # Lista para almacenar fragmentos de texto con su formato
+        soup = BeautifulSoup(html_content, 'html.parser')
         text_blocks = []
         
-        def extract_text_blocks_iterative(soup_element):
-            """
-            Método iterativo para extraer texto preservando espacios exactos
-            """
-            # ✅ NUEVA ESTRATEGIA: PROCESAR ELEMENTO POR ELEMENTO DE MANERA SECUENCIAL
+        def process_element(element, current_styles=None):
+            if current_styles is None:
+                current_styles = {}
             
-            def process_element(element, current_styles=None):
-                if current_styles is None:
-                    current_styles = {}
+            if isinstance(element, NavigableString):
+                text = str(element)
+                if text:
+                    text_blocks.append({
+                        'text': text,
+                        'styles': current_styles.copy()
+                    })
+                return
+            
+            element_styles = current_styles.copy()
+            
+            # Tags de formato
+            if element.name in ['strong', 'b']:
+                element_styles['bold'] = True
+            if element.name in ['em', 'i']:
+                element_styles['italic'] = True
+            if element.name == 'u':
+                element_styles['underline'] = True
+            
+            # Analizar style attribute
+            if element.get('style'):
+                style_attr = element.get('style')
                 
-                if isinstance(element, NavigableString):
-                    # ✅ PRESERVAR TEXTO EXACTO SIN MODIFICAR
-                    text = str(element)
-                    if text:  # Incluir incluso espacios puros
-                        text_blocks.append({
-                            'text': text,
-                            'styles': current_styles.copy()
-                        })
-                    return
-                
-                # Es un elemento HTML - obtener estilos
-                element_styles = current_styles.copy()
-                
-                # Analizar tag
-                if element.name in ['strong', 'b']:
-                    element_styles['bold'] = True
-                if element.name in ['em', 'i']:
-                    element_styles['italic'] = True
-                if element.name == 'u':
-                    element_styles['underline'] = True
-                
-                # Analizar style attribute
-                if element.get('style'):
-                    style_attr = element.get('style')
-                    
-                    # Buscar color RGB/RGBA
-                    rgb_match = re.search(r'color:\s*(rgba?\([^)]+\))', style_attr)
-                    if rgb_match:
-                        color_value = rgb_match.group(1).strip()
+                # ✅ MEJORADO: Buscar color con más precisión
+                # Primero buscar rgba
+                rgba_match = re.search(r'color:\s*rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+)?\s*\)', style_attr)
+                if rgba_match:
+                    r, g, b = rgba_match.groups()
+                    rgb_string = f"rgb({r}, {g}, {b})"
+                    element_styles['color'] = _normalize_color(rgb_string)
+                    logging.info(f"✅ Color RGB extraído: {rgb_string} -> {element_styles['color']}")
+                else:
+                    # Buscar color hex o nombrado
+                    color_match = re.search(r'color:\s*([#\w]+)', style_attr)
+                    if color_match:
+                        color_value = color_match.group(1).strip()
                         element_styles['color'] = _normalize_color(color_value)
-                    else:
-                        # Buscar color hex
-                        color_match = re.search(r'color:\s*([#a-zA-Z0-9]+)', style_attr)
-                        if color_match:
-                            color_value = color_match.group(1).strip()
-                            element_styles['color'] = _normalize_color(color_value)
-                    
-                    # Bold/italic en style
-                    if 'font-weight:bold' in style_attr or 'font-weight: bold' in style_attr:
-                        element_styles['bold'] = True
-                    if 'font-style:italic' in style_attr or 'font-style: italic' in style_attr:
-                        element_styles['italic'] = True
+                        logging.info(f"✅ Color extraído: {color_value} -> {element_styles['color']}")
                 
-                # Procesar hijos del elemento
-                for child in element.children:
-                    process_element(child, element_styles)
+                # Bold/italic en style
+                if re.search(r'font-weight:\s*bold', style_attr):
+                    element_styles['bold'] = True
+                if re.search(r'font-style:\s*italic', style_attr):
+                    element_styles['italic'] = True
             
-            # Procesar desde el elemento raíz
-            for child in soup_element.children:
-                process_element(child, {})
+            # Procesar hijos
+            for child in element.children:
+                process_element(child, element_styles)
         
-        # Extraer bloques con el nuevo método
-        extract_text_blocks_iterative(soup)
+        # Extraer bloques
+        for child in soup.children:
+            process_element(child, {})
         
-        logging.info(f"Bloques extraídos RAW: {text_blocks}")
+        logging.info(f"Bloques extraídos: {len(text_blocks)}")
+        for i, block in enumerate(text_blocks[:5]):  # Mostrar primeros 5
+            logging.info(f"  Bloque {i}: text='{block['text'][:30]}...' styles={block['styles']}")
         
-        # ✅ NUEVA LÓGICA: CONSOLIDAR BLOQUES CONSECUTIVOS CON MISMO ESTILO
+        # Consolidar bloques con mismo estilo
         consolidated_blocks = []
-        
         i = 0
         while i < len(text_blocks):
             current_block = text_blocks[i]
             current_text = current_block['text']
             current_styles = current_block['styles']
             
-            # Buscar bloques consecutivos con el mismo estilo
             j = i + 1
             while j < len(text_blocks):
                 next_block = text_blocks[j]
                 if next_block['styles'] == current_styles:
-                    # Mismo estilo, consolidar
                     current_text += next_block['text']
                     j += 1
                 else:
                     break
             
-            # Agregar bloque consolidado solo si tiene contenido
             if current_text:
                 consolidated_blocks.append({
                     'text': current_text,
@@ -190,13 +218,13 @@ def _parse_html_to_rich_text(html_content: str):
             
             i = j
         
-        logging.info(f"Bloques consolidados: {consolidated_blocks}")
+        logging.info(f"Bloques consolidados: {len(consolidated_blocks)}")
         
-        # Si solo hay un bloque y no tiene estilos, retornar texto simple
+        # Si solo hay un bloque sin estilos, retornar texto simple
         if len(consolidated_blocks) == 1 and not consolidated_blocks[0]['styles']:
             return consolidated_blocks[0]['text']
         
-        # Crear RichText si hay múltiples bloques o estilos
+        # Crear RichText
         if len(consolidated_blocks) > 1 or (len(consolidated_blocks) == 1 and consolidated_blocks[0]['styles']):
             rich_text_parts = []
             
@@ -204,9 +232,6 @@ def _parse_html_to_rich_text(html_content: str):
                 text = block['text']
                 styles = block['styles']
                 
-                # ✅ NO MODIFICAR EL TEXTO - PRESERVAR EXACTO
-                
-                # Crear InlineFont
                 font_kwargs = {
                     'rFont': 'Calibri',
                     'sz': 11,
@@ -217,38 +242,37 @@ def _parse_html_to_rich_text(html_content: str):
                 
                 if 'color' in styles:
                     try:
-                        font_kwargs['color'] = Color(rgb=styles['color'])
-                        logging.info(f"✅ Color aplicado: {styles['color']}")
+                        color_argb = styles['color']
+                        # Verificar que sea formato ARGB válido
+                        if len(color_argb) == 8:
+                            font_kwargs['color'] = Color(rgb=color_argb)
+                            logging.info(f"✅ Color aplicado a TextBlock: {color_argb}")
+                        else:
+                            logging.warning(f"⚠️ Color inválido (no es ARGB): {color_argb}")
                     except Exception as e:
-                        logging.warning(f"Error aplicando color {styles['color']}: {str(e)}")
+                        logging.error(f"❌ Error aplicando color {styles['color']}: {str(e)}")
                 
-                # Crear InlineFont y TextBlock
                 inline_font = InlineFont(**font_kwargs)
                 text_block = TextBlock(inline_font, text)
                 rich_text_parts.append(text_block)
                 
-                logging.info(f"✅ TextBlock creado: '{text}' (len={len(text)}) con estilos {styles}")
+                logging.info(f"✅ TextBlock creado: '{text[:30]}...' con estilos {styles}")
             
-            # Crear CellRichText
             rich_text = CellRichText(rich_text_parts)
-            logging.info(f"✅ RichText creado con {len(rich_text_parts)} bloques")
+            logging.info(f"✅ RichText final con {len(rich_text_parts)} bloques")
             return rich_text
         
-        # Fallback: texto plano
+        # Fallback
         if consolidated_blocks:
-            all_text = ''.join([block['text'] for block in consolidated_blocks])
-            return all_text
+            return ''.join([block['text'] for block in consolidated_blocks])
         else:
             return ""
         
     except Exception as e:
-        logging.error(f"Error parsing HTML to RichText: {str(e)}")
+        logging.error(f"❌ Error parsing HTML to RichText: {str(e)}")
         import traceback
-        logging.error(f"Traceback: {traceback.format_exc()}")
-        
-        # Fallback: limpiar HTML y retornar texto plano
-        clean_text = re.sub(r'<[^>]+>', '', html_content)
-        return clean_text
+        logging.error(traceback.format_exc())
+        return re.sub(r'<[^>]+>', '', html_content)
 
 def debug_cell_data_structure(export_request: models.ExportExcelRequest):
     """Debug para ver la estructura exacta de los datos"""
@@ -470,7 +494,7 @@ def _process_imagenes_by_template(wb, export_request: models.ExportExcelRequest)
     if "imagenes" not in wb.sheetnames:
         logging.info(f"Template '{template_name}' no tiene hoja 'imagenes'")
         return
-    
+      
     ws_imagenes = wb["imagenes"]
     logging.info(f"Procesando hoja 'imagenes' para template: {template_name}")
     
@@ -478,7 +502,7 @@ def _process_imagenes_by_template(wb, export_request: models.ExportExcelRequest)
     if template_name == "Template Autos":
         _populate_imagenes_viajemos_autos(ws_imagenes, export_request)
     elif template_name == "Template Ciudad":
-        _populate_imagenes_viajemos_autos(ws_imagenes, export_request)    
+        _populate_imagenes_viajemos_ciudad(ws_imagenes, export_request)    
     elif template_name == "otro_template":
         # Para otros templates, usar la lógica antigua de un solo bloque
         keywords_data = _generate_keywords_with_llm(export_request)
@@ -802,6 +826,9 @@ def _fill_keywords_otro_template(ws_imagenes, keywords: Dict):
     except Exception as e:
         logging.error(f"Error llenando keywords otro_template: {str(e)}")
 
+
+
+
 def _populate_imagenes_viajemos_autos(ws_imagenes, export_request: models.ExportExcelRequest):
     """
     Lógica específica para template viajemos_autos - múltiples bloques
@@ -884,11 +911,6 @@ def _populate_imagenes_viajemos_ciudad(ws_imagenes, export_request: models.Expor
             keywords_blocks.append(keywords_block3a)
             block_positions.append({"start_row": 10, "name": "Bloque 3a"})
         
-        logging.info("Generando keywords para Bloque 3 (segunda petición)...")
-        keywords_block3b = _generate_keywords_for_block(export_request, "3")
-        if keywords_block3b:
-            keywords_blocks.append(keywords_block3b)
-            block_positions.append({"start_row": 18, "name": "Bloque 3b"})
         
         # Bloque 5: dinámico basado en contentMapping
         logging.info("Procesando Bloque 5 dinámico...")
@@ -1135,7 +1157,7 @@ def _populate_template_data_safe(ws, template_data: Dict[str, models.CellData]):
                     logging.warning(f"Cannot find master cell for merged cell {cell_key}")
                     continue
             
-            # NUEVA LÓGICA: Usar RichText
+            # Usar RichText
             try:
                 logging.info(f"Procesando celda {cell_key}: {cell_data.value}")
                 

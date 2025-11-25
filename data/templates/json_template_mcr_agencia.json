@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "tema": "",
+    "descripcion": "",
+    "idioma": ""
+  },
+  "secciones": [
+    {
+      "quicksearch": {
+        "h1": "",
+        "vol_h1": "15 a 20 palabras",
+        "h1_desc": ""
+      }
+    },
+    {
+      "fleet": {
+        "h2": "",
+        "vol_h2": "80 a 85 palabras",
+        "h2_desc": "",
+        "ip_usa": "",
+        "ip_bra": ""
+      }
+    },
+    {
+      "questions": {
+        "h2": "",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": "",
+        "h3_faq": {
+          "h3_faq_1": "",
+          "h3_faq_2": "",
+          "h3_faq_3": "",
+          "h3_faq_4": ""
+        },
+        "vol_faq": "30 a 160 palabras",
+        "faq": {
+          "faq_1": "",
+          "faq_2": "",
+          "faq_3": "",
+          "faq_4": ""
+        }
+      }
+    },
+    {
+      "fleetcarrusel": {
+        "h2": "",
+        "h2_desc": "",
+        "h3": {
+          "h3_1": "",
+          "h3_2": "",
+          "h3_3": ""
+        },
+        "h3_desc": {
+          "h3_desc_1": "",
+          "h3_desc_2": "",
+          "h3_desc_3": ""
+        }
+      }
+    },
+    {
+      "locationscarrusel": {
+        "h2": "",
+        "h2_desc": "",
+        "h3": {
+          "h3_1": "",
+          "h3_2": "",
+          "h3_3": ""
+        },
+        "h3_desc": {
+          "h3_desc_1": "",
+          "h3_desc_2": "",
+          "h3_desc_3": ""
+        }
+      }
+    },
+    {
+      "bloquehistoria": {
+        "h2": "",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": ""
+      }
+    },
+    {
+      "rentcompanies": {
+        "h2": "",
+        "vol_h2": "55 a 60 palabras",
+        "h2_desc": ""
+      }
+    }
+  ]
+}

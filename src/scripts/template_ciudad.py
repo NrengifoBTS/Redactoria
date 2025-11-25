@@ -326,8 +326,8 @@ def create_template():
 
 
     try:
-        print(f"\n🚀 Creando template Agencias")
-        print(f"📡 URL: {base_url}/templates/from-config")
+        print(f"\n Creando template Agencias")
+        print(f"URL: {base_url}/templates/from-config")
         
         response = requests.post(
             f"{base_url}/templates/from-config",
@@ -336,24 +336,24 @@ def create_template():
             timeout=30
         )
         
-        print(f"📊 Status Code: {response.status_code}")
+        print(f" Status Code: {response.status_code}")
         
         if response.status_code == 201:
             result = response.json()
             return result['id']
             
         elif response.status_code == 401:
-            print("❌ Error de autenticación: Token inválido o expirado")
-            print("⚠️  Asegúrate de colocar tu token en la variable 'token'")
+            print(" Error de autenticación: Token inválido o expirado")
+            print("  Asegúrate de colocar tu token en la variable 'token'")
             
         elif response.status_code == 422:
-            print("❌ Error de validación:")
+            print(" Error de validación:")
             error_detail = response.json()
             print(json.dumps(error_detail, indent=2))
             
             # Imprimir más detalles del error
             if 'detail' in error_detail:
-                print("\n📌 Detalles del error:")
+                print("\n Detalles del error:")
                 if isinstance(error_detail['detail'], list):
                     for error in error_detail['detail']:
                         print(f"   - Campo: {error.get('loc', 'desconocido')}")
@@ -362,29 +362,29 @@ def create_template():
                     print(f"   {error_detail['detail']}")
             
         else:
-            print(f"❌ Error {response.status_code}:")
+            print(f" Error {response.status_code}:")
             print(response.text)
             
     except requests.exceptions.ConnectionError:
-        print("❌ Error de conexión: ¿Está corriendo tu servidor?")
+        print(" Error de conexión: ¿Está corriendo tu servidor?")
         
     except requests.exceptions.Timeout:
-        print("❌ Timeout: La request tardó demasiado")
+        print(" Timeout: La request tardó demasiado")
         
     except Exception as e:
-        print(f"❌ Error inesperado: {str(e)}")
+        print(f" Error inesperado: {str(e)}")
 
     return None
 
 if __name__ == "__main__":
-    print("🎯 Creador de Template Agencias")
+    print(" Creador de Template Agencias")
     print("=" * 50)
     
     template_id = create_template()
     
     if template_id:
-        print(f"\n🎉 ¡Template creado exitosamente!")
-        print(f"🆔 ID: {template_id}")
+        print(f"\n ¡Template creado exitosamente!")
+        print(f" ID: {template_id}")
     else:
-        print("\n❌ No se pudo crear el template")
-        print("⚠️  Verifica que hayas colocado tu token")
+        print("\n No se pudo crear el template")
+        print("  Verifica que hayas colocado tu token")

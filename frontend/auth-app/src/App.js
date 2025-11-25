@@ -5,6 +5,7 @@ import Login from "./Login";
 import ProtectedPage from "./Protected";
 import Redactor from "./Redactor";
 import Dashboard from "./Dashboard";
+import Home from "./Home";
 import { AppProvider } from "./context/AppContext";
 import BlogGeneracion from "./Blog_Generacion";
 import Dashboard_Blog from "./Dashboard_Blog";
@@ -14,7 +15,7 @@ function App() {
     <AppProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/protected" element={<ProtectedPage />} />
           <Route path="/redactor/:lpId" element={<Redactor />} />

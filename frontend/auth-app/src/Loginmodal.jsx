@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from './context/AppContext'; 
-import './login.css';
+import './Loginmodal.css';
 
-function Login() {
+function LoginModal({ isOpen, onClose }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -11,6 +11,9 @@ function Login() {
   
   const { login } = useApp(); 
   const navigate = useNavigate();
+
+  // No mostrar nada si el modal no está abierto
+  if (!isOpen) return null;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -22,13 +25,16 @@ function Login() {
     setLoading(true);
 
     try {
-      // Llama al login del contexto, que ya hace el fetch y guarda el usuario/token
       const result = await login({ username, password });
 
       setLoading(false);
 
       if (result.success) {
-        navigate('/dashboard');
+        // Limpiar el formulario
+        setUsername('');
+        setPassword('');
+        setError('');
+        onClose();
       } else {
         setError(result.error || 'Authentication failed!');
       }
@@ -38,47 +44,59 @@ function Login() {
     }
   };
 
+  const handleOverlayClick = (e) => {
+    // Cerrar el modal solo si se hace clic en el overlay (fondo oscuro)
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="login-container">
-      <div className="login-wrapper">
-        {/* Contenedor principal */}
-        <div className="login-card">
+    <div className="modal-overlay" onClick={handleOverlayClick}>
+      <div className="modal-content">
+        {/* Botón de cerrar */}
+        <button className="modal-close" onClick={onClose} aria-label="Cerrar">
+          ✕
+        </button>
+
+        {/* Contenedor del login */}
+        <div className="login-modal-card">
           {/* Header */}
-          <div className="login-header">
-            <div className="login-avatar">
+          <div className="login-modal-header">
+            <div className="login-modal-avatar">
               <span>👤</span>
             </div>
-            <h1 className="login-title">Login</h1>
-            <p className="login-subtitle">Sign in to your account</p>
+            <h1 className="login-modal-title">Login</h1>
+            <p className="login-modal-subtitle">Sign in to your account</p>
           </div>
 
           {/* Formulario */}
-          <form onSubmit={handleSubmit} className="login-form">
+          <form onSubmit={handleSubmit} className="login-modal-form">
             {/* Campo Username */}
-            <div className="form-group">
-              <label className="form-label">Username</label>
-              <div className="input-wrapper">
-                <span className="input-icon">👤</span>
+            <div className="modal-form-group">
+              <label className="modal-form-label">Username</label>
+              <div className="modal-input-wrapper">
+                <span className="modal-input-icon">👤</span>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="form-input"
+                  className="modal-form-input"
                   placeholder="Enter your username"
                 />
               </div>
             </div>
 
             {/* Campo Password */}
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <div className="input-wrapper">
-                <span className="input-icon">🔒</span>
+            <div className="modal-form-group">
+              <label className="modal-form-label">Password</label>
+              <div className="modal-input-wrapper">
+                <span className="modal-input-icon">🔒</span>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="form-input"
+                  className="modal-form-input"
                   placeholder="Enter your password"
                 />
               </div>
@@ -86,9 +104,9 @@ function Login() {
 
             {/* Mensaje de error */}
             {error && (
-              <div className="error-message">
-                <span className="error-icon">⚠️</span>
-                <p className="error-text">{error}</p>
+              <div className="modal-error-message">
+                <span className="modal-error-icon">⚠️</span>
+                <p className="modal-error-text">{error}</p>
               </div>
             )}
 
@@ -96,11 +114,11 @@ function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="login-button"
+              className="login-modal-button"
             >
               {loading ? (
-                <div className="loading-spinner">
-                  <div className="spinner"></div>
+                <div className="modal-loading-spinner">
+                  <div className="modal-spinner"></div>
                   <span>Logging in...</span>
                 </div>
               ) : (
@@ -114,4 +132,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default LoginModal;
