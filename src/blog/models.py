@@ -46,8 +46,7 @@ class BlogBase(BaseModel):
     
     # --- Campos de Generación/Contenido (NUEVOS EN EL CONTEXTO) ---
     estructura_blog_json: Optional[Dict[str, Any]] = None      # Estructura detallada H1/H2/H3 (JSON)
-    consolidated_content: Optional[str] = None # Contenido final generado (Markdown/HTML)
-    # -----------------------------------------------------------------
+   # -----------------------------------------------------------------
 
     # Asignación de usuario
     assigned_to: Optional[UUID] = None
@@ -70,7 +69,6 @@ class BlogUpdate(BaseModel):
     
     # Permite actualizar la estructura y el contenido
     estructura_blog_json: Optional[Dict[str, Any]] = None 
-    consolidated_content: Optional[str] = None 
     
     
     assigned_to: Optional[UUID] = None

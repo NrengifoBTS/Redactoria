@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from uuid import uuid4
 import json
 from ..database.core import Base 
-
+from .scraping import Scraping # <--- IMPORTAR LA NUEVA ENTIDAD
 
 class Blog(Base):
     """
@@ -54,10 +54,9 @@ class Blog(Base):
     
     # Estructura detallada del blog (títulos H1, H2, H3 con contenido parcial o IDs)
     estructura_blog_json = Column(JSON, nullable=True)      
-    
-    # Contenido final consolidado (Markdown o HTML)
-    consolidated_content = Column(Text, nullable=True) 
 
+
+    scraping = relationship("Scraping", uselist=False, back_populates="blog")
     
 
     def __repr__(self):

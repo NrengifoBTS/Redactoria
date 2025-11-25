@@ -560,6 +560,16 @@ export const useBlogs = (filters = {}) => {
     }
   }, []);
 
+  // OBTENER BLOG INDIVIDUAL (Usado por componentes fuera de la lista principal)
+  const getBlogById = useCallback(async (blogId) => {
+    try {
+      return await apiService.getBlogById(blogId);
+    } catch (err) {
+      console.error("Error fetching single blog:", err);
+      throw err;
+    }
+  }, []);
+
   // Cargar datos iniciales
   useEffect(() => {
     loadBlogs();
@@ -575,6 +585,7 @@ export const useBlogs = (filters = {}) => {
     deleteBlog,
     assignBlog,
     updateEstadoBlog,
+    getBlogById,
     setBlogs,
   };
 };

@@ -779,7 +779,8 @@ class ApiService {
   }
 
   // Ejecutar scraping
-  async runScraping(query, numResults = 3, useAi = true) {
+  async runScraping(blogId, query, numResults = 3, useAi = true) {
+    // CRÍTICO: Añadir blogId
     try {
       const payload = {
         query,
@@ -787,7 +788,8 @@ class ApiService {
         use_ai: useAi,
       };
 
-      const response = await this.makeRequest("/scraping", {
+      // CRÍTICO: Cambiar la URL al endpoint de stream y añadir el blogId
+      const response = await this.makeRequest(`/scraping/stream/${blogId}`, {
         method: "POST",
         body: JSON.stringify(payload),
       });

@@ -6,12 +6,73 @@ import spacy
 from bs4 import BeautifulSoup, Tag
 from collections import Counter
 from typing import Generator, List, Dict, Any, Optional, Union
-from datetime import datetime
+from datetime import datetime, timezone
 from . import models 
 from pydantic import BaseModel
 import urllib3
 from fastapi import HTTPException
 from .models import PeticionGeneracionContenido
+from src.entities.scraping import Scraping
+from uuid import UUID
+import logging
+from sqlalchemy.orm import Session
+
+
+# Importación necesaria para la persistencia
+from src.entities.scraping import Scraping
+from src.entities.blog import Blog
+
+
+
+
+# =======================================================================
+# FUNCIONES DE PERSISTENCIA DE SCRAPING
+# =======================================================================
+
+def actualizar_o_crear_resultado_scraping(
+    db: Session, 
+    blog_id: UUID, 
+    datos_a_guardar: Dict[str, Any]
+) -> Scraping:
+    """
+    Crea o actualiza de forma genérica una entidad ScrapingResult 
+    para un blog específico con los datos proporcionados.
+    
+    :param db: Sesión de la base de datos.
+    :param blog_id: ID del Blog al que se vincula el resultado.
+    :param datos_a_guardar: Diccionario con los campos y valores a guardar 
+                            (ej: {'consolidated_content': 'El texto final'}).
+    :return: La entidad ScrapingResult creada o actualizada.
+    """
+    
+    # 1. Buscar si ya existe un resultado para este blog_id
+    resultado_scraping = db.query(Scraping).filter(
+        Scraping.blog_id == blog_id
+    ).first()
+
+    if resultado_scraping:
+        # Si existe, actualizar los campos del diccionario
+        for key, value in datos_a_guardar.items():
+            if hasattr(resultado_scraping, key):
+                setattr(resultado_scraping, key, value)
+        
+        # Opcional: Actualizar la marca de tiempo de modificación si la tuvieras
+        # resultado_scraping.last_modified = datetime.now(timezone.utc)
+        
+        logging.info(f"Resultado de scraping actualizado para Blog ID: {blog_id}. Campos: {list(datos_a_guardar.keys())}")
+        
+    else:
+        # Si no existe, crear uno nuevo
+        nuevo_resultado = Scraping(
+            blog_id=blog_id,
+            **datos_a_guardar
+        )
+        db.add(nuevo_resultado)
+        logging.info(f"Resultado de scraping creado para Blog ID: {blog_id}.")
+
+    db.commit()
+    db.refresh(resultado_scraping or nuevo_resultado) # Refrescar la instancia correcta
+    return resultado_scraping or nuevo_resultado
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -1395,13 +1456,14 @@ class AnalysisOrchestrator:
     Contiene la lógica del flujo de 'execute_scraping'.
     """
 
-    def __init__(self, ai_service: AIService, extractor: ContentExtractor):
+    def __init__(self, ai_service: AIService, extractor: ContentExtractor, db: Session, blog_id: UUID):
+        """
+        Inicializa el orquestador con servicios de IA y Extracción, y las dependencias de DB.
+        """
         self.ai_service = ai_service
         self.extractor = extractor
-        try:
-            self.nlp = spacy.load("es_core_news_sm")
-        except Exception:
-            self.nlp = None
+        self.db = db # <-- GUARDAR LA SESIÓN DB
+        self.blog_id = blog_id # <-- GUARDAR EL ID DEL BLOG
 
     
     def _aggressive_text_fallback(self, soup: BeautifulSoup, article_heading: str) -> List[Dict[str, Any]]:
@@ -1476,7 +1538,7 @@ class AnalysisOrchestrator:
             else:
                 # Plan C: Fallback Ultra Robusto
                 yield "data: La división estructural falló COMPLETAMENTE. Intentando usar texto plano y simplificado con extracción agresiva (Plan C - Ultra Robusto).\n\n"
-                structured_chunks = self._aggressive_text_fallback(soup, title)
+                structured_chunks = self.extractor._aggressive_text_fallback(soup, title)
 
                 if not structured_chunks:
                     msg = f"Contenido insuficiente en {url} (fallo en Plan A, B y C), se descarta."
@@ -1526,7 +1588,7 @@ class AnalysisOrchestrator:
                     log_msg_debug = f"[DEBUG: CHUNK SCRAPEADO] Contenido: \"{clean_debug_content}...\" (Tamaño: {len(chunk_content)} chars)"
                     yield f"data: {log_msg_debug}\n\n"
                     log.append(log_msg_debug)
-                
+                    
                 # 2. LLAMADA A IA CONSOLIDADA 
                 yield f"data: Análisis de IA en curso sobre el contenido CONSOLIDADO de la URL...\n\n"
                 
@@ -1602,6 +1664,18 @@ class AnalysisOrchestrator:
                             
             consolidated_text = "\n\n".join(structured_context_parts)
             
+            # ===================================================================
+            # 🔑 AÑADIR PERSISTENCIA DEL CONSOLIDATED_TEXT (Nuevo Código)
+            # ===================================================================
+            if self.db and self.blog_id and consolidated_text:
+                try:
+                    datos_a_guardar = {"consolidated_content": consolidated_text}
+                    actualizar_o_crear_resultado_scraping(self.db, self.blog_id, datos_a_guardar)
+                    log.append(f"Persistencia exitosa de consolidated_content para Blog ID: {self.blog_id}")
+                except Exception as e:
+                    logging.error(f"Error al guardar consolidated_content en DB para Blog ID {self.blog_id}: {e}")
+                    log.append(f"ERROR: Fallo al guardar consolidated_content en DB: {str(e)}")
+            # ===================================================================
             
             final_structure_text = "Contenido consolidado listo para análisis IA."
 
@@ -1626,13 +1700,14 @@ class AnalysisOrchestrator:
         yield "event: final_data\n"
         yield f"data: {final_response.model_dump_json()}\n\n"
 
-
-
-def execute_scraping(req: models.ScrapeRequest) -> Generator[str, None, None]:
-    """Punto de entrada para la ejecución del scraping (Orquestador)."""
+def execute_scraping(db: Session, blog_id: UUID, req: models.ScrapeRequest) -> Generator[str, None, None]:
+    """
+    Punto de entrada para la ejecución del scraping (Orquestador).
+    Recibe la sesión DB y el ID del blog para la persistencia.
+    """
     ai_service = AIService()
     extractor = ContentExtractor()
-    orchestrator = AnalysisOrchestrator(ai_service, extractor)
+    orchestrator = AnalysisOrchestrator(ai_service, extractor, db, blog_id)
     return orchestrator.execute_scraping(req)
 
 def analisis_final_ia(req: models.AIAnalysisRequest) -> Dict[str, Any]:

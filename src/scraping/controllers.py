@@ -12,15 +12,17 @@ from . import models, service
 
 router = APIRouter(prefix="/scraping", tags=["Scraping"])
 
-@router.post("/stream")
-def scrape_stream(req: models.ScrapeRequest):
+@router.post("/stream/{blog_id}")
+# CRÍTICO: La función debe recibir blog_id: str como argumento.
+def scrape_stream(blog_id: str, req: models.ScrapeRequest):
     """
     Inicia el proceso de scraping de URLs y devuelve los resultados 
     como un flujo de eventos (Server-Sent Events).
     """
     try:
         return StreamingResponse(
-            service.execute_scraping(req),
+            # CRÍTICO: Pasamos el blog_id al servicio.
+            service.execute_scraping(req, blog_id),
             media_type="text/event-stream"
         )
     except Exception as e:
