@@ -56,8 +56,12 @@ class Blog(Base):
     estructura_blog_json = Column(JSON, nullable=True)      
 
 
-    scraping = relationship("Scraping", uselist=False, back_populates="blog")
-    
+    scraping = relationship(
+        "Scraping", 
+        uselist=False, 
+        back_populates="blog",
+        cascade="all, delete-orphan" 
+    )
 
     def __repr__(self):
         return f"<Blog(id='{self.id}', title='{self.title}', estado='{self.estado}')>"

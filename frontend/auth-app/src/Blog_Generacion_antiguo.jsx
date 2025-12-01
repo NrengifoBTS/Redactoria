@@ -1167,7 +1167,7 @@ const GeneracionBlog = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: consulta,
+          title: consulta,
           urls,
           num_results: numResultados,
           use_ai: usarIA,

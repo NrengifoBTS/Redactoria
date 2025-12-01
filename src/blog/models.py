@@ -45,9 +45,7 @@ class BlogBase(BaseModel):
     prioridad: PrioridadBlog
     
     # --- Campos de Generación/Contenido (NUEVOS EN EL CONTEXTO) ---
-    estructura_blog_json: Optional[str] = None    
-    # -----------------------------------------------------------------
-
+    estructura_blog_json: Optional[Any] = None 
     # Asignación de usuario
     assigned_to: Optional[UUID] = None
 

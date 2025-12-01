@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Lista de IDs de administradores (Manteniendo el snippet original)
 ADMIN_USER_IDS = [
-  'ac95a879-b03d-4d8a-9dd4-e9f5cf29187c',
+  '65cd97a4-c3b9-4bfd-b014-55457ae847e3',
   'f49cda9b-2138-435e-a497-fda85be87e63',
   'c7c17838-074d-44fa-9248-8dc87c15edd5',
   '152c46be-e2f4-48da-86b1-592af570624a'

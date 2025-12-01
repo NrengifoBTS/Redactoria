@@ -314,14 +314,41 @@ const GeneracionBlog = () => {
   };
 
   // Funcion para parsear el Markdown de estructura H2/H3 a un objeto anidado para renderizar
+  // Blog_Generacion.jsx - parseMarkdownStructure COMPLETA Y REVISADA
+
   const parseMarkdownStructure = (markdown) => {
     if (!markdown) return [];
 
     let finalStructureString = markdown;
     let jsonContentMap = null;
 
+    // FIX PRINCIPAL: Serializar el objeto de estructura si llegó parseado (desde la API).
+    if (
+      typeof markdown === "object" &&
+      markdown !== null &&
+      !Array.isArray(markdown)
+    ) {
+      try {
+        finalStructureString = JSON.stringify(markdown);
+      } catch (e) {
+        console.error(
+          "La estructura recibida es un objeto no serializable:",
+          markdown
+        );
+        return [];
+      }
+    } else if (typeof finalStructureString !== "string") {
+      console.error(
+        "parseMarkdownStructure recibió un valor inesperado (no string ni object):",
+        finalStructureString
+      );
+      finalStructureString = "";
+    }
+
     try {
-      const parsedJson = JSON.parse(markdown);
+      // Intento de parsear JSON. finalStructureString es ahora un string (JSON o Markdown plano).
+      const parsedJson = JSON.parse(finalStructureString);
+
       if (parsedJson.full_structure_markdown) {
         finalStructureString = parsedJson.full_structure_markdown;
       } else if (
@@ -332,31 +359,39 @@ const GeneracionBlog = () => {
         jsonContentMap = parsedJson;
       }
     } catch (e) {
-      // Si falla, asumimos que es Markdown plano y continuamos.
+      // Si falla, finalStructureString se mantiene como el Markdown plano original.
     }
+
+    // 2. Reconstrucción de la estructura si se detectó un mapa JSON
     if (jsonContentMap) {
       const contentLines = [];
       for (const [key, value] of Object.entries(jsonContentMap)) {
-        // Solo procesamos si el valor del contenido no está vacío
-        if (value && value.trim().length > 0) {
+        // *******************************************************************
+        // FIX DE .trim(): Asegurar que 'value' es una cadena antes de llamar a .trim()
+        // *******************************************************************
+        if (value && typeof value === "string" && value.trim().length > 0) {
+          // *******************************************************************
+
           // 1. La clave del JSON se convierte en el encabezado de estructura: [H3 - 2.1] El Poblado
           contentLines.push(key.trim());
           // 2. Insertamos la etiqueta de contenido que el parser espera: [CONTENIDO]
           contentLines.push("[CONTENIDO]");
           // 3. Insertamos el valor, reemplazando doble salto de línea (separador de párrafos en JSON) por un solo \n
-          // para que el parser lo acumule correctamente línea por línea.
           contentLines.push(value.replace(/\n\n/g, "\n"));
         }
       }
       // Reemplazamos el string JSON original por la estructura reconstruida en Markdown
       finalStructureString = contentLines.join("\n");
     }
+
     const lines = finalStructureString.split("\n");
     const structure = [];
     let lastH2 = null;
     let itemActual = null;
     let isProcessingStructure = false;
 
+    // ... (El resto de tu lógica de parsing y construcción de árbol) ...
+    // Esta parte no tiene cambios, se mantiene intacta.
     const structuredRegex = /^\[(H\d+)\s*-\s*([\d.]*)[\]>]\s*(.*)/i;
     const separateMediaRegex =
       /^\[MULTIMEDIA:\s*(VIDEO|FOTO|MAPA|GRAFICO)\s*\|\s*(.*?)\]\s*$/i;
@@ -1141,7 +1176,7 @@ const GeneracionBlog = () => {
     const acento = datosFinales?.acento || "";
     const tono = datosFinales?.tono || "";
 
-    // 🆕 2.5. Definir URL de guardado y GUARDAR LAS URLS INICIALES (PUT request, no bloqueante)
+    // Definir URL de guardado y GUARDAR
     const URL_API_SAVE = `${URL_API_BASE_BLOGS}${blogId}`;
 
     if (urls.length > 0) {
@@ -1355,26 +1390,57 @@ const GeneracionBlog = () => {
     console.log(`Título reemplazado por: ${newTitle}`);
   };
 
-  // Funcion Generación de Análisis IA
-  const generarAnalisisIA = async () => {
-    if (!contenidoConsolidado || !datosFinales?.query) {
+  //Funcion para la generacion de la estructura (H1, H2, H3)
+  const generarAnalisisIA = useCallback(async () => {
+    // 1. OBTENCIÓN DE DATOS CLAVE
+    const idDelBlog = blogId;
+
+    // --- VALIDACIÓN DE LA FUENTE DE DATOS ---
+    if (!datosFinales) {
       setError(
-        "Error: Contenido consolidado o query no disponible. Ejecuta el scraping primero."
+        "Error: Los datos del proyecto (datosFinales) no han sido cargados correctamente."
       );
       return;
     }
 
-    console.log("Iniciando generación de Análisis de Estructura ...");
+    if (!idDelBlog && !contenidoConsolidado) {
+      setError(
+        "Error: blogId o contenido consolidado no disponible. Se necesita una fuente de datos."
+      );
+      return;
+    }
+
+    // 2. CONSTRUCCIÓN DE LA CONSULTA (TEMA CENTRAL)
+    // Se usa el primer URL como último recurso (fallback).
+    const urlContent =
+      referenciaUrls.current?.value.split("\n")[0].trim() || "";
+
+    // 💥 CAMBIO CLAVE: Priorizamos el 'title', luego el 'query', luego la URL.
+    const topic = datosFinales?.title || datosFinales?.query || urlContent;
+    const consulta = topic.trim(); // Tema final para la IA
+
+    // 3. VALIDACIÓN FINAL DE LA CONSULTA: Es obligatorio para la IA.
+    if (consulta.length === 0) {
+      setError(
+        "Error: El campo 'Título' (tema principal) está vacío. La IA necesita un tema para generar la estructura."
+      );
+      setCargandoIA(false);
+      return;
+    }
+
+    console.log(
+      `Iniciando generación de Análisis de Estructura para título: ${consulta}...`
+    );
 
     setCargandoIA(true);
     setError(null);
 
-    const textoConsolidado = contenidoConsolidado;
-    const consulta =
-      datosFinales?.query || referenciaUrls.current.value.split("\n")[0].trim();
+    // Si tenemos blogId, el backend buscará el contenido consolidado en la DB.
+    // Si NO tenemos blogId (modo prueba), enviamos el contenido consolidado del estado.
+    const textoConsolidado = idDelBlog ? undefined : contenidoConsolidado;
 
-    // Reutilizar parámetros de initialParams para la llamada a la IA
-    const title_base = datosFinales?.title || consulta;
+    // Los parámetros se construyen con el 'title_base' usando la 'consulta' ya definida.
+    const title_base = consulta; // title_base es ahora la consulta
     const categoria = datosFinales?.categoria || "";
     const idioma = datosFinales?.idioma || "";
     const tecnica = datosFinales?.tecnica || "";
@@ -1382,10 +1448,16 @@ const GeneracionBlog = () => {
     const tono = datosFinales?.tono || "";
 
     try {
-      // LLamada al endpoint de generación de estructura con el contenido consolidado
+      // LLamada al endpoint de generación de estructura
       const requestData = {
-        query: consulta,
+        query: consulta, // OBLIGATORIO: Tema central para la IA (Ahora el Título)
+
+        // CRÍTICO: Se envía el blog_id para que el backend lo busque en la tabla Scraping
+        blog_id: idDelBlog,
+
+        // Opcional/Fallback: Se envía consolidated_text solo si no hay blogId
         consolidated_content: textoConsolidado,
+
         title_base,
         categoria,
         idioma,
@@ -1401,28 +1473,30 @@ const GeneracionBlog = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Error en la llamada a la IA: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail ||
+            `Error en la llamada a la IA: ${response.statusText}`
+        );
       }
 
       const result = await response.json();
 
       // 1. Desestructurar y actualizar el estado principal
-      const { final_structure_json } = result;
+      const { structure_markdown } = result;
 
       setDatosFinales((prev) => ({
         ...prev,
-        final_structure: JSON.stringify(final_structure_json, null, 2),
-        final_structure_object: final_structure_json,
+        final_structure_object: result,
       }));
 
       // 2. Asignar resultados para el render de componentes separados
-      const structureMarkdown = final_structure_json?.structure_markdown || "";
+      const structureMarkdown = structure_markdown || "";
 
       setTablaEstructuraFinal(structureMarkdown);
 
-      const wordCount = final_structure_json?.estimated_word_count;
+      const wordCount = result?.estimated_word_count;
       if (wordCount) {
-        // Aseguramos que sea un número entero
         setEstimatedWordCount(parseInt(wordCount, 10));
       } else {
         setEstimatedWordCount(null);
@@ -1436,7 +1510,7 @@ const GeneracionBlog = () => {
     } finally {
       setCargandoIA(false);
     }
-  };
+  });
 
   // Funcion generacion de contenido
   const generarContenidoIA = async () => {
@@ -1746,16 +1820,6 @@ const GeneracionBlog = () => {
 
   const generarContenidoCompleto = async () => {
     // 1. Validaciones iniciales
-    if (
-      !tablaEstructuraFinal ||
-      cargandoIA ||
-      !contenidoConsolidado ||
-      !datosFinales ||
-      !estimatedWordCount
-    ) {
-      showToast("Error: Realice Analisis primero.", "error");
-      return;
-    }
 
     setCargandoIA(true);
     setCancelacionSolicitada(false);
@@ -2716,7 +2780,7 @@ const GeneracionBlog = () => {
                   </button>
                   <button
                     onClick={generarContenidoIA}
-                    className="btn-generate btn-regenerar "
+                    className="btn btn-generate "
                     style={{ flexGrow: 1 }}
                     disabled={cargandoIA || !contenidoConsolidado}
                   >

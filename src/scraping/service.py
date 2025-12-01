@@ -5,7 +5,7 @@ import requests
 import spacy
 from bs4 import BeautifulSoup, Tag
 from collections import Counter
-from typing import Generator, List, Dict, Any, Optional, Union
+from typing import Generator, List, Dict, Any, Optional, Union,Set
 from datetime import datetime, timezone
 from . import models 
 from pydantic import BaseModel
@@ -22,13 +22,43 @@ from sqlalchemy.orm import Session
 from src.entities.scraping import Scraping
 from src.entities.blog import Blog
 
+# =======================================================================
+#PERSISTENCIA PARA BLOGS 
+# =======================================================================
 
+
+def actualizar_estructura_blog(
+    db: Session, 
+    blog_id: UUID, 
+    estructura_data: Dict[str, Any]
+) -> Blog:
+    """
+    Actualiza la estructura generada por IA en el campo 'estructura_blog_json' 
+    de la tabla Blog, así como otros datos relevantes.
+    """
+    
+    # 1. Buscar el Blog por ID
+    blog = db.query(Blog).filter(Blog.id == blog_id).first()
+    
+    if not blog:
+        # Se puede manejar este error según la política de la aplicación
+        # Aquí se lanza una excepción que puede ser capturada por el controlador.
+        raise ValueError(f"Blog con ID {blog_id} no encontrado para la actualización de estructura.") 
+
+    # 2. Actualizar campos específicos
+    # CRÍTICO: estructura_data es el diccionario completo {"structure_markdown": "...", "estimated_word_count": "..."}
+    blog.estructura_blog_json = estructura_data
+    
+    # 3. Persistir cambios
+    db.commit()
+    db.refresh(blog)
+    
+    return blog
 
 
 # =======================================================================
 # FUNCIONES DE PERSISTENCIA DE SCRAPING
 # =======================================================================
-
 def actualizar_o_crear_resultado_scraping(
     db: Session, 
     blog_id: UUID, 
@@ -45,36 +75,36 @@ def actualizar_o_crear_resultado_scraping(
     ).first()
 
     if resultado_scraping:
-        # 2. Actualizar si existe
-        logging.info(f"Actualizando resultado de scraping para blog_id: {blog_id}")
+        # --- Lógica de ACTUALIZACIÓN ---
         
-        # Guardar el contenido consolidado (texto final)
+        # CRÍTICO: Asignar el campo consolidated_content si está presente
         if 'consolidated_content' in datos_a_guardar:
             resultado_scraping.consolidated_content = datos_a_guardar['consolidated_content']
-        
-        # Guardar los bloques de scraping (el 'puro' escrapeado)
-        if 'scrape_blocks_json' in datos_a_guardar:
-            # La columna 'scrape_blocks_json' es de tipo JSON, asignamos el diccionario/lista
-            resultado_scraping.scrape_blocks_json = datos_a_guardar['scrape_blocks_json']
             
+        # Asignar otros campos genéricos si están en el diccionario
+        for key, value in datos_a_guardar.items():
+            if hasattr(resultado_scraping, key):
+                setattr(resultado_scraping, key, value)
+                
     else:
-        # 3. Crear si no existe
-        logging.info(f"Creando nuevo resultado de scraping para blog_id: {blog_id}")
-        
-        # Mapear los datos para la creación
-        datos_para_crear = {
+        # --- Lógica de CREACIÓN ---
+        # Asegúrate de incluir blog_id y el contenido consolidado en el objeto de creación
+        datos_iniciales = {
             "blog_id": blog_id,
-            "consolidated_content": datos_a_guardar.get('consolidated_content'),
-            "scrape_blocks_json": datos_a_guardar.get('scrape_blocks_json')
+            "consolidated_content": datos_a_guardar.get('consolidated_content', None),
+            # Incluir otros campos requeridos por la entidad Scraping
+            **datos_a_guardar 
         }
         
-        resultado_scraping = Scraping(**datos_para_crear)
+        resultado_scraping = Scraping(**datos_iniciales)
         db.add(resultado_scraping)
-
-    # 4. Persistir los cambios
+    
     db.commit()
     db.refresh(resultado_scraping)
     return resultado_scraping
+
+
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # --- 1. CLASE AIService: Control y Generación de IA ---
@@ -90,11 +120,8 @@ class AIService:
     MODEL_NAME = "openai/gpt-oss-20b"
     DEFAULT_SYSTEM_MESSAGE = (
         "Eres un Redactor SEO, Copywriter y Editor Web de ÉLITE. "
-        "Tu única tarea es generar el artículo de blog **COMPLETO** en formato Markdown. "
         "INSTRUCCIÓN CRÍTICA: NO UTILICES NINGÚN TIPO DE FORMATO EN EL TEXTO generado (es decir, NO uses negritas como **, cursivas como * o subrayados). Solo texto plano y encabezados (H2, H3). "
-        "Tu mayor prioridad es la **CONCISIÓN** y el cumplimiento **ESTRICTO** de la longitud solicitada. "
-        "El contenido debe ser informativo, autoritario, y persuasivo. "
-        "Asegúrate de que el texto sea altamente 'escaneable' (usa listas y párrafos muy cortos)."
+        
     )
 
     def __init__(self):
@@ -217,56 +244,166 @@ class AIService:
         media_text = "\n".join(media_list)
         return f"\n--- REFERENCIA DE CONTENIDO MULTIMEDIA (USAR SOLO COMO CONTEXTO) ---\n{media_text}\n---\n"
 
-
+    
     # --- ANALISIS DE BLOQUES CON IA ---
     def analizar_bloque_contenido(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str) -> str:
         """
-        Analiza un bloque de contenido para extraer puntos clave y elementos estructurales.
+        Analiza un bloque de contenido. Si es demasiado largo, lo divide 
+        en sub-chunks, deduplica los puntos y consolida el análisis en formato compacto
+        separado por comas.
         """
+        MAX_CHARS_PER_LLM_CALL = 6500
         media_text = self._build_media_text(media_info)
 
-        prompt = f"Basándote en el ARTÍCULO CONSOLIDADO, el cual contiene MÚLTIPLES SECCIONES ESTRUCTURADAS, bajo el título '{heading}' y relacionado con el tema '{query}':\n---\n{chunk}\n{media_text}\n---\n\n"
-        
-        # INSTRUCCIÓN CLAVE CORREGIDA: Pedimos extracción completa, pero formato denso.
-        prompt += f"""Realiza un **ANÁLISIS ESTRUCTURAL Y TEMÁTICO COMPLETO**. Tu tarea es analizar el bloque anterior y devolver **TODOS los conceptos clave, nombres de subtemas y datos esenciales** que contribuyan a un blog de alta calidad para el tema '{query}'. **NO OMITAS NINGÚN PUNTO CLAVE.**
+        # --- 1. Definición del Prompt (El cambio principal) ---
+        def _generate_prompt(sub_chunk: str, is_first_chunk: bool) -> str:
+            """Genera el prompt para un sub-chunk específico."""
+            
+            prompt = f"Basándote en el siguiente bloque de CONTENIDO CONSOLIDADO relacionado con el tema de SEO y competencia web '{query}':\n---\n{sub_chunk}\n{media_text}\n---\n\n"
 
-        **Formato de Salida Obligatorio:**
-        1.  **Título de la Página Fuente:** Comienza con una línea que diga: **[FUENTE: {heading}]**
-        2.  **Lista Atómica:** Luego, genera una lista de puntos usando guiones (`-`). Cada punto debe ser un **CONCEPTO ÚNICO**, un **TÍTULO DE SUBTEMA**, o un **HECHO AISLADO**.
-        3.  **Prohibición de Descripción:** Los puntos de la lista **NO DEBEN SER PÁRRAFOS EXPLICATIVOS NI RESÚMENES LARGOS**. Deben ser frases muy cortas y densas que identifiquen el tema o concepto.
+            prompt += f"""Realiza un **ANÁLISIS ESTRUCTURAL, TEMÁTICO Y SEO COMPLETO**. Tu tarea es analizar el bloque anterior y devolver **TODOS los conceptos clave, nombres de subtemas, datos esenciales y, CRÍTICAMENTE, las posibles intenciones de búsqueda de usuario (Search Intent) y palabras clave de cola larga (long-tail keywords)** que la competencia está usando para rankear. Estos puntos deben contribuir a un blog de **alto rendimiento para posicionamiento web en Google** sobre el tema '{query}'. **NO OMITAS NINGÚN PUNTO CLAVE, INTENCIÓN DE BÚSQUEDA NI LONG-TAIL KEYWORD.**
 
-        **Ejemplo de formato denso (Correcto):**
-        [FUENTE: Título de la página]
-        - Prohibición legal: Ley 1333/2009.
-        - Animales no aptos: Primates y Aves Silvestres.
-        - Riesgo de zoonosis.
-        - Sanciones económicas por tráfico.
+            --- FORMATO DE SALIDA OBLIGATORIO Y COMPACTO ---
+
+            1. **Formato:** Genera una lista de puntos usando **guiones (`-`)** para la deduplicación, con la menor cantidad de saltos de línea posible.
+            2. **Identificación de Tipo:** Usa los prefijos para clasificar (ej: `- Palabra clave: `, `- Intención de Búsqueda: `, `- Subtema: `, `- Concepto/Hecho: `).
+            3. **PROHIBICIÓN CRÍTICA:** NO incluyas encabezados de sección, ni metadatos de fuente (ej: `--- INICIO DE ANÁLISIS...`, `### [SECCIÓN...`, `CONTENIDO CLAVE SINTETIZADO:`, `[FUENTE: ...]`) o bloques de código.
+
+            Devuelve el análisis **ÚNICAMENTE con la lista de guiones atómicos**, sin ninguna introducción ni explicación.
+            """
+            return prompt
+
+        system_msg = "Eres un Analista de Contenido exhaustivo especializado en SEO y Estrategia de Contenido. Tu ÚNICA TAREA es analizar la información de la competencia y devolver SOLAMENTE una lista de puntos atómicos para la creación de un artículo optimizado."
         
-        Devuelve el análisis ÚNICAMENTE con el formato solicitado, sin NINGUNA INTRODUCCIÓN, EXPLICACIÓN O COMENTARIO ADICIONAL.
-        """
+        # --- 2. Inicialización de la lógica de Deduplicación ---
+        all_analysis_points: Set[str] = set()
+        first_header = "" 
         
-        # 2. NUEVO SYSTEM_MSG
-        # La IA no debe generar NADA que no sea la lista de puntos.
-        system_msg = "Eres un Analista de Contenido Completo y Denso. Tu ÚNICA TAREA es analizar la información proporcionada de manera exhaustiva y devolver SOLAMENTE una lista de conceptos estructurales y temáticos atómicos. No generes introducciones, conclusiones, resúmenes, explicaciones, o cualquier texto que no sea el análisis solicitado."        
+        # --- Función interna para procesar el resultado del LLM ---
+        def _process_llm_result(result_str: str):
+            nonlocal first_header
+            lines = result_str.strip().split('\n')
+
+            for line in lines:
+                cleaned_line = line.strip()
+                if cleaned_line and '[FALLO LLM' not in cleaned_line:
+                    if not cleaned_line.startswith('-'):
+                        cleaned_line = '- ' + cleaned_line
+                    all_analysis_points.add(cleaned_line)
         
-        return self._llm_generate(prompt, system_msg, temperature=0.5)
-    
+        # --- 3. Lógica principal de División y Análisis (Sin cambios) ---
+        
+        if len(chunk) < MAX_CHARS_PER_LLM_CALL:
+            prompt = _generate_prompt(chunk, is_first_chunk=True)
+            result_str = self._llm_generate(prompt, system_msg, temperature=0.5)
+            _process_llm_result(result_str)
+        else:
+            # Contenido largo, necesita división (chunking)
+            paragraphs = chunk.split('\n\n')
+            current_sub_chunk = ""
+            
+            for p in paragraphs:
+                p_with_newline = p + "\n\n"
+                
+                # Chequear si excederá el límite
+                if len(current_sub_chunk) + len(p_with_newline) > MAX_CHARS_PER_LLM_CALL: 
+                    if current_sub_chunk:
+                        is_first_chunk = (len(all_analysis_points) == 0)
+                        prompt = _generate_prompt(current_sub_chunk, is_first_chunk)
+                        
+                        sub_analysis = self._llm_generate(prompt, system_msg, temperature=0.5)
+                        _process_llm_result(sub_analysis)
+                    
+                    current_sub_chunk = p_with_newline
+                else:
+                    current_sub_chunk += p_with_newline
+
+            # Procesar el último sub-chunk restante
+            if current_sub_chunk.strip():
+                is_first_chunk = (len(all_analysis_points) == 0)
+                prompt = _generate_prompt(current_sub_chunk, is_first_chunk)
+                
+                sub_analysis = self._llm_generate(prompt, system_msg, temperature=0.5)
+                _process_llm_result(sub_analysis)
+
+        # --- 4. Consolidación FINAL y Formato de Salida Compacta (¡El paso clave!) ---
+        
+        final_analysis_lines = []
+        # Definimos las categorías que vamos a buscar
+        categorized_points: Dict[str, List[str]] = {
+            "Palabra clave": [],
+            "Intención de Búsqueda": [],
+            "Subtema": [],
+            "Concepto/Hecho": []
+        }
+
+        # 4.1. Clasificar y limpiar los puntos del set (que vienen con guión)
+        for point in sorted(list(all_analysis_points)):
+            clean_point = point.lstrip('- ').strip() 
+            
+            found = False
+            for category in categorized_points.keys():
+                prefix = f"{category}:"
+                
+                if clean_point.startswith(prefix):
+                    # Añadir solo el contenido (todo lo que sigue a "Palabra clave:")
+                    content = clean_point[len(prefix):].strip()
+                    if content:
+                        categorized_points[category].append(content)
+                    found = True
+                    break
+            
+            # Si la IA puso contenido sin prefijo (aunque se prohibió), va a Concepto/Hecho
+            if not found and clean_point:
+                categorized_points["Concepto/Hecho"].append(clean_point)
+
+        # 4.2. Construir la respuesta final en el formato de comas
+        for category, points_list in categorized_points.items():
+            if points_list:
+                
+                # 1. Unir todos los strings en una gran cadena (ej: "X, Y, A, B")
+                raw_combined_string = ', '.join(points_list)
+                
+                # 2. Separar por coma, limpiar espacios y garantizar unicidad
+                final_elements = [
+                    el.strip() 
+                    for el in raw_combined_string.split(',') 
+                    if el.strip()
+                ]
+                
+                unique_sorted_points = sorted(list(set(final_elements)))
+                
+                # Formato final: "Palabra clave: elemento1, elemento2, elemento3"
+                final_line = f"{category}: {', '.join(unique_sorted_points)}"
+                final_analysis_lines.append(final_line)
+                
+        return '\n'.join(final_analysis_lines).strip()
+
+
 
     # --- GENERA EL ESQUEMA COMPLETO DEL BLOG (CORREGIDO PARA DENSIDAD Y NO REDUNDANCIA)
-    def generar_estructura_seo_final(self, 
-                                 consolidated_text: str, 
-                                 query: str, 
-                                 title_base: str, 
-                                 categoria: str,
-                                 idioma: str,
-                                 tecnica: str,
-                                 acento: str,
-                                 tono: str,
-                                 longitudes_competencia_str: str = 'N/A'
-                                 ) -> Dict[str, Any]:
-    
-        keywords_str = ', '.join([query])
+    def generar_estructura_seo_final(self, query: str, title_base: str, categoria: str, idioma: str, tecnica: str, acento: str, tono: str, 
+                                     consolidated_text: str, longitudes_competencia_str: str = 'N/A') -> Dict[str, Any]:
+        """
+        Genera la estructura SEO final, aplicando saneamiento de caracteres 
+        al texto consolidado para evitar el error 400 del LLM.
+        """
+
+        if not consolidated_text:
+             return {
+                "structure_markdown": "[ERROR: No se pudo obtener el texto consolidado para la generación de la estructura.]",
+                "estimated_word_count": 0
+            }
         
+        try:
+            safe_text = consolidated_text.encode('utf-8', 'ignore').decode('utf-8')
+            control_chars_pattern = r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' 
+            cleaned_consolidated_text = re.sub(control_chars_pattern, '', safe_text)
+            cleaned_consolidated_text = re.sub(r'\n{4,}', '\n\n\n', cleaned_consolidated_text).strip()
+            
+        except Exception:
+            cleaned_consolidated_text = consolidated_text
+
         # -- SYSTEM MESSAGE: contexto base del modelo --
         system_message = f"""
             Eres un Estratega SEO Senior y Arquitecto de Contenidos Competitivo y Estratégico experto en planificación estructural.
@@ -317,7 +454,7 @@ class AIService:
         4. **CONTROL DE LONGITUD:**
         - Estima el total de palabras (`estimated_word_count`) según el promedio competitivo.
         - La estimación debe ser un 10%-25% superior al promedio.
-        - Nunca superes el 85% del máximo teórico.
+        - Nunca superes el 90% del máximo teórico.
         - Ejemplo: si la competencia promedio es 1400 palabras → genera una estimación entre 1500-1600.
 
         5. **INTEGRACIÓN MULTIMEDIA (REGLA SEO CRÍTICA):**
@@ -331,7 +468,7 @@ class AIService:
             [H3 - 2.1] Sky Views Observatory
             [MULTIMEDIA: FOTO | Turistas disfrutando la vista desde el observatorio en el Downtown de Dubái]
 
-        - Si un encabezado no requiere multimedia, puedes omitir esa línea, pero **al menos el 60% de los H2/H3 deben incluir una.**
+        - Si un encabezado no requiere multimedia, puedes omitir esa línea.
 
         6. **FORMATO DE SALIDA (OBLIGATORIO):**
         - Cada línea representa un encabezado o una línea multimedia.
@@ -578,24 +715,63 @@ class AIService:
 
       
     # -- GENERA EL CONTENIDO DE EL ESQUEMA DEL BLOG
-    def generar_contenido_blog_libre(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:   
-        # 1. Validación y Extracción de Datos 
+    def generar_contenido_blog_libre(self, db:Session, req: models.AIAnalysisRequest) -> Dict[str, Any]:   
+        blog_id = req.blog_id
+
+        # 1. Validación y Extracción de Datos, y Carga desde DB
         if not req.regenerate_data:
             raise HTTPException(status_code=400, detail="El campo 'regenerate_data' es requerido para la generación completa.")
 
         try:
-            # Uso de .get() con un valor por defecto para claridad y robustez
             data = req.regenerate_data
             section_title = data.get('section_title')
             section_level = data.get('section_level')
+            
+            # Obtener los campos críticos. full_structure_markdown puede venir vacío/null.
             full_structure_markdown = data.get('full_structure_markdown')
             section_to_generate_markdown = data.get('section_text') 
             estimated_word_count = data.get('estimated_word_count', 0)
-            content_notes = data.get('content_notes', "")
+            
+            # El contenido consolidado está directamente en 'req'
+            consolidated_content = getattr(req, "consolidated_content", None)
+            
+            # --- NUEVA LÓGICA DE CARGA DESDE DB ---
+            if blog_id and (not consolidated_content or not full_structure_markdown):
+                try:
+                    blog_uuid = UUID(str(blog_id))
+                except ValueError:
+                    # El ID no es un UUID válido.
+                    pass
+                else:
+                    # Buscar el registro de scraping
+                    scraping_data = db.query(Scraping).filter(Scraping.blog_id == blog_uuid).first()
+                    
+                    if scraping_data:
+                        # 1. Cargar consolidated_content de la DB si está ausente en la petición
+                        if not consolidated_content:
+                            consolidated_content = getattr(scraping_data, 'consolidated_content', None)
+                            if consolidated_content:
+                                req.consolidated_content = consolidated_content # Actualizar el objeto Request
+                        
+                        # 2. Cargar la estructura completa de la DB si está ausente en la petición
+                        if not full_structure_markdown:
+                            # Asegúrese de que el campo sea 'final_structure_markdown'
+                            full_structure_markdown = getattr(scraping_data, 'final_structure_markdown', None) 
+                            if full_structure_markdown:
+                                # Actualizar el diccionario regenerate_data
+                                req.regenerate_data['full_structure_markdown'] = full_structure_markdown
+                                data = req.regenerate_data # Reasignar 'data' para reflejar el cambio
+                    
+            # --- RE-VALIDACIÓN CRÍTICA DESPUÉS DEL INTENTO DE CARGA ---
+            if not req.consolidated_content: 
+                raise HTTPException(status_code=400, detail="Error: El campo 'consolidated_content' está vacío después de la búsqueda en la DB. Realice el Análisis primero.")
+            if not data.get('full_structure_markdown'):
+                raise HTTPException(status_code=400, detail="Error: El campo 'full_structure_markdown' está vacío después de la búsqueda en la DB. Realice el Análisis primero.")
+            
+            # El resto del código continúa igual, usando data.get('full_structure_markdown') 
+            # y req.consolidated_content, que ahora contienen los valores cargados de la DB.
 
-
-                
-            if not all([section_title, full_structure_markdown, section_to_generate_markdown]):
+            if not all([section_title, data.get('full_structure_markdown'), section_to_generate_markdown]): # Usa data actualizada
                 # Lanzamos una única excepción si faltan campos CRÍTICOS
                 raise ValueError("Faltan campos críticos ('section_text', 'full_structure_markdown', o 'section_title') en regenerate_data.")
             
@@ -608,7 +784,7 @@ class AIService:
             if not acento:
                 raise HTTPException(status_code=400, detail="El campo 'acento' no fue proporcionado en la solicitud.")
             
-            print("Estructura completa recibida:\n", data.get("full_structure_markdown", "")[:500])
+            print("Estructura completa recibida (o cargada):\n", data.get("full_structure_markdown", "")[:500])
 
         except (TypeError, ValueError) as e:
             # Captura errores si regenerate_data no es un dict o si la validación de 'all' falla
@@ -722,9 +898,6 @@ class AIService:
         ## REFERENCIA DE CONTEXTO (SCRAPING)
         {req.consolidated_content or 'No hay contenido scrapeado disponible.'}
 
-        ##NOTAS DE CONTENIDO PARA ESTA SECCION 
-        Estas notas contienen ideas específicas, o incluso texto ya redactado por el usuario, que **DEBES** utilizar si está presente. Si están vacías, ignóralas y genera el contenido.
-        {content_notes or 'Notas Vacías. Genera Contenido.'}
 
         ## ESTRUCTURA DE LA SECCIÓN A GENERAR
         Tu tarea es llenar el contenido de **TODOS** los títulos/subtítulos de esta sección H2.
@@ -773,97 +946,38 @@ class AIService:
 
 
     # --- AQUI ESTA LA LOGICA DE REGENERACION Y LIMPIEZA DEL JSON QUE DEVUELVE LA IA 
-    def analisis_final_ia(self, req: models.AIAnalysisRequest) -> Dict[str, Any]:
-        """Punto de entrada para el análisis final de IA, incluyendo regeneración de secciones (Títulos y Contenido)."""
-
-        consolidated_text = req.consolidated_content
-        query = req.query
-        title_base = getattr(req, 'title_base', query)
-        categoria = getattr(req, 'categoria', 'blog')
-        idioma = getattr(req, 'idioma', 'es')
-        tecnica = getattr(req, 'tecnica', 'SEO')
-        acento = getattr(req, 'acento', 'neutral')
-        tono = getattr(req, 'tono', 'profesional')
-        longitudes_competencia_str = getattr(req, 'longitudes_competencia_str', 'N/A')
+    def analisis_final_ia(
+        self, 
+        db: Session, # CRÍTICO: Nueva inyección de la sesión DB
+        query: str, 
+        title_base: str,
+        categoria: str,
+        idioma: str,
+        tecnica: str,
+        acento: str,
+        tono: str, 
+        blog_id: Optional[UUID] = None, 
+        consolidated_text: Optional[str] = None, 
+        longitudes_competencia_str: str = 'N/A' # Asumiendo este parámetro
+    ) -> Dict[str, Any]:
         
-        # LÓGICA DE REGENERACIÓN 
-        if req.section_type:
-            content = None
-            previous_history = req.previous_content 
+        # 1. OBTENER DATO DE CONSOLIDATED CONTENT (LÓGICA DEL USUARIO MANTENIDA)
+        if blog_id and not consolidated_text:
+            from src.entities.scraping import Scraping 
+            scraping_result = db.query(Scraping).filter(Scraping.blog_id == blog_id).first()
+            if scraping_result and scraping_result.consolidated_content:
+                consolidated_text = scraping_result.consolidated_content
             
-            if not isinstance(previous_history, list):
-                previous_history = [previous_history] if previous_history else None
-
-            # --- MANEJO DE SECCIONES PROHIBIDAS ---
-            if req.section_type in ['keywords', 'titles']:
-                # Se devuelve un error si se intenta regenerar una sección prohibida.
-                raise ValueError(f"La regeneración de '{req.section_type}' está deshabilitada ya que se usan los datos proporcionados por el dashboard.")
+        # CRÍTICO: Si no tenemos texto consolidado después de la búsqueda, la función falla.
+        if not consolidated_text:
+            return {
+                "structure_markdown": "[ERROR: No se pudo obtener el texto consolidado para la generación de la estructura.]",
+                "estimated_word_count": 0
+            }
             
-            # --- 1. REGENERACIÓN DE TÍTULOS (ESTRUCTURA) ---
-            elif req.section_type == 'structure_section': 
-                
-                # Validación de datos para regeneración de estructura
-                if not req.regenerate_data or 'section_text' not in req.regenerate_data or 'full_structure_markdown' not in req.regenerate_data:
-                    raise ValueError("Faltan datos requeridos para la regeneración de la sección de estructura: section_text y full_structure_markdown.")
-
-                # Llama al método regenerar_titulos, que debe devolver List[str]
-                content: List[str] = self.regenerar_titulos(
-                    consolidated_text=consolidated_text,
-                    full_structure_markdown=req.regenerate_data['full_structure_markdown'],
-                    section_to_regenerate=req.regenerate_data['section_text'],
-                    new_prompt=req.regenerate_data.get('new_prompt'),
-                    idioma=idioma,
-                    acento=acento,
-                    tono=tono,
-                    query=query
-                )
-            # --- 2. GENERACIÓN DE CONTENIDO (CUERPO DE TEXTO) ---
-            elif req.section_type == 'content_generation':
-    
-                # 1. Llama al nuevo método, replicando el patrón de self.
-                try:
-                    # Llama a la nueva función especializada de la misma clase.
-                    content_result = self.generar_contenido_seccion(req)
-                    
-                    # El método ya retorna el diccionario {"generated_content": ..., "section_type": ...}
-                    return content_result 
-                
-                except HTTPException as e:
-                    # Re-lanza excepciones HTTP específicas
-                    raise e
-                except Exception as e:
-                    # Captura cualquier error inesperado
-                    raise HTTPException(status_code=500, detail=f"Error en la delegación de generación de contenido: {str(e)}")
-
-
-            # --- BLOQUE DE RETORNO DE REGENERACIÓN (DESPACHADOR DE RESPUESTAS) ---
-            if content is not None:
-                
-                # Retorno de Títulos (Lista de Strings) 
-                if req.section_type == 'structure_section' and isinstance(content, list):
-                    # La clave 'regenerated_suggestions' la espera el frontend para las 3 opciones de los titulos.
-                    return {"regenerated_suggestions": content, "section_type": req.section_type}
-                
-                # Retorno de Contenido (String único) 
-                elif req.section_type == 'content_generation' and isinstance(content, str):
-                    # La clave 'generated_content' la espera el frontend para el cuerpo del texto.
-                    return {"generated_content": content, "section_type": req.section_type}
-                
-                # LÓGICA DE LIMPIEZA Y RETORNO DE FALLBACK (Para contenido simple/otros tipos)
-                if isinstance(content, str):
-                    content = content.replace('\r\n', '\n').replace('\r', '\n')
-                    content = re.sub(r'[^\S\n]+', ' ', content)
-                    content = '\n'.join([line.strip() for line in content.split('\n') if line.strip()])
-                    content = content.strip()
-                    
-                return {"regenerated_content": content, "section_type": req.section_type}
-                
-            else:
-                raise ValueError(f"No se pudo generar contenido para el tipo de sección: {req.section_type}")
-
-        # --- LÓGICA DE GENERACIÓN INICIAL DE ESTRUCTURA COMPLETA (Si no hay section_type) ---
-        analysis_result = self.generar_estructura_seo_final(
-            consolidated_text=consolidated_text,
+        # 2. LLAMADA A LA GENERACIÓN DE LA IA
+        # Se asume que self.generar_estructura_seo_final es un método de AIService.
+        analysis_result = self.generar_estructura_seo_final( 
             query=query,
             title_base=title_base,
             categoria=categoria,
@@ -871,34 +985,55 @@ class AIService:
             tecnica=tecnica,
             acento=acento,
             tono=tono,
+            consolidated_text=consolidated_text, 
             longitudes_competencia_str=longitudes_competencia_str
         )
 
-        # LIMPIEZA Y NORMALIZACIÓN DE LA ESTRUCTURA COMPLETA (Se mantiene sin cambios)
-        MARKDOWN_KEY = 'full_structure_markdown' 
-
+        # 3. LIMPIEZA Y NORMALIZACIÓN DE LA ESTRUCTURA COMPLETA (LÓGICA DEL USUARIO MANTENIDA)
+        MARKDOWN_KEY = 'structure_markdown' 
+        import re # Asegúrate de que re esté importado al inicio de service.py
+        
         if MARKDOWN_KEY in analysis_result and isinstance(analysis_result[MARKDOWN_KEY], str):
             markdown_to_clean = analysis_result[MARKDOWN_KEY]
-
-            # 1. Normalizar saltos de línea (\r\n y \r a \n)
             markdown_to_clean = markdown_to_clean.replace('\r\n', '\n').replace('\r', '\n')
-
-            # 2. Reemplazar caracteres de espacio no estándar y múltiples espacios
+            # Limpieza básica para evitar múltiples espacios innecesarios
             markdown_to_clean = re.sub(r'[^\S\n]+', ' ', markdown_to_clean) 
-
-            # 3. Eliminar líneas completamente vacías y limpiar espacios
             markdown_to_clean = '\n'.join([line.strip() for line in markdown_to_clean.split('\n') if line.strip()])
-            
-            # 4. Limpiar el string final.
             markdown_to_clean = markdown_to_clean.strip()
-            
-            # 5. Guardar el resultado limpio en el diccionario
             analysis_result[MARKDOWN_KEY] = markdown_to_clean
             
-        return {
-            "final_structure_json": analysis_result,
-        }
-
+        # 4. PERSISTENCIA DE LA ESTRUCTURA EN LA TABLA BLOGS (MANTENIDO)
+        if blog_id:
+            try:
+                actualizar_estructura_blog(db, blog_id, analysis_result)
+            except Exception as e:
+                print(f"ERROR DE PERSISTENCIA: Fallo al guardar la estructura en la tabla 'blogs': {e}")
+                
+        # 5. PERSISTENCIA DEL CONTEO DE PALABRAS EN LA TABLA SCRAPING (NUEVO PASO CRÍTICO)
+        if blog_id and 'estimated_word_count' in analysis_result:
+            try:
+                # Extraer y convertir el conteo de palabras a entero
+                word_count_str = analysis_result['estimated_word_count']
+                # Se usa un try/except interno para manejar la conversión segura
+                word_count_int = int(word_count_str) if str(word_count_str).isdigit() else None
+                
+                if word_count_int is not None:
+                    # 5a. Preparar los datos mapeando la clave de la respuesta a la clave de la DB
+                    datos_para_scraping = {
+                        # Mapeo: estimated_word_count_ai (DB) = word_count_int (Valor de IA)
+                        "estimated_word_count_ai": word_count_int 
+                    }
+                    
+                    # 5b. Llamar a la función de persistencia de Scraping
+                    # Se asume que esta función es capaz de actualizar un registro existente.
+                    actualizar_o_crear_resultado_scraping(db, blog_id, datos_para_scraping)
+                    print(f"estimated_word_count_ai persistido con éxito en Scraping para Blog ID: {blog_id}")
+            except Exception as e:
+                # Manejar errores de conversión o persistencia en Scraping
+                print(f"ERROR DE PERSISTENCIA: Fallo al guardar estimated_word_count en la tabla 'scraping': {e}")
+                    
+        # 5. DEVOLVER LA RESPUESTA
+        return analysis_result
 
 # --- 2. CLASE ContentExtractor: Lógica de Scraping y Fallback ---
 class ContentExtractor:
@@ -1647,7 +1782,9 @@ class AnalysisOrchestrator:
         # 4. FASE 4: Preparación para Análisis Manual (Omisión de LLAMADAS IA FINALES)
         valid_results = [r for r in all_results if r.status == 'OK'] 
         consolidated_text = ""
-
+        # Asumiendo que esta variable de ejemplo no se calcula antes:
+        longitudes_competencia_str = 'N/A' 
+        
         if valid_results and req.use_ai: 
             # Consolidación del texto para la FASE 4 (Análisis Final)
             structured_context_parts = []
@@ -1666,33 +1803,38 @@ class AnalysisOrchestrator:
                             
             consolidated_text = "\n\n".join(structured_context_parts)
             
+            # Persistencia de Datos
             if self.db and self.blog_id and consolidated_text:
                 try:
-                    datos_a_guardar = {"consolidated_content": consolidated_text, 'scrape_blocks_json': [res.model_dump() for res in analisis_final_ia]}
+
+                    all_article_blocks_combined = []
+                    for res in all_results:
+                        # Solo incluimos los bloques si existen
+                        if res.article_blocks:
+                            all_article_blocks_combined.extend(res.article_blocks)
                     
-                    actualizar_o_crear_resultado_scraping(self.db, self.blog_id, datos_a_guardar)
+                    datos_a_guardar = {
+                        "consolidated_content": consolidated_text, 
+                        'scrape_blocks_json': all_article_blocks_combined 
+                    }
+
+                    # Llamada a la función de persistencia (descomentar la línea)
+                    actualizar_o_crear_resultado_scraping(self.db, self.blog_id, datos_a_guardar) # <--- ¡DESCOMENTADA!
                     log.append(f"Persistencia exitosa de consolidated_content para Blog ID: {self.blog_id}")
                 except Exception as e:
                     logging.error(f"Error al guardar consolidated_content en DB para Blog ID {self.blog_id}: {e}")
                     log.append(f"ERROR: Fallo al guardar consolidated_content en DB: {str(e)}")
-            # ===================================================================
             
-            final_structure_text = "Contenido consolidado listo para análisis IA."
-
-            yield "data: [FASE 4: Análisis IA omitido. Contenido consolidado listo para generación manual.]\n\n"
-            
-        elif not valid_results:
-            final_structure_text = "No se pudo generar la estructura final debido a fallos de scraping."
-        else:
-            final_structure_text = "Análisis IA desactivado."
-
-
+            elif not valid_results:
+                logging.warning("No se proporcionaron datos válidos para la persistencia de consolidated_content.")
+                log.append("WARNING: No se proporcionaron datos válidos para la persistencia de consolidated_content.")
+            pass
+        
         # 5. FASE 5: PREPARACIÓN DE RESPUESTA FINAL
         final_response = models.ScrapeResponse(
             query=query,
             count=len(valid_results),
-            results=all_results, 
-            final_structure=final_structure_text, 
+            results=all_results, # <-- Incluimos el JSON completo
             log=log,
             consolidated_content=consolidated_text 
         )

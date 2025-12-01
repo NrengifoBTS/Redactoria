@@ -2,6 +2,7 @@
 from typing import List, Dict, Optional, Union, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
+from uuid import UUID
 
 # =======================================================================
 # 1. MODELOS DE SCRAPING (PETICIONES)
@@ -42,7 +43,7 @@ class ScrapeResponse(BaseModel):
     query: str
     count: int
     results: List[ScrapeResult]
-    final_structure: Optional[str] = None
+    final_structure: Optional[Dict[str, Any]] = None
     consolidated_content: Optional[str] = None
     log: Optional[List[str]] = None
 
@@ -61,8 +62,9 @@ class PeticionGeneracionContenido(BaseModel):
 
 class AIAnalysisRequest(BaseModel):
     """Modelo para la petición de análisis o generación de IA (motor LLM)."""
-    query: str
-    consolidated_content: str
+    blog_id: Optional[UUID] = None
+    query:  Optional[str] = None
+    consolidated_content: Optional[str] = None
     keywords: List[str] = Field(default_factory=list)
     results: Optional[List[ScrapeResult]] = None
     log: Optional[List[str]] = None

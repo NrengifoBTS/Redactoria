@@ -1,36 +1,34 @@
 #redactoria/src/scraping/controllers.py
-from fastapi import APIRouter, HTTPException,Depends
+
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from typing import Dict, Any
 from . import models, service
 from sqlalchemy.orm import Session
-from src.database.core import get_db 
+from src.database.core import DbSession
+from uuid import UUID
 
 
 # =======================================================================
 # 1. ROUTER DE SCRAPING
 # =======================================================================
+
 router = APIRouter(prefix="/scraping", tags=["Scraping"])
 
-@router.post("/stream/{blog_id}") # <-- El blog_id está en la URL (path)
-def scrape_stream(
-    blog_id: str, # <-- Lo captura de la URL
-    req: models.ScrapeRequest,
-    db: Session = Depends(get_db) # <-- Inyección de la sesión de base de datos
-):
+@router.post("/stream/{blog_id}") # <--- Acepta el blog_id en la ruta
+def scrape_stream(blog_id: UUID, req: models.ScrapeRequest, db: DbSession): # <--- Inyecta DB y recibe blog_id
     """
     Inicia el proceso de scraping de URLs y devuelve los resultados 
-    como un flujo de eventos (Server-Sent Events).
+    como un flujo de eventos (Server-Sent Events), usando el blog_id.
     """
     try:
+        # Llama a la función de servicio, pasando la sesión DB, el blog_id y la petición
         return StreamingResponse(
-            # CRÍTICO: Pasamos la sesión de DB, el blog_id (llave foránea) y el request.
             service.execute_scraping(db, blog_id, req),
             media_type="text/event-stream"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en el proceso de scraping: {str(e)}")
-
 
 # =======================================================================
 # 2. ROUTER DE IA (GENERACIÓN Y ANÁLISIS)
@@ -39,18 +37,34 @@ def scrape_stream(
 router_ai = APIRouter(prefix="/ai", tags=["AI Generation"])
 
 @router_ai.post("/generate_structure", response_model=Dict[str, Any])
-def generate_structure_manually(req: models.AIAnalysisRequest):
+def generate_structure_manually(req: models.AIAnalysisRequest, db: DbSession):
     """
     Analiza el contenido consolidado y genera una estructura de blog 
-    (títulos H1, H2, H3, etc.) usando la IA.
+    (títulos H1, H2...). Llama al servicio que orquesta la generación.
     """
     try:
-        # service.analisis_final_ia retorna un dict que debe ser aceptado.
-        return service.analisis_final_ia(req)
+        # Instanciar el servicio si es un método de clase
+        ai_service = service.AIService() 
+        
+        # Llamar a la función de servicio, PASANDO LA SESIÓN 'db' y los parámetros.
+        return ai_service.analisis_final_ia(
+            db=db, # <-- El parámetro de la DB se pasa al servicio
+            query=req.query,
+            title_base=req.title_base,
+            categoria=req.categoria, 
+            idioma=req.idioma,       
+            tecnica=req.tecnica,      
+            acento=req.acento,        
+            tono=req.tono,            
+            blog_id=req.blog_id,
+            consolidated_text=req.consolidated_content
+        )
     except HTTPException as http_e:
         raise http_e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo en el controlador de IA: {str(e)}")
+
+
 
 @router_ai.post("/generate_content", response_model=Dict[str, str])
 def generar_contenido_seccion(req: models.PeticionGeneracionContenido):
@@ -60,21 +74,21 @@ def generar_contenido_seccion(req: models.PeticionGeneracionContenido):
     """
     try:
         # Llama a la nueva función de servicio en español
-        return service.generar_contenido_seccion_ia(req)
+        return service.generar_contenido_seccion(req)
     except HTTPException as http_e:
         raise http_e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo en el controlador de generación de contenido: {str(e)}")
 
+
 @router_ai.post("/generate_full_content", response_model=Dict[str, Any])
-def generar_contenido_completo(req: models.AIAnalysisRequest):
+def generar_contenido_completo(req: models.AIAnalysisRequest, db: DbSession): 
     """
-    Genera el contenido de una sección en modo libre. Usado para la 
-    orquestación de la generación del blog completo.
+    Genera el contenido de una sección en modo libre, con carga de datos de DB.
     """
     try:
         ai_service = service.AIService()
-        return ai_service.generar_contenido_blog_libre(req)
+        return ai_service.generar_contenido_blog_libre(db, req) 
     except HTTPException as http_e:
         raise http_e
     except Exception as e:
