@@ -53,8 +53,8 @@ class ScrapeResponse(BaseModel):
 
 class PeticionGeneracionContenido(BaseModel):
     """Modelo para la petición de generación de contenido de una sección específica (H2/H3/H4)."""
-    project_id: str = Field(..., alias="projectId")
-    query: str
+    blog_id: Optional[UUID] = None
+    query: Optional[str] = None
     section_title: str = Field(..., description="Título del H2/H3/H4 a generar contenido.")
     section_level: str = Field(..., description="Nivel del encabezado (H2, H3, H4).")
     full_structure_markdown: str = Field(..., description="Estructura completa del blog para contexto.")
@@ -70,10 +70,10 @@ class AIAnalysisRequest(BaseModel):
     log: Optional[List[str]] = None
     title_base: Optional[str] = None
     categoria: Optional[str] = None
-    idioma: Optional[str] = 'es'
-    tecnica: Optional[str] = 'SEO'
-    acento: Optional[str] = 'neutral'
-    tono: Optional[str] = 'profesional'
+    idioma: Optional[str] = None
+    tecnica: Optional[str] = None
+    acento: Optional[str] = None
+    tono: Optional[str] = None
     main_title: Optional[str] = Field(
         None, description="El título principal del artículo (H1) que debe ser fijo."
     )
@@ -119,8 +119,8 @@ class AIAnalysisRequest(BaseModel):
 
 class ProjectModel(BaseModel):
     """Modelo maestro para la persistencia del proyecto."""
-    project_id: str = Field(..., alias="projectId")
-    query: str
+    blog_id: Optional[UUID] = None
+    query:  Optional[str] = None
     num_results: int
     consolidated_content: Optional[str] = None
     final_structure_markdown: Optional[str] = None
@@ -131,7 +131,7 @@ class ProjectModel(BaseModel):
 
 class TitleUpdateRequest(BaseModel):
     """Modelo para la petición de actualización de un título/subtítulo en el proyecto."""
-    project_id: str = Field(..., alias="projectId")
+    blog_id: Optional[UUID] = None
     old_title: str
     new_title: str
     level: str = Field(..., description="Nivel del encabezado: 'h2' o 'h3'.")

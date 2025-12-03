@@ -115,8 +115,8 @@ class AIService:
     incluyendo resúmenes de bloques y análisis final.
     """
 
-    MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions" #<-- Compu Alda
-    #MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
+    #MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions" #<-- Compu Alda
+    MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
     MODEL_NAME = "openai/gpt-oss-20b"
     DEFAULT_SYSTEM_MESSAGE = (
         "Eres un Redactor SEO, Copywriter y Editor Web de ÉLITE. "
@@ -244,36 +244,108 @@ class AIService:
         media_text = "\n".join(media_list)
         return f"\n--- REFERENCIA DE CONTENIDO MULTIMEDIA (USAR SOLO COMO CONTEXTO) ---\n{media_text}\n---\n"
 
-    
+    def estimar_longitud(self, db: Session, blog_id: UUID, query: str) -> tuple[int, str]:
+        """
+        Orquesta la recuperación de longitudes de la competencia y llama a la IA 
+        para juzgar la longitud óptima del artículo.
+        Retorna: (longitud_estimada_int, longitudes_competencia_str)
+        """
+        # Se necesita la entidad ScrapeResult para obtener los conteos de palabras por URL
+        from src.entities.scraping import ScrapeResult 
+        
+        longitudes_competencia_str = 'N/A'
+        judged_word_count = 1500 # Valor de fallback seguro
+        
+        try:
+            # 1. Recuperar longitudes de la competencia (asumiendo que ScrapeResult guarda el conteo)
+            scrape_results_list = db.query(ScrapeResult).filter(ScrapeResult.blog_id == blog_id).all()
+            
+            if scrape_results_list:
+                longitudes = [
+                    str(result.word_count) 
+                    for result in scrape_results_list 
+                    if result.word_count is not None and result.word_count > 0
+                ]
+                if longitudes:
+                    longitudes_competencia_str = ", ".join(longitudes)
+
+            # 2. Juicio de la IA solo si hay datos válidos de competencia
+            if longitudes_competencia_str != 'N/A':
+                
+                system_msg_juicio = "Eres un Analista SEO experto. Tu única tarea es generar una estimación de la longitud de un artículo para posicionamiento en Google."
+                
+                prompt_juicio = f"""
+                    Como analista experto, tu tarea es determinar la longitud de palabras óptima para un nuevo 
+                    artículo SEO sobre el tema: '{query}'.
+
+                    Las longitudes de los artículos de la competencia (incluyendo contenido sucio) son: {longitudes_competencia_str}.
+
+                    Usando tu juicio para descartar posibles outliers o contenido irrelevante, determina una 
+                    longitud estimada óptima.
+
+                    **CRÍTICO: Devuelve ÚNICAMENTE el número entero de palabras, sin comas, puntos, ni texto adicional. 
+                    Ejemplo de salida correcta: 1850**
+                """
+                
+                result_str = self._llm_generate(
+                    prompt_juicio, 
+                    system_msg_juicio, 
+                    temperature=0.1, 
+                    max_tokens=10 
+                )
+
+                # 3. Limpieza robusta del resultado
+                cleaned_number_str = re.sub(r'[^\d]', '', result_str).strip()
+                
+                if cleaned_number_str:
+                    judged_word_count = int(cleaned_number_str)
+
+        except Exception as e:
+            print(f"ERROR en estimar_longitud para blog {blog_id}: {e}") 
+
+        print(f"Longitud estimada (Juicio de IA): {judged_word_count}. Longitudes de competencia: {longitudes_competencia_str}")
+        return judged_word_count, longitudes_competencia_str
+
+
     # --- ANALISIS DE BLOQUES CON IA ---
     def analizar_bloque_contenido(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str) -> str:
         """
-        Analiza un bloque de contenido. Si es demasiado largo, lo divide 
-        en sub-chunks, deduplica los puntos y consolida el análisis en formato compacto
-        separado por comas.
+        Analiza un bloque de contenido, aplicando SÍNTESIS EXTREMA y deduplicación 
+        a nivel de IA para reducir la extensión del análisis consolidado.
         """
         MAX_CHARS_PER_LLM_CALL = 6500
         media_text = self._build_media_text(media_info)
 
-        # --- 1. Definición del Prompt (El cambio principal) ---
+        # --- 1. Definición del Prompt (Refactorizado para Síntesis) ---
         def _generate_prompt(sub_chunk: str, is_first_chunk: bool) -> str:
-            """Genera el prompt para un sub-chunk específico."""
+            """Genera el prompt para un sub-chunk específico, forzando la concisión."""
             
             prompt = f"Basándote en el siguiente bloque de CONTENIDO CONSOLIDADO relacionado con el tema de SEO y competencia web '{query}':\n---\n{sub_chunk}\n{media_text}\n---\n\n"
 
-            prompt += f"""Realiza un **ANÁLISIS ESTRUCTURAL, TEMÁTICO Y SEO COMPLETO**. Tu tarea es analizar el bloque anterior y devolver **TODOS los conceptos clave, nombres de subtemas, datos esenciales y, CRÍTICAMENTE, las posibles intenciones de búsqueda de usuario (Search Intent) y palabras clave de cola larga (long-tail keywords)** que la competencia está usando para rankear. Estos puntos deben contribuir a un blog de **alto rendimiento para posicionamiento web en Google** sobre el tema '{query}'. **NO OMITAS NINGÚN PUNTO CLAVE, INTENCIÓN DE BÚSQUEDA NI LONG-TAIL KEYWORD.**
+            # INSTRUCCIÓN CLAVE: ANÁLISIS ESTRATÉGICO Y SINTETIZADO
+            prompt += f"""Realiza un **ANÁLISIS ESTRATÉGICO Y SINTETIZADO** para la creación de un artículo sobre '{query}'. Tu misión es extraer **SOLAMENTE** los **datos, subtemas, keywords e intenciones de búsqueda más valiosos y DIVERSOS** que la competencia está usando.
 
-            --- FORMATO DE SALIDA OBLIGATORIO Y COMPACTO ---
+**CRITERIOS DE EXTRACCIÓN Y SÍNTESIS ESTRICTOS (¡La clave para la reducción de tokens!):**
 
-            1. **Formato:** Genera una lista de puntos usando **guiones (`-`)** para la deduplicación, con la menor cantidad de saltos de línea posible.
-            2. **Identificación de Tipo:** Usa los prefijos para clasificar (ej: `- Palabra clave: `, `- Intención de Búsqueda: `, `- Subtema: `, `- Concepto/Hecho: `).
-            3. **PROHIBICIÓN CRÍTICA:** NO incluyas encabezados de sección, ni metadatos de fuente (ej: `--- INICIO DE ANÁLISIS...`, `### [SECCIÓN...`, `CONTENIDO CLAVE SINTETIZADO:`, `[FUENTE: ...]`) o bloques de código.
+1.  **Palabras Clave/Long-Tail Keywords:** Extrae **solo las frases de cola larga más específicas y distintas**. **SINTETIZA Y AGRUPA** las keywords que sean muy similares, eligiendo el concepto más amplio para representarlas.
+2.  **Intenciones de Búsqueda (Search Intent):** **COMPACTA** las intenciones en las categorías más amplias y únicas (ej: solo 'Informacional sobre sucesión procesal').
+3.  **Subtemas:** **Prioriza los encabezados de alto nivel** y descarta los subtemas granulares o repetitivos.
+4.  **Conceptos/Hechos:** Extrae **SOLO datos duros, puntos de anclaje legales o hechos fundamentales**. **EVITA FRASES ENTERAS Y DESCARTA TODA LA INFORMACIÓN YA IMPLÍCITA O GENERAL** (ej: No incluyas 'El caso no desaparece automáticamente' si ya tienes 'Sucesión procesal permite la continuidad').
 
-            Devuelve el análisis **ÚNICAMENTE con la lista de guiones atómicos**, sin ninguna introducción ni explicación.
-            """
+**REGLA DE ORO:** **CADA PUNTO DEBE SER ÚNICO Y AÑADIR NUEVO VALOR TEMÁTICO**. Si el concepto es redundante o demasiado parecido a uno ya extraído, **DEBES OMITIRLO COMPLETAMENTE.**
+
+--- FORMATO DE SALIDA OBLIGATORIO Y COMPACTO ---
+
+1. **Formato:** Genera una lista de puntos usando **guiones (`-`)** para la deduplicación, con la menor cantidad de saltos de línea posible.
+2. **Identificación de Tipo:** Usa los prefijos para clasificar (ej: `- Palabra clave: `, `- Intención de Búsqueda: `, `- Subtema: `, `- Concepto/Hecho: `).
+3. **PROHIBICIÓN CRÍTICA:** NO incluyas encabezados de sección, ni metadatos de fuente (ej: `--- INICIO DE ANÁLISIS...`, `### [SECCIÓN...`, `CONTENIDO CLAVE SINTETIZADO:`, `[FUENTE: ...]`) o bloques de código.
+
+Devuelve el análisis **ÚNICAMENTE con la lista de guiones atómicos**, sin ninguna introducción ni explicación.
+"""
             return prompt
 
-        system_msg = "Eres un Analista de Contenido exhaustivo especializado en SEO y Estrategia de Contenido. Tu ÚNICA TAREA es analizar la información de la competencia y devolver SOLAMENTE una lista de puntos atómicos para la creación de un artículo optimizado."
+        # REFACTORIZACIÓN DEL SYSTEM MESSAGE
+        system_msg = "Eres un Analista de Contenido SEO de **NIVEL AVANZADO**. Tu única tarea es realizar un **PROCESO DE SÍNTESIS EXTREMA Y DE DEDUPLICACIÓN**. Debes analizar la información de la competencia y extraer **SOLAMENTE los puntos MÁS ESENCIALES, ÚNICOS y NO REDUNDANTES** para la creación de un artículo optimizado. **TU PRIORIDAD ES LA COMPRESIÓN MÁXIMA PARA EVITAR EL EXCESO DE TOKENS EN LA FASE DE CONSOLIDACIÓN.**"
         
         # --- 2. Inicialización de la lógica de Deduplicación ---
         all_analysis_points: Set[str] = set()
@@ -326,7 +398,7 @@ class AIService:
                 sub_analysis = self._llm_generate(prompt, system_msg, temperature=0.5)
                 _process_llm_result(sub_analysis)
 
-        # --- 4. Consolidación FINAL y Formato de Salida Compacta (¡El paso clave!) ---
+        # --- 4. Consolidación FINAL y Formato de Salida Compacta (Sin cambios, ya que ahora la IA hizo el filtro) ---
         
         final_analysis_lines = []
         # Definimos las categorías que vamos a buscar
@@ -378,7 +450,6 @@ class AIService:
                 final_analysis_lines.append(final_line)
                 
         return '\n'.join(final_analysis_lines).strip()
-
 
 
     # --- GENERA EL ESQUEMA COMPLETO DEL BLOG (CORREGIDO PARA DENSIDAD Y NO REDUNDANCIA)
@@ -451,12 +522,11 @@ class AIService:
         - Cada H3 o H4 expande el tema con enfoque específico (actividad, lugar, consejo, historia, etc.).
         - Los títulos deben ser **únicos, naturales y semánticamente distintos.**
 
-        4. **CONTROL DE LONGITUD:**
-        - Estima el total de palabras (`estimated_word_count`) según el promedio competitivo.
-        - La estimación debe ser un 10%-25% superior al promedio.
-        - Nunca superes el 90% del máximo teórico.
-        - Ejemplo: si la competencia promedio es 1400 palabras → genera una estimación entre 1500-1600.
-
+        4. **CONTROL DE LONGITUD (CRÍTICO - SOLO REFERENCIA ESTRUCTURAL):**
+        - **IMPORTANTE:** La longitud estimada de palabras ya ha sido calculada externamente por la IA y será insertada en la base de datos por el orquestador.
+        - Utiliza la `Longitudes de la Competencia` para asegurar que la estructura generada (H2, H3, H4) sea lo suficientemente **profunda y detallada** para ser competitiva.
+        - **MANDATO ESTRICTO:** Para la clave `estimated_word_count` del JSON final, devuelve un valor **placeholder fijo (por ejemplo, 1500)**. **NO INTENTES CALCULAR NI JUZGAR LA LONGITUD.**
+        
         5. **INTEGRACIÓN MULTIMEDIA (REGLA SEO CRÍTICA):**
         - Después de **cada encabezado H2 o H3**, incluye una línea **obligatoria** con el formato:
             [MULTIMEDIA: TIPO | Descripción SEO detallada para Alt Text]
@@ -518,27 +588,26 @@ class AIService:
             }
         
 
-
     # --- LOGICA PARA REGENERAR SOLAMENTE UNA UNICA PARTE DE LA ESTRUCTURA EN ESTE CASO TITULOS Y SUBTITULOS--- 
     def regenerar_titulos(self, 
-                                     consolidated_text: str, 
-                                     full_structure_markdown: str,
-                                     section_to_regenerate: str,
-                                     new_prompt: Optional[str] = None,
-                                     idioma: str = "es", 
-                                     acento: str = "neutral",
-                                     tono: str = "profesional", 
-                                     **kwargs
-                                    ) -> List[str]:
+        consolidated_text: str, 
+        full_structure_markdown: str,
+        section_to_regenerate: str,
+        new_prompt: Optional[str] = None,
+        idioma: str = "es", 
+        acento: str = "neutral",
+        tono: str = "profesional",
+        **kwargs 
+    ) -> List[str]:
         
         user_prompt_instruction = f"Instrucción de Edición/Regeneración Adicional: {new_prompt}\n" if new_prompt else ""
         
         prompt = f"""
         --- CONTEXTO COMPLETO DE REFERENCIA ---
-        TEMA BASE: '{kwargs.get('query')}'
+        TEMA BASE: '{kwargs.get('main_title')}'
         CONTENIDO DE SCRAPING CONSOLIDADO: {consolidated_text[:2500]}... (Primeros 2500 caracteres como referencia de contexto)
         
-        ESTRUCTURA ACTUAL COMPLETA DEL BLOG (Para mantener el contexto y evitar redundancia):
+        ESTRUCTURA ACTUAL COMPLETA DEL BLOG (Úsalo para CONTEXTO, pero NO LO REGENERES):
         ---
         {full_structure_markdown}
         ---
@@ -546,17 +615,19 @@ class AIService:
         --- TÍTULO/SUBTÍTULO A REGENERAR ---
         TÍTULO ACTUAL: '{section_to_regenerate}'
         
-        --- INSTRUCCIONES CLAVE ---
-        1. **Regeneración de Múltiples Elementos:** Tu única tarea es generar **EXACTAMENTE 3 nuevas y mejoradas versiones** para el título/subtítulo: '{section_to_regenerate}'. 
-        2. **Coherencia y Contexto:** Los nuevos títulos/subtítulos DEBEN encajar perfectamente en la 'Estructura Actual Completa'.
-        3. **Formato Estricto:** Devuelve **SOLO** un array JSON de 3 strings. NO incluyas el nivel jerárquico ([H2 - X.Y]) ni texto adicional.
+        --- INSTRUCCIONES CLAVE DE SALIDA ---
+        1. **Formato OBLIGATORIO:** Debes devolver **SOLAMENTE** un array JSON de Python. Nada más.
+        2. **Cantidad Estricta:** Genera **EXACTAMENTE 3 nuevas y mejoradas versiones** para el título/subtítulo: '{section_to_regenerate}'.
+        3. **Contenido:** No incluyas el nivel jerárquico ([H2 - X.Y]) ni texto adicional. Solo las 3 frases.
+        4. **PROHIBIDO:** No uses la clave "structure_markdown" o "estimated_word_count" en tu respuesta.
         
-        EJEMPLO DE SALIDA: ["Nueva Opción A", "Nueva Opción B", "Nueva Opción C"]
+        EJEMPLO OBLIGATORIO DE SALIDA: ["Nueva Opción A", "Nueva Opción B", "Nueva Opción C"]
         
         {user_prompt_instruction}
         """
         
-        system_msg = f'Eres un Estratega SEO y Redactor Creativo. Tu única tarea es generar un array JSON de 3 opciones, utilizando un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
+        # 💥 System Message más agresivo en formato 💥
+        system_msg = f'Eres un Estratega SEO y Redactor Creativo. Tu **ÚNICA Y EXCLUSIVA** tarea es generar **SOLO** un array JSON de 3 strings, siguiendo el formato estrictamente. No devuelvas ningún texto explicativo o formato JSON complejo, solo el array. Utiliza un **Tono {tono}** y **Acento {acento}** en idioma "{idioma}".'
         raw_response = self._llm_generate(prompt, system_msg, temperature=0.4)
 
         # 1. Limpieza de etiquetas Markdown (```json) y extracción del contenido crudo.
@@ -567,33 +638,42 @@ class AIService:
         
         if array_match:
             json_to_parse = array_match.group(1).strip()
-        else:
-            print("ADVERTENCIA: No se encontró la estructura de array JSON ([...]) en la respuesta de la IA.")
-            return [] 
             
-        try:
-            suggestions = json.loads(json_to_parse)
-            if isinstance(suggestions, list) and all(isinstance(s, str) for s in suggestions):
-                return suggestions 
-            else:
-                print("ADVERTENCIA: Parseo exitoso, pero el resultado no es List[str].")
-                return [] 
-                
-        except json.JSONDecodeError as e:
+            # Proceso de parseo del array
             try:
-                corrected_json = json_to_parse.replace("'", '"')
-                suggestions = json.loads(corrected_json)
+                suggestions = json.loads(json_to_parse)
                 if isinstance(suggestions, list) and all(isinstance(s, str) for s in suggestions):
-                    return suggestions
+                    return suggestions 
                 else:
-                    raise ValueError("Formato de lista incorrecto después de corrección.")
-            except (json.JSONDecodeError, ValueError):
-                print(f"ERROR: Fallo de parseo JSON irrecuperable después de corrección: {e}")
+                    # La IA devolvió un array, pero no de strings o con formato incorrecto
+                    print("ADVERTENCIA: Parseo exitoso, pero el resultado no es List[str] o es un array vacío.")
+                    return [] 
+                    
+            except json.JSONDecodeError:
+                # Lógica de corrección de comillas simples/dobles
+                try:
+                    corrected_json = json_to_parse.replace("'", '"')
+                    suggestions = json.loads(corrected_json)
+                    if isinstance(suggestions, list) and all(isinstance(s, str) for s in suggestions):
+                        return suggestions
+                    else:
+                        # Parseo exitoso de JSON, pero no pasó la validación de tipos.
+                        print("ADVERTENCIA: El JSON corregido se parseó, pero no es List[str].")
+                        return []
+                except (json.JSONDecodeError, ValueError) as e:
+                    # Fallo irrecuperable de parseo JSON.
+                    print(f"ERROR: Fallo de parseo JSON irrecuperable de array: {e}")
+                    return [] 
+            except Exception as e:
+                # Cualquier otra excepción inesperada
+                print(f"ERROR: Excepción inesperada durante el parseo de títulos: {e}")
                 return [] 
-        except Exception as e:
-            print(f"ERROR: Excepción inesperada durante el parseo de títulos: {e}")
-            return [] 
-
+        else:
+            # 💥 LÓGICA DE FALLO SIMPLE Y RESTAURADA 💥
+            # Si el LLM no devolvió un patrón de array ([...]), asumimos que falló
+            # (incluyendo si devolvió la estructura completa) y devolvemos un array vacío.
+            print("ADVERTENCIA: El LLM no devolvió un array JSON detectable ([...]).")
+            return []
 
     #Regeneracion o generacion principal para los contenidos de los H 
     def generar_contenido_seccion (self, req: models.AIAnalysisRequest) -> Dict[str,Any]:
@@ -674,7 +754,6 @@ class AIService:
 
         # 3. Construcción del Prompt Principal (Inyectando las instrucciones)
         prompt = f"""
-            Eres un escritor experto en SEO y un especialista en el tema '{req.query}'.
             Tu tarea es generar el contenido detallado para la sección con el título: '{section_title}',
             que pertenece al nivel de encabezado '{section_level}'.
             

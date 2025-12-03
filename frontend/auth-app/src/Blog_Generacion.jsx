@@ -19,22 +19,21 @@ const GeneracionBlog = () => {
 
   const authToken = useMemo(() => localStorage.getItem("token"), []);
   // =======================================================================
-  // // 1. REFERENCIAS DE ELEMENTOS Y CONTROL (useRef)
-  // // =======================================================================
-
+  // 1. REFERENCIAS DE ELEMENTOS Y CONTROL (useRef)
+  // =======================================================================
   const referenciaUrls = useRef(null);
   const referenciaControladorAborto = useRef(null);
   // =======================================================================
   // // 2. ESTADOS DE DATOS PRINCIPALES Y RESULTADOS (useState)
   // // =======================================================================
-  const [datosFinales, setDatosFinales] = useState(null); // <-- Fuente de verdad
+  const [datosFinales, setDatosFinales] = useState(null);
   const [tablaEstructuraFinal, setTablaEstructuraFinal] = useState("");
   const [contenidoConsolidado, setContenidoConsolidado] = useState(null);
   const [estimatedWordCount, setEstimatedWordCount] = useState(null);
   const [, setTotalGeneratedWords] = useState(0);
   const [titleSuggestions, setTitleSuggestions] = useState([]);
-  const [isEditingStructure, setIsEditingStructure] = useState(true); // *** Nota: Aquí se declara formData si solo contiene los campos editables que SÍ se modificarán. // Si todos los campos de generación (title, categoria, keywords, etc.) son fijos, // este estado ya no tiene sentido para esos campos. Si lo necesitas para campos // *diferentes* (como la estructura o contenido), déjalo. Si no hay formulario de edición, // puedes eliminarlo. Dejaré la declaración comentada por si la requieres más adelante. // const [formData, setFormData] = useState({ ... campos editables ... }); // --- FEEDBACK PARA GUARDADO ---
-  const [localBlogId, setLocalBlogId] = useState(null); // ID del proyecto (aquí se cargará el blogId de la BD)
+  const [isEditingStructure, setIsEditingStructure] = useState(true);
+  const [localBlogId, setLocalBlogId] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   // -----------------------------------------------------------------------
@@ -89,7 +88,9 @@ const GeneracionBlog = () => {
   const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
   const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/";
   const URL_API_IA_COMPLETO =
-    "http://192.168.1.129:8000/ai/generate_full_content"; // ----------------------------------------------------------------------- // ESTADO DEL FORMULARIO INICIAL (ELIMINADO o MOVIDO) // ----------------------------------------------------------------------- // ELIMINAMOS la declaración de formData y initialParams si solo contenían los // parámetros fijos (title, categoria, keywords, etc.) que se cargan. // --- Título de la vista ---
+    "http://192.168.1.129:8000/ai/generate_full_content";
+
+  const URL_API_IA_REGEN = "http://192.168.1.129:8000/ai/regenerate_titles"; // <-- NUEVO ENDPOINT
 
   const mainTitle = datosFinales?.title || "Generación de Blog"; // <-- ¡Lee directo de datosFinales!
   // =======================================================================
@@ -314,28 +315,37 @@ const GeneracionBlog = () => {
   };
 
   // Funcion para parsear el Markdown de estructura H2/H3 a un objeto anidado para renderizar
-  // Blog_Generacion.jsx - parseMarkdownStructure COMPLETA Y REVISADA
 
   const parseMarkdownStructure = (markdown) => {
+    // Si la entrada es nula o vacía, retorna un array vacío.
     if (!markdown) return [];
 
     let finalStructureString = markdown;
     let jsonContentMap = null;
 
-    // FIX PRINCIPAL: Serializar el objeto de estructura si llegó parseado (desde la API).
     if (
       typeof markdown === "object" &&
       markdown !== null &&
       !Array.isArray(markdown)
     ) {
-      try {
-        finalStructureString = JSON.stringify(markdown);
-      } catch (e) {
-        console.error(
-          "La estructura recibida es un objeto no serializable:",
-          markdown
-        );
-        return [];
+      // PRIORIDAD: Si contiene la clave de la estructura, usamos ese valor.
+      if (
+        markdown.structure_markdown &&
+        typeof markdown.structure_markdown === "string"
+      ) {
+        finalStructureString = markdown.structure_markdown;
+      } else {
+        // FIX ANTERIOR (menos robusto): Serializar el objeto si no tiene la clave esperada.
+        // Esto solo se hace como fallback, pero NO debe ocurrir si la API devuelve el formato correcto.
+        try {
+          finalStructureString = JSON.stringify(markdown);
+        } catch (e) {
+          console.error(
+            "La estructura recibida es un objeto no serializable:",
+            markdown
+          );
+          return [];
+        }
       }
     } else if (typeof finalStructureString !== "string") {
       console.error(
@@ -346,7 +356,7 @@ const GeneracionBlog = () => {
     }
 
     try {
-      // Intento de parsear JSON. finalStructureString es ahora un string (JSON o Markdown plano).
+      // Intento de parsear JSON. finalStructureString es ahora un string (Markdown plano o un JSON anidado).
       const parsedJson = JSON.parse(finalStructureString);
 
       if (parsedJson.full_structure_markdown) {
@@ -356,22 +366,18 @@ const GeneracionBlog = () => {
         !Array.isArray(parsedJson) &&
         Object.keys(parsedJson).length > 0
       ) {
+        // Este bloque maneja el caso donde el JSON es el contenido con las claves como encabezados.
         jsonContentMap = parsedJson;
       }
     } catch (e) {
       // Si falla, finalStructureString se mantiene como el Markdown plano original.
     }
 
-    // 2. Reconstrucción de la estructura si se detectó un mapa JSON
+    // 2. Reconstrucción de la estructura si se detectó un mapa JSON (Para contenido completo)
     if (jsonContentMap) {
       const contentLines = [];
       for (const [key, value] of Object.entries(jsonContentMap)) {
-        // *******************************************************************
-        // FIX DE .trim(): Asegurar que 'value' es una cadena antes de llamar a .trim()
-        // *******************************************************************
         if (value && typeof value === "string" && value.trim().length > 0) {
-          // *******************************************************************
-
           // 1. La clave del JSON se convierte en el encabezado de estructura: [H3 - 2.1] El Poblado
           contentLines.push(key.trim());
           // 2. Insertamos la etiqueta de contenido que el parser espera: [CONTENIDO]
@@ -390,8 +396,7 @@ const GeneracionBlog = () => {
     let itemActual = null;
     let isProcessingStructure = false;
 
-    // ... (El resto de tu lógica de parsing y construcción de árbol) ...
-    // Esta parte no tiene cambios, se mantiene intacta.
+    // El resto de la lógica de parsing de Markdown se mantiene intacta
     const structuredRegex = /^\[(H\d+)\s*-\s*([\d.]*)[\]>]\s*(.*)/i;
     const separateMediaRegex =
       /^\[MULTIMEDIA:\s*(VIDEO|FOTO|MAPA|GRAFICO)\s*\|\s*(.*?)\]\s*$/i;
@@ -472,8 +477,8 @@ const GeneracionBlog = () => {
 
       if (structure[0].level === "h1") {
         const h1 = structure[0];
-        h1.enumeration = "";
-        h1.uniqueId = `h1-title`;
+        h1.enumeration = "0";
+        h1.uniqueId = `h1-${h1.enumeration}`;
       }
 
       for (let i = 0; i < structure.length; i++) {
@@ -702,22 +707,33 @@ const GeneracionBlog = () => {
     // Se busca el contenido en el Markdown para asegurar la persistencia.
     const fullStructureObject = parseMarkdownStructure(tablaEstructuraFinal);
     const { level, enumeration } = section;
-    const idH2 = enumeration.split(".")[0];
-    const h2Padre = fullStructureObject.find(
-      (item) => item.enumeration === idH2
-    );
     let contentToEdit = "";
 
-    if (h2Padre) {
-      if (level === "h2") {
-        contentToEdit = h2Padre.content || "";
-      } else if (level === "h3") {
-        const h3Objetivo = h2Padre.children.find(
-          (item) => item.enumeration === enumeration
-        );
-        contentToEdit = h3Objetivo?.content || "";
+    // === INICIO DE LA MODIFICACIÓN PARA INCLUIR H1 ===
+    if (level === "h1") {
+      // Si la sección seleccionada es el H1, buscamos su contenido directamente.
+      const h1Item = fullStructureObject.find((item) => item.level === "h1");
+      contentToEdit = h1Item?.content || "";
+    } else {
+      // Lógica existente para H2 y H3
+      const idH2 = enumeration.split(".")[0];
+      const h2Padre = fullStructureObject.find(
+        (item) => item.enumeration === idH2
+      );
+
+      if (h2Padre) {
+        if (level === "h2") {
+          contentToEdit = h2Padre.content || "";
+        } else if (level === "h3") {
+          const h3Objetivo = h2Padre.children.find(
+            (item) => item.enumeration === enumeration
+          );
+          contentToEdit = h3Objetivo?.content || "";
+        }
       }
     }
+    // === FIN DE LA MODIFICACIÓN ===
+
     setSectionContentValue(contentToEdit);
   };
 
@@ -1347,47 +1363,82 @@ const GeneracionBlog = () => {
   // ==============================================================================================================================================
   // 10. FUNCIONES DE ANÁLISIS Y REGENERACIÓN DE IA
   // ==============================================================================================================================================
+  const handleSelectNewTitle = (newTitle) => {
+    // Verificar que la sección esté seleccionada y tenga la información clave
+    if (
+      !selectedSectionForRegen ||
+      selectedSectionForRegen.level === "content"
+    ) {
+      // Manejar el caso de que se intente regenerar contenido no titulable
+      showToast("Selección inválida para reemplazar título.", "error");
+      return;
+    }
 
-  // ---Funcion para la regeneracion de titulos (maneja la selección de la burbuja) ---
-  const handleSelectNewTitle = async (newTitle) => {
-    if (!selectedSectionForRegen || !tablaEstructuraFinal) return;
+    // 1. Parsear el Markdown actual a un objeto JavaScript
+    const estructuraActual = parseMarkdownStructure(tablaEstructuraFinal);
+    let nuevaEstructura = [...estructuraActual];
+    let found = false;
 
-    // Obtener datos estables de la sección seleccionada
-    const level = selectedSectionForRegen.level.toUpperCase();
-    const enumeration = selectedSectionForRegen.enumeration;
-    const currentMarkdown = tablaEstructuraFinal;
+    // Obtener los identificadores clave de la sección a reemplazar
+    const { level, enumeration } = selectedSectionForRegen;
 
-    // 1. Crear el patrón RegEx para reemplazar la línea completa usando la enumeración estable
-    // Se escapa el punto (`.`) en la enumeración (ej. 2.2).
-    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
+    // 2. Encontrar y actualizar el objeto en la estructura (usando level y enumeration)
 
-    // RegEx que apunta al prefijo de la línea usando el nivel y la enumeración
-    const targetRegex = new RegExp(
-      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
-      "m" // Bandera 'm' para multilínea
-    );
+    // Casos H1 y H2: Se encuentran en el nivel raíz de la estructura.
+    if (level === "h1" || level === "h2") {
+      const index = nuevaEstructura.findIndex(
+        // Utilizamos el nivel y el número de enumeración para encontrar la coincidencia.
+        (item) => item.level === level && item.enumeration === enumeration
+      );
 
-    // 2. Construcción de la nueva línea completa (prefijo + nuevo título de la burbuja)
-    // newTitle NO incluye la enumeración (la burbuja solo tiene el texto)
-    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
+      if (index !== -1) {
+        nuevaEstructura[index].text = newTitle;
+        found = true;
+      }
+    }
+    // Caso H3: Se encuentra anidado (como hijo) dentro de un H2.
+    else if (level === "h3" && selectedSectionForRegen.parent) {
+      // Asumiendo que selectedSectionForRegen.parent contiene el 'enumeration' del H2 padre.
+      const parentEnumeration = selectedSectionForRegen.parent.enumeration;
 
-    // 3. Ejecutar el reemplazo
-    const newStructure = currentMarkdown.replace(targetRegex, newFullLine);
+      // Primero, encontrar el H2 padre
+      const h2Item = nuevaEstructura.find(
+        (item) => item.level === "h2" && item.enumeration === parentEnumeration
+      );
+
+      if (h2Item) {
+        // Luego, encontrar el H3 dentro de los hijos del H2
+        const h3Index = h2Item.children.findIndex(
+          (item) => item.level === "h3" && item.enumeration === enumeration
+        );
+        if (h3Index !== -1) {
+          h2Item.children[h3Index].text = newTitle;
+          found = true;
+        }
+      }
+    }
+
+    if (!found) {
+      // El error ocurrirá aquí si la sección fue movida, eliminada o el parseo es incorrecto.
+      console.error(
+        `[IA - REEMPLAZO FALLIDO] No se encontró la sección para la enumeración: [${level.toUpperCase()} - ${enumeration}].`
+      );
+      showToast(
+        "Error al reemplazar el título. No se encontró la sección en la estructura actual.",
+        "error"
+      );
+      return;
+    }
+
+    // 3. Convertir la estructura de objeto modificada de nuevo a Markdown
+    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
 
     // 4. Actualizar estados
-    setTablaEstructuraFinal(newStructure);
+    setTablaEstructuraFinal(nuevoMarkdown);
+    markAsChanged(); // Asumiendo que tiene una función para marcar el cambio
     setTitleSuggestions([]);
-
-    setSelectedSectionForRegen((prevSection) => ({
-      ...prevSection,
-      text: newTitle,
-    }));
-
-    // Poner el nuevo título completo en el textarea para edición continua
     setRegenTextareaValue(newTitle);
-
-    markAsChanged();
-    console.log(`Título reemplazado por: ${newTitle}`);
+    showToast("Título actualizado con éxito.", "success");
   };
 
   //Funcion para la generacion de la estructura (H1, H2, H3)
@@ -1515,7 +1566,7 @@ const GeneracionBlog = () => {
   // Funcion generacion de contenido
   const generarContenidoIA = async () => {
     // Aseguramos que haya una sección seleccionada y el contenido consolidado para la IA
-    if (!selectedSectionForRegen || !contenidoConsolidado) {
+    if (!selectedSectionForRegen) {
       showToast(
         "ERROR: Faltan datos clave (Sección o Contenido Consolidado).",
         "error"
@@ -1687,13 +1738,13 @@ const GeneracionBlog = () => {
   // Generación Única con Historial
   const regenerarSeccion = async (sectionType, historyArray) => {
     // 1. Validaciones Iniciales
-    if (
-      !datosFinales ||
-      !datosFinales.query ||
-      !datosFinales.consolidated_content
-    ) {
+    console.log("--- DEBUG REGENERACION INICIAL ---");
+    console.log("Valor de datosFinales.title:", datosFinales?.title);
+    console.log("ID de Blog:", datosFinales?.id);
+    console.log("-----------------------------------");
+    if (!datosFinales || !datosFinales.title || !datosFinales.id) {
       setError(
-        "Error: Contenido consolidado o query no disponible. Ejecuta el scraping y la generación inicial de IA."
+        "Error: Título principal o ID del blog no disponibles. Necesarios para la consulta."
       );
       return;
     }
@@ -1704,13 +1755,11 @@ const GeneracionBlog = () => {
     setSeccionRegenerando(sectionType);
     setError(null);
 
-    const textoConsolidado = datosFinales.consolidated_content;
-    const consulta = datosFinales.query;
-
-    // 2. Preparación de los datos de la solicitud base
+    const consulta = datosFinales.title;
+    const blogId = datosFinales.id; // 2. Preparación de los datos de la solicitud base (SIN consolidated_content)
     const requestData = {
       query: consulta,
-      consolidated_content: textoConsolidado,
+      blog_id: blogId, // Enviamos el ID para la consulta DB del backend
       section_type: sectionType,
       previous_content: historyArray,
       idioma: datosFinales?.idioma || "",
@@ -1718,17 +1767,14 @@ const GeneracionBlog = () => {
       tono: datosFinales?.tono || "",
       tecnica: datosFinales?.tecnica || "",
       regenerate_data: undefined,
-    };
+    }; // 3. Lógica de Manejo Específico para 'structure_section'
 
-    // 3. Lógica de Manejo Específico para 'structure_section'
     if (sectionType === "structure_section") {
       const fullStructure =
         datosFinales.final_structure_object?.structure_markdown ||
         tablaEstructuraFinal;
       if (!selectedSectionForRegen || !fullStructure) {
-        setError(
-          "Error interno: Faltan datos de la sección de estructura para regenerar."
-        );
+        setError("Error interno: Faltan datos de la sección de estructura.");
         setSeccionRegenerando(null);
         setCargandoIA(false);
         return;
@@ -1747,7 +1793,7 @@ const GeneracionBlog = () => {
 
     try {
       // Llamada a la API
-      const response = await fetch(URL_API_IA, {
+      const response = await fetch(URL_API_IA_REGEN, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestData),
@@ -1761,33 +1807,78 @@ const GeneracionBlog = () => {
 
       const result = await response.json();
       let regeneratedSuggestions = result?.regenerated_suggestions;
-
-      // Lógica de validación y fallback
+      let generatedContent = null; // 🟢 Lógica de Extracción y Parseo Robusta (Corregida) // Si no viene en el formato esperado (regenerated_suggestions), asumimos que es la respuesta cruda de la IA.
       if (
         !Array.isArray(regeneratedSuggestions) ||
         regeneratedSuggestions.length === 0
       ) {
-        const fallbackContent = result?.regenerated_content;
-        if (fallbackContent) {
-          console.warn(
-            "[IA - REGENERACIÓN] Recibida respuesta de formato simple. Usando como sugerencia única."
-          );
-          regeneratedSuggestions = [fallbackContent];
-        } else {
-          throw new Error(
-            "Respuesta de IA vacía o formato incorrecto (no hay sugerencias)."
-          );
+        // 1. Extraer el contenido del mensaje (que es una CADENA JSON anidada)
+        const aiMessageContent = result?.choices?.[0]?.message?.content;
+
+        if (aiMessageContent) {
+          try {
+            // 2. Parsear la cadena JSON anidada
+            const parsedContent = JSON.parse(aiMessageContent); // 3. **CRÍTICO:** Extraer el valor del campo que la IA está devolviendo
+            // 👇 ESTA ES LA LÍNEA CORREGIDA 👇
+            if (
+              sectionType === "structure_section" &&
+              parsedContent.structure_markdown
+            ) {
+              // CORRECCIÓN: Si el modelo devuelve la estructura completa (formato no deseado),
+              // NO la asignamos para que el flujo de validación falle limpiamente.
+              generatedContent = null;
+            } else if (
+              parsedContent.suggestions &&
+              Array.isArray(parsedContent.suggestions)
+            ) {
+              // Si la IA, en algún momento, comienza a devolver un array de 'suggestions', lo tomamos.
+              regeneratedSuggestions = parsedContent.suggestions;
+              generatedContent = null;
+            } else if (
+              parsedContent.regenerated_suggestions &&
+              Array.isArray(parsedContent.regenerated_suggestions)
+            ) {
+              // Comprobación por si el backend serializa la respuesta de forma errónea
+              regeneratedSuggestions = parsedContent.regenerated_suggestions;
+              generatedContent = null;
+            } else {
+              // Fallback: Usamos el contenido crudo como sugerencia si no hay formato conocido
+              generatedContent = aiMessageContent;
+            }
+          } catch (e) {
+            // Fallback si el contenido no es un JSON válido
+            console.warn(
+              "El contenido de la IA no pudo ser parseado como JSON. Tratando como texto plano.",
+              e
+            );
+            generatedContent = aiMessageContent;
+          }
         }
+      } // 4. Normalizar la respuesta: Si se extrajo un string, se envuelve en un array de sugerencias
+      if (generatedContent && generatedContent.length > 0) {
+        // Solo si no es un array ya
+        if (!Array.isArray(generatedContent)) {
+          regeneratedSuggestions = [generatedContent];
+        }
+      } // 5. Validación final: Si todavía está vacío, lanzamos el error
+
+      if (
+        !Array.isArray(regeneratedSuggestions) ||
+        regeneratedSuggestions.length === 0
+      ) {
+        throw new Error(
+          "Respuesta de IA vacía o formato de resultado no reconocido (Se esperaban 3 títulos)."
+        );
       }
 
       console.log(
         `[IA - REGENERACIÓN] Sugerencias recibidas para ${sectionType}:`,
         regeneratedSuggestions
-      );
+      ); // 6. Actualización de Estados y Historial
 
-      // 6. Actualización de Estados y Historial
       switch (sectionType) {
         case "structure_section": {
+          // Aquí se asigna el resultado (el array de títulos)
           setTitleSuggestions(regeneratedSuggestions);
           setRegenTextareaValue("");
           break;
@@ -1798,8 +1889,7 @@ const GeneracionBlog = () => {
             `[IA - REGENERACIÓN] Intento de regeneración de ${sectionType} deshabilitado.`
           );
           break;
-        default:
-          // Manejo de caso por defecto para evitar warning
+        default: // Manejo de caso por defecto para evitar warning
           console.warn(
             "Tipo de sección de regeneración no manejado:",
             sectionType
@@ -1818,8 +1908,25 @@ const GeneracionBlog = () => {
     }
   };
 
+  // Funncion generacion de contenido completo
   const generarContenidoCompleto = async () => {
-    // 1. Validaciones iniciales
+    // 1. OBTENCIÓN DE ID DEL BLOG Y VALIDACIONES INICIALES
+    const idDelBlog = blogId; // Asumiendo que blogId es accesible desde useParams()
+
+    if (!idDelBlog) {
+      showToast(
+        "Error: No se encontró el ID del blog. No se puede generar contenido en modo edición.",
+        "error"
+      );
+      return;
+    }
+    if (!tablaEstructuraFinal) {
+      showToast(
+        "Error: La estructura está vacía. Genere el análisis primero.",
+        "error"
+      );
+      return;
+    }
 
     setCargandoIA(true);
     setCancelacionSolicitada(false);
@@ -1831,12 +1938,11 @@ const GeneracionBlog = () => {
       "info"
     );
 
-    // --- LÓGICA DE PRESUPUESTO DINÁMICO: INICIALIZACIÓN ---
+    // --- LÓGICA DE PRESUPUESTO DINÁMICO: INICIALIZACIÓN (SIN CAMBIOS) ---
     let estructuraAnidada = parseMarkdownStructure(tablaEstructuraFinal);
     let estructuraTemporal = estructuraAnidada;
     let generatedContentHistory = [];
 
-    // 1. Variables Globales y Contadores Iniciales
     const palabrasObjetivo = estimatedWordCount;
     const totalSubsecciones = contarTotalSubsecciones(estructuraAnidada);
 
@@ -1875,8 +1981,7 @@ const GeneracionBlog = () => {
       const fullStructureMarkdown =
         convertStructureToMarkdown(estructuraTemporal);
 
-      // --- CÁLCULO DINÁMICO DEL PRESUPUESTO DEL BLOQUE ---
-
+      // --- CÁLCULO DINÁMICO DEL PRESUPUESTO DEL BLOQUE (SIN CAMBIOS) ---
       let subseccionesEnBloqueActual = 0;
       if (!h2Block.content || contarPalabras(h2Block.content) === 0) {
         subseccionesEnBloqueActual = 1;
@@ -1900,16 +2005,23 @@ const GeneracionBlog = () => {
       );
 
       const limiteFinal = Math.max(100, limitePalabrasBloqueCalculado);
+      // --- FIN CÁLCULO DINÁMICO ---
 
-      // --- CONSTRUCCIÓN DEL PAYLOAD ---
+      // --- CONSTRUCCIÓN DEL PAYLOAD (MODIFICADO) ---
       const payload = {
-        query: datosFinales.query,
-        consolidated_content: contenidoConsolidado,
-        idioma: datosFinales.idioma,
-        acento: datosFinales.acento,
-        tono: datosFinales.tono,
+        // 💥 CRÍTICO: Solo enviamos el ID. El backend buscará el resto de datos.
+        blog_id: idDelBlog,
+
+        // 💡 SOLUCIÓN CLAVE: Incluir campos de configuración requeridos por el modelo AIAnalysisRequest
+        // Se utiliza optional chaining (?.) para prevenir errores si datosFinales aún no está cargado.
+        query: datosFinales?.query,
+        consolidated_content: contenidoConsolidado, // Asumiendo que es accesible en este scope
+        keywords: datosFinales?.keywords || [],
+        idioma: datosFinales?.idioma, // <--- ESTO SOLUCIONA EL ERROR 400
+        acento: datosFinales?.acento,
+        tono: datosFinales?.tono,
+
         section_type: "full_block_generation",
-        keywords: datosFinales.keywords || [],
         previous_content: generatedContentHistory,
 
         // CAMPOS DE PRESUPUESTO DINÁMICO enviados al backend
@@ -1925,6 +2037,7 @@ const GeneracionBlog = () => {
           estimated_word_count: palabrasObjetivo || 0,
         },
       };
+      // --- FIN CONSTRUCCIÓN DEL PAYLOAD ---
 
       try {
         const response = await fetch(URL_API_IA_COMPLETO, {
@@ -1953,6 +2066,8 @@ const GeneracionBlog = () => {
           throw new Error(errorMessage);
         }
 
+        // 💥 Uso de 'result' 💥: La variable 'result' es necesaria
+        // para contener la respuesta JSON de la API.
         const result = await response.json();
 
         if (result.success !== "True" || !result.generated_content) {
@@ -1961,7 +2076,7 @@ const GeneracionBlog = () => {
           );
         }
 
-        // APLICACIÓN Y RENDERIZADO DEL CONTENIDO
+        // APLICACIÓN Y RENDERIZADO DEL CONTENIDO (SIN CAMBIOS)
         const rawContent =
           typeof result.generated_content === "string"
             ? result.generated_content
@@ -2007,14 +2122,12 @@ const GeneracionBlog = () => {
         const nuevoMarkdown = convertStructureToMarkdown(estructuraTemporal);
         setTablaEstructuraFinal(nuevoMarkdown);
 
-        // --- ACTUALIZACIÓN DE CONTADORES PARA LA SIGUIENTE ITERACIÓN ---
-        // Recalculamos el total con la nueva estructura
+        // --- ACTUALIZACIÓN DE CONTADORES PARA LA SIGUIENTE ITERACIÓN (SIN CAMBIOS) ---
         palabrasAcumuladas = recalcularPalabrasGeneradas(estructuraTemporal);
         subseccionesGeneradas = recalcularSubseccionesGeneradas(
           estructuraTemporal,
           contarPalabras
         );
-
         // --- FIN ACTUALIZACIÓN DE CONTADORES ---
 
         showToast(
@@ -2046,6 +2159,7 @@ const GeneracionBlog = () => {
     setSelectedSectionForRegen(null);
     showToast(" Proceso de generación completa finalizado.", "info");
   };
+
   // =======================================================================
   // 5. COMPONENTE StructureRenderer
   // =======================================================================

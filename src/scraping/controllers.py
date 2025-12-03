@@ -2,11 +2,13 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
-from typing import Dict, Any
-from . import models, service
+from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 from src.database.core import DbSession
 from uuid import UUID
+from . import models,service
+from src.entities.blog import Blog
+
 
 
 # =======================================================================
@@ -65,6 +67,58 @@ def generate_structure_manually(req: models.AIAnalysisRequest, db: DbSession):
         raise HTTPException(status_code=500, detail=f"Fallo en el controlador de IA: {str(e)}")
 
 
+@router_ai.post("/regenerate_titles", response_model=Dict[str, Any])
+def regenerar_titulos_controller(req: models.AIAnalysisRequest, db: DbSession):
+    """
+    Controlador para la regeneración de títulos/subtítulos de la estructura.
+    Obtiene el contenido consolidado de la DB antes de llamar al servicio.
+    Este endpoint llama a service.regenerar_titulos.
+    """
+    if not req.regenerate_data or not req.blog_id:
+        # Validaciones para evitar el error 500 si faltan datos clave
+        raise HTTPException(status_code=400, detail="Los campos 'blog_id' y 'regenerate_data' son requeridos para la regeneración de títulos.")
+        
+    try:
+        # 1. Obtener el contenido consolidado de la DB usando blog_id (CORRECCIÓN CLAVE)
+        blog_entity = db.query(Blog).filter(Blog.id == req.blog_id).first()
+        
+        # Si no se encuentra el blog o el contenido, usamos una cadena vacía para evitar TypeError 500.
+        consolidated_content = blog_entity.consolidated_content if blog_entity and hasattr(blog_entity, 'consolidated_content') else ""
+
+        ai_service = service.AIService() # Inicialización del servicio (asumiendo que se hace así)
+        
+        # 2. Extracción de datos del regenerate_data (enviado por el frontend)
+        section_to_regenerate = req.regenerate_data.get('section_text')
+        full_structure_markdown = req.regenerate_data.get('full_structure_markdown')
+        new_prompt = req.regenerate_data.get('new_prompt')
+        
+        if not section_to_regenerate or not full_structure_markdown:
+             raise HTTPException(status_code=400, detail="Faltan campos requeridos en regenerate_data: 'section_text' o 'full_structure_markdown'.")
+        
+        # 3. Llamar a la función del servicio de título/estructura
+        regenerated_suggestions: List[str] = ai_service.regenerar_titulos(
+            consolidated_text=consolidated_content, # <--- Se pasa el contenido de la DB
+            full_structure_markdown=full_structure_markdown,
+            section_to_regenerate=section_to_regenerate,
+            new_prompt=new_prompt,
+            idioma=req.idioma,
+            acento=req.acento,
+            tono=req.tono,
+            main_title=req.query 
+        )
+        
+        return {
+            "regenerated_suggestions": regenerated_suggestions,
+            "success": True
+        }
+
+    except HTTPException as http_e:
+        # Propagar errores de cliente
+        raise http_e
+    except Exception as e:
+        # Capturar cualquier otro error y devolver un 500 con detalle
+        raise HTTPException(status_code=500, detail=f"Fallo en el controlador de regeneración de títulos: {str(e)}")
+
 
 @router_ai.post("/generate_content", response_model=Dict[str, str])
 def generar_contenido_seccion(req: models.PeticionGeneracionContenido):
@@ -108,3 +162,8 @@ def update_title_and_persist(req: models.TitleUpdateRequest):
         raise http_e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo al actualizar el título: {str(e)}")
+    
+
+
+
+

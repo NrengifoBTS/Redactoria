@@ -18,7 +18,7 @@ class AIService:
     incluyendo resúmenes de bloques y análisis final.
     """
 
-    #MODEL_URL = "http://192.168.1.11:1234/v1/chat/completions" #<-- Compu Alda
+    #MODEL_URL = "http://192.168.1.27:1234/v1/chat/completions" #<-- Compu Alda
     MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
     MODEL_NAME = "openai/gpt-oss-20b"
     DEFAULT_SYSTEM_MESSAGE = "Eres un analista SEO profesional y experimentado. Tu única tarea es generar el contenido solicitado de manera concisa y directa, sin añadir explicaciones ni texto adicional."
