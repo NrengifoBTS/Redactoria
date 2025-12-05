@@ -10,6 +10,37 @@ import "@iconscout/unicons/css/line.css";
 import apiService from "./services/apiService";
 import "./css/blog_Generacion.css";
 
+const DynamicReactQuillLoader = (props) => {
+  // Estado para almacenar el componente ReactQuill cargado
+  const [DynamicQuill, setDynamicQuill] = useState(null);
+
+  useEffect(() => {
+    // Importación de react-quill solo en el navegador, después del montaje.
+    import("react-quill")
+      .then((module) => {
+        // Importar el CSS asociado (se carga asíncronamente también)
+        import("react-quill/dist/quill.snow.css");
+        // Almacenar el componente ReactQuill (que es el export default)
+        setDynamicQuill(() => module.default);
+      })
+      .catch((error) => {
+        console.error("Error al cargar ReactQuill:", error);
+      });
+  }, []); // El array vacío asegura que se ejecute solo una vez al montar
+
+  if (!DynamicQuill) {
+    // Muestra un placeholder mientras carga
+    return (
+      <p className="loading-editor-placeholder">
+        Cargando editor de contenido...
+      </p>
+    );
+  }
+
+  // Renderiza el componente cargado dinámicamente, pasándole todas las props
+  return <DynamicQuill {...props} />;
+};
+
 const GeneracionBlog = () => {
   // =======================================================================
   // 0. HOOKS PRINCIPALES Y DE NAVEGACIÓN (INICIO ABSOLUTO)
@@ -39,9 +70,25 @@ const GeneracionBlog = () => {
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
   // // -----------------------------------------------------------------------
-
   const [, setLoadingBlog] = useState(true); // Control de carga inicial
   const [, setFetchError] = useState(null); // Control de error de carga
+
+  const QUILL_MODULES = {
+    toolbar: [
+      // Tipografía y Tamaño de Fuente
+      [{ font: [] }, { size: ["small", false, "large", "huge"] }],
+      // Alineación, Viñetas y Sangría
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ indent: "-1" }, { indent: "+1" }],
+      [{ align: [] }],
+      // Formato de Texto Básico: Negrita, Cursiva, Subrayado, Tachado
+      ["bold", "italic", "underline", "strike"],
+      // Color y Fondo
+      [{ color: [] }, { background: [] }],
+      // Limpiar Formato
+      ["clean"],
+    ],
+  };
 
   useEffect(() => {
     // Evita la ejecución si no hay un ID de blog
@@ -89,8 +136,9 @@ const GeneracionBlog = () => {
   const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/";
   const URL_API_IA_COMPLETO =
     "http://192.168.1.129:8000/ai/generate_full_content";
+  const URL_API_IA_DOWNLOAD = "http://192.168.1.129:8000/ai/download_blog_doc";
 
-  const URL_API_IA_REGEN = "http://192.168.1.129:8000/ai/regenerate_titles"; // <-- NUEVO ENDPOINT
+  const URL_API_IA_REGEN = "http://192.168.1.129:8000/ai/regenerate_titles";
 
   const mainTitle = datosFinales?.title || "Generación de Blog"; // <-- ¡Lee directo de datosFinales!
   // =======================================================================
@@ -219,6 +267,78 @@ const GeneracionBlog = () => {
     }));
   };
 
+  const handleDownloadDocx = async () => {
+    // Construye la URL absoluta incluyendo el ID
+    const downloadUrl = `${URL_API_IA_DOWNLOAD}/${blogId}`; // Ahora usa la constante ABSOLUTA
+
+    try {
+      const response = await fetch(downloadUrl, {
+        method: "GET",
+        // Si utilizas un token de autenticación (que es lo más probable)
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      // 1. Verificación de errores HTTP (404, 500, etc.)
+      if (!response.ok) {
+        // Lee el mensaje de error de FastAPI si existe
+        const errorText = await response.text();
+        console.error("Error del Servidor:", response.status, errorText);
+        alert(
+          `Fallo al descargar (Error HTTP ${response.status}). Revisa el console log y los logs de FastAPI.`
+        );
+        return;
+      }
+
+      // 2. Verificación de Content-Type (para confirmar que NO es HTML)
+      const contentType = response.headers.get("Content-Type");
+      const isDocx = contentType?.includes(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+
+      if (!isDocx) {
+        // Si el tipo de contenido no es DOCX, significa que algo falló en el backend.
+        const responseText = await response.text();
+        console.error(
+          "Error de Contenido:",
+          "El servidor devolvió un contenido inesperado, no un DOCX. (Revisar logs de FastAPI)",
+          responseText.substring(0, 200) + "..."
+        );
+        alert(
+          "El servidor no envió un archivo Word válido. Revisa los logs de tu backend."
+        );
+        return;
+      }
+
+      // 3. Procesamiento y Descarga (Solo si es OK y DOCX)
+      const blob = await response.blob();
+
+      // Forzar la descarga en el cliente
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      // Obtener el nombre de archivo del header Content-Disposition si es posible
+      const disposition = response.headers.get("Content-Disposition");
+      let fileName = `blog-documento-${blogId}.docx`;
+      if (disposition && disposition.indexOf("filename=") !== -1) {
+        // Limpiar el nombre de archivo de las comillas
+        fileName = disposition.split("filename=")[1].replace(/"/g, "");
+      }
+
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error de red/petición:", error);
+      alert(
+        "Fallo en la comunicación con el servidor. ¿El servicio de FastAPI está corriendo?"
+      );
+    }
+  };
   // Convierte la estructura de objeto anidada de vuelta a una cadena de Markdown
   const convertStructureToMarkdown = (structure) => {
     let markdownLines = [];
@@ -2709,13 +2829,16 @@ const GeneracionBlog = () => {
         `}
                   >
                     {/* A. Textarea para Edición Directa / Prompt */}
-                    <textarea
-                      className="auto-expand"
-                      rows="4"
-                      placeholder="Edita el título o selecciona uno nuevo."
-                      value={regenTextareaValue}
-                      onChange={(e) => setRegenTextareaValue(e.target.value)}
-                    />
+                    <div className="quill-editor-container">
+                      <DynamicReactQuillLoader
+                        theme="snow"
+                        value={regenTextareaValue}
+                        onChange={setRegenTextareaValue}
+                        modules={QUILL_MODULES}
+                        placeholder="Edita el título o selecciona uno nuevo, y aplica estilos de tipografía, color, negrita, etc."
+                        className="auto-expand"
+                      />
+                    </div>
 
                     {/* B. Panel de Sugerencias Generadas (Lateral) - Solo visible si hay sugerencias */}
                     {titleSuggestions.length > 0 && (
@@ -2881,6 +3004,17 @@ const GeneracionBlog = () => {
                     onChange={(e) => setSectionContentValue(e.target.value)}
                     disabled={cargandoIA}
                   />
+
+                  <div className="quill-editor-container">
+                    <DynamicReactQuillLoader
+                      theme="snow"
+                      value={sectionContentValue}
+                      onChange={setSectionContentValue}
+                      modules={QUILL_MODULES}
+                      placeholder="Edita el título o selecciona uno nuevo, y aplica estilos de tipografía, color, negrita, etc."
+                      className="auto-expand"
+                    />
+                  </div>
                 </div>
 
                 <div className="idea-buttons">
@@ -3100,6 +3234,9 @@ const GeneracionBlog = () => {
               ) : (
                 // VISTA TIPO WORD
                 <div className="blog-view-toggle-container">
+                  <button onClick={handleDownloadDocx} className="btn-primary">
+                    <i className="uil uil-file-download"></i> Descargar Word
+                  </button>
                   {/* Contenido principal del blog: Renderiza la estructura dinámica */}
                   {renderBlogContent(structureWithCount)}
                 </div>

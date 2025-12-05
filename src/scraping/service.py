@@ -11,11 +11,16 @@ from . import models
 from pydantic import BaseModel
 import urllib3
 from fastapi import HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
 from .models import PeticionGeneracionContenido
 from src.entities.scraping import Scraping
 from uuid import UUID
 import logging
 from sqlalchemy.orm import Session
+
+from docx import Document
+from docx.shared import Inches
+from io import BytesIO
 
 
 # Importación necesaria para la persistencia
@@ -25,7 +30,6 @@ from src.entities.blog import Blog
 # =======================================================================
 #PERSISTENCIA PARA BLOGS 
 # =======================================================================
-
 
 def actualizar_estructura_blog(
     db: Session, 
@@ -54,7 +58,6 @@ def actualizar_estructura_blog(
     db.refresh(blog)
     
     return blog
-
 
 # =======================================================================
 # FUNCIONES DE PERSISTENCIA DE SCRAPING
@@ -104,6 +107,61 @@ def actualizar_o_crear_resultado_scraping(
     return resultado_scraping
 
 
+def generar_documento_word(blog_id: UUID, db: Session) -> StreamingResponse:
+    """
+    Genera un documento Word (.docx) a partir de la estructura final del blog.
+    Retorna una StreamingResponse para la descarga.
+    """
+    
+    # 1. Recuperar el contenido final del blog
+    # (Ajusta 'Blog' y 'estructura_blog_json' al modelo de tu BD si es necesario)
+    blog = db.query(Blog).filter(Blog.id == blog_id).first()
+    
+    if not blog or not blog.estructura_blog_json:
+        # Esto generará un 404 si el contenido no existe.
+        raise HTTPException(status_code=404, detail="Estructura del blog no encontrada o vacía.")
+        
+    # Asumimos que estructura_blog_json es una lista de dicts (ej: [{'title': '...', 'level': 1, 'content': '...'}])
+    structure_data: List[Dict[str, str]] = blog.estructura_blog_json 
+
+    # 2. Creación del Documento Word
+    document = Document()
+    
+    # 3. Mapeo de la estructura
+    # Añade el título principal (Nivel 0)
+    document.add_heading(blog.title or "Documento del Blog", 0) 
+    
+    for item in structure_data:
+        try:
+            # Añade el título con el estilo de encabezado
+            if 'title' in item and 'level' in item:
+                # Se asegura que el nivel sea un entero válido
+                document.add_heading(item['title'], level=int(item['level']))
+            
+            # Añade el contenido como un párrafo normal
+            if 'content' in item and item['content']:
+                document.add_paragraph(item['content'])
+        except Exception as e:
+            # Si un elemento falla (ej: 'level' no es un número), ignorarlo y seguir
+            print(f"Error al procesar item de estructura: {e}. Item: {item}")
+            continue
+
+            
+    # 4. Guardar el documento en memoria (Buffer)
+    file_stream = BytesIO()
+    document.save(file_stream)
+    file_stream.seek(0) # Mueve el puntero al inicio del archivo
+
+    # 5. Retornar el archivo como StreamingResponse
+    filename = f"blog-documento-{blog_id}.docx"
+    
+    return StreamingResponse(
+        file_stream,
+        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"'
+        }
+    )
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
