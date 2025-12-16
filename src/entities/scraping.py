@@ -1,6 +1,6 @@
 # redactoria/src/entities/scraping.py
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone
 from sqlalchemy.orm import relationship
@@ -31,9 +31,7 @@ class Scraping(Base):
     # Datos brutos del scraping (artículos individuales)
     scrape_blocks_json = Column(JSON, nullable=True) 
 
-    # Conteo de palabras estimado por IA
-    estimated_word_count_ai = Column(Integer, nullable=True)
-
+    
     # Auditoría
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     

@@ -55,10 +55,18 @@ class PeticionGeneracionContenido(BaseModel):
     """Modelo para la petición de generación de contenido de una sección específica (H2/H3/H4)."""
     blog_id: Optional[UUID] = None
     query: Optional[str] = None
-    section_title: str = Field(..., description="Título del H2/H3/H4 a generar contenido.")
-    section_level: str = Field(..., description="Nivel del encabezado (H2, H3, H4).")
-    full_structure_markdown: str = Field(..., description="Estructura completa del blog para contexto.")
-    consolidated_content: str = Field(..., description="Contenido consolidado del scraping para referencia.")
+    consolidated_content: Optional[str] = None
+    idioma: Optional[str] = None
+    acento: Optional[str] = None
+    tono: Optional[str] = None
+    tecnica: Optional[str] = None 
+    
+    # Campos que el frontend añade y Pydantic debe aceptar
+    keywords: Optional[List[str]] = Field(None)
+    section_type: Optional[str] = Field(None)
+    # Campo CRÍTICO: el diccionario anidado que contiene los datos específicos
+    regenerate_data: Dict[str, Any] = Field(None)
+
 
 class AIAnalysisRequest(BaseModel):
     """Modelo para la petición de análisis o generación de IA (motor LLM)."""
@@ -74,44 +82,24 @@ class AIAnalysisRequest(BaseModel):
     tecnica: Optional[str] = None
     acento: Optional[str] = None
     tono: Optional[str] = None
-    main_title: Optional[str] = Field(
-        None, description="El título principal del artículo (H1) que debe ser fijo."
-    )
-    max_length: int = Field(default=500, description="Límite aproximado de caracteres para la respuesta de la IA.")
+    main_title: Optional[str] =  Field(None)
+    max_length: int = Field(default=500)
 
     # Campos para Presupuesto Dinámico y Conteo Regresivo
-    palabras_acumuladas: Optional[int] = Field(
-        0, description="Palabras totales generadas en el artículo hasta el momento."
-    )
-    subsecciones_pendientes: Optional[int] = Field(
-        None, description="Número de subsecciones (H2/H3) que quedan por generar."
-    )
-    limite_palabras_bloque: Optional[int] = Field(
-        None, description="Límite de palabras estricto para la generación del bloque actual (calculado en el frontend)."
-    )
-    total_sections: Optional[int] = Field(
-        None, description="Número total de secciones/bloques en la estructura final."
-    )
-    total_word_budget: Optional[int] = Field(
-        None, description="Presupuesto total de palabras del artículo estimado por la IA (estimatedWordCount)."
-    )
+    palabras_acumuladas: Optional[int] =  Field(None)
+    subsecciones_pendientes: Optional[int] =  Field(None)
+    limite_palabras_bloque: Optional[int] =  Field(None)
+    total_sections: Optional[int] =  Field(None)
+    total_word_budget: Optional[int] =  Field(None)
 
     # Campos para Regeneración
-    section_type: Optional[str] = Field(
-        None,
-        description="Tipo de sección a regenerar (ej. 'structure_section')."
-    )
-    previous_content: Optional[Union[str, List[str]]] = Field(
-        None, description="Historial de contenido generado para exclusión y unicidad (lista de strings)."
-    )
-    regenerate_data: Optional[Dict[str, Any]] = Field(
-        None, description="Datos adicionales para la regeneración de secciones."
-    )
+    section_type: Optional[str] =  Field(None)
+    previous_content: Optional[Union[str, List[str]]] =  Field(None)
+    regenerate_data: Optional[Dict[str, Any]] = Field(None)
 
-    system_message: Optional[str] = Field(
-        None,
-        description="Mensaje del sistema para la IA. Define el rol, tono y acento."
-    )
+    system_message: Optional[str] = Field(None)
+
+    contexto_minimo_conductor: Optional[str] = Field(None)
 
 # =======================================================================
 # 4. MODELOS DE PERSISTENCIA Y ACTUALIZACIÓN
@@ -135,3 +123,36 @@ class TitleUpdateRequest(BaseModel):
     old_title: str
     new_title: str
     level: str = Field(..., description="Nivel del encabezado: 'h2' o 'h3'.")
+
+
+# =======================================================================
+# MODELOS PARA LA DESCARGA TIPO WORD
+# =======================================================================
+class BlogSectionData(BaseModel):
+    """Modelo para un único item de la estructura del blog (H1, H2, H3...)."""
+    
+    # El título está en la clave 'text'
+    text: str = Field(..., description="El título o texto del encabezado.")
+    
+    # El nivel es un string ('h1', 'h2', etc.)
+    level: str = Field(..., description="Nivel del encabezado.")
+    
+    # Contenido (puede ser None si no se ha generado)
+    content: Optional[str] = None 
+
+    # Campos adicionales de su estructura:
+    enumeration: Optional[str] = None
+    multimedia: Optional[str] = None
+    multimediaDescription: Optional[str] = None
+    uniqueId: Optional[str] = None
+    wordCount: Optional[int] = None
+    
+    # Campo para la estructura anidada (children)
+    children: List[Dict[str, Any]] = Field(default_factory=list, description="Subsecciones anidadas.")
+    
+class DownloadRequest(BaseModel):
+    """Modelo que FastAPI usará para recibir el body del POST."""
+    # La clave debe ser 'structure_data' para coincidir con el front-end
+    structure_data: List[BlogSectionData] = Field(..., description="Lista de secciones principales del blog.")
+
+

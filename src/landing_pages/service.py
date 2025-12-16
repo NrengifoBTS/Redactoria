@@ -11,7 +11,7 @@ import logging
 
 # Lista de IDs de administradores 
 ADMIN_USER_IDS = [
-  '65cd97a4-c3b9-4bfd-b014-55457ae847e3',
+  '66f98888-6a48-468a-a467-56a90608b976',
   'f49cda9b-2138-435e-a497-fda85be87e63',
   'c7c17838-074d-44fa-9248-8dc87c15edd5',
   '152c46be-e2f4-48da-86b1-592af570624a'

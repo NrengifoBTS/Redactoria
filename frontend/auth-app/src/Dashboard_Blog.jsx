@@ -12,10 +12,10 @@ import { useUsers, useFilters, useSearch } from "./hooks/useApi.js";
 const getStatusText = (status) => {
   const texts = {
     draft: "Borrador",
-    review: "Pendiente de Redacción",
-    in_progress: "En Redacción",
-    completed: "Publicado",
+    generated: "Estructura Generada",
+    review: "En Revisión",
     approved: "Aprobado",
+    published: "Publicado",
   };
   return texts[status] || status;
 };
@@ -274,6 +274,11 @@ const TableRow = ({ blog, onDelete, onEditClick, assignedUsers, onAssign }) => {
       <td className={`priority-${blog.prioridad}`}>
         {getPriorityText(blog.prioridad)}
       </td>
+      <td className={`longitude-${blog.estimated_word_count}`}>
+        {blog.estimated_word_count
+          ? blog.estimated_word_count.toLocaleString()
+          : "N/A"}
+      </td>
       <td>{formatDateTime(blog.last_modified)}</td>
 
       {/* CELDA DE OPCIONES (Lleva la lógica del dropdown) */}
@@ -344,10 +349,6 @@ const TableRow = ({ blog, onDelete, onEditClick, assignedUsers, onAssign }) => {
           <button className="btn-action view" title="Visualizar Blog">
             <i className="uil uil-eye"></i>
           </button>
-          {/* Boton de Descarga  */}
-          <button className="btn-action download" title="Descargar Blog">
-            <i className="uil uil-download-alt"></i>
-          </button>
         </div>
       </td>
     </tr>
@@ -359,8 +360,6 @@ const TableRow = ({ blog, onDelete, onEditClick, assignedUsers, onAssign }) => {
 export const DashboardBlog = () => {
   const navigate = useNavigate();
 
-  // 🛑 Usando los hooks reales de tu aplicación
-  // <-- NUEVA LÓGICA DE ASIGNACIÓN: Obtener 'assignBlog' del hook
   const {
     blogs,
     loading: loadingBlogs,
@@ -453,9 +452,8 @@ export const DashboardBlog = () => {
   const statsData = useMemo(() => {
     const totalBlogs = blogs ? blogs.length : 0;
     return [
-      { value: "1,245", label: "Visitas Totales" },
+      { value: "0", label: "Visitas Totales" },
       { value: totalBlogs, label: "Artículos Generados" },
-      { value: "142", label: "Imágenes Generadas" },
     ];
   }, [blogs]);
 
@@ -463,9 +461,9 @@ export const DashboardBlog = () => {
     <header className="navbar">
       <h1>Analíticas</h1>
       <nav>
-        <button className="btn" onClick={() => navigate(-1)}>
-          Volver
-        </button>
+        <a href="/" className="btn">
+          Volver al Home
+        </a>
       </nav>
     </header>
   );
@@ -545,15 +543,15 @@ const BlogsTable = ({
         />
         {/* 2. FILTRO DE ESTADOS (CONECTAR useFilters) */}
         <select
-          value={filters.estado || ""} // Añade el valor del estado
+          value={filters.estado || ""}
           onChange={(e) => updateFilter("estado", e.target.value)}
         >
           <option value="">Todos los Estados</option>
           <option value="draft">Borrador</option>
-          <option value="review">Pendiente de Redacción</option>
-          <option value="in_progress">En Redacción</option>
-          <option value="completed">Publicado</option>
+          <option value="generated">Estructura Generada</option>
+          <option value="review">En Revisión</option>
           <option value="approved">Aprobado</option>
+          <option value="published">Publicado</option>
         </select>
         {/* 3. FILTRO DE FECHAS  */}
         <select>
@@ -627,6 +625,7 @@ const BlogsTable = ({
           <th>Asignado a</th>
           <th>Estado</th>
           <th>Prioridad</th>
+          <th>Longitud</th>
           <th>Última modificación</th>
           <th>Opciones</th>
         </tr>

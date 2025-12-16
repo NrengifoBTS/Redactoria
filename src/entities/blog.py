@@ -1,5 +1,5 @@
 #redactoria/src/entities/blog.py
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone
 from sqlalchemy.orm import relationship
@@ -54,6 +54,10 @@ class Blog(Base):
     
     # Estructura detallada del blog (títulos H1, H2, H3 con contenido parcial o IDs)
     estructura_blog_json = Column(JSON, nullable=True)      
+
+    estimated_word_count = Column(Integer, nullable=True)
+
+    urls = Column(Text, nullable=True)
 
 
     scraping = relationship(

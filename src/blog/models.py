@@ -46,8 +46,10 @@ class BlogBase(BaseModel):
     
     # --- Campos de Generación/Contenido (NUEVOS EN EL CONTEXTO) ---
     estructura_blog_json: Optional[Any] = None 
+    estimated_word_count: Optional[int] = None
     # Asignación de usuario
     assigned_to: Optional[UUID] = None
+    urls: Optional[str]= None
 
 # =======================================================================
 # 3. MODELOS DE PETICIÓN (Request Models)
@@ -64,6 +66,7 @@ class BlogUpdate(BaseModel):
     title: Optional[str] = None
     estado: Optional[EstadoBlog] = None
     prioridad: Optional[PrioridadBlog] = None
+    urls: Optional[str]= None
     
     # Permite actualizar la estructura y el contenido
     estructura_blog_json: Optional[str] = None 

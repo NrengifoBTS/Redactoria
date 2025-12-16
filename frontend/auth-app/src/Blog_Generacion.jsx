@@ -36,6 +36,10 @@ const GeneracionBlog = () => {
   const [localBlogId, setLocalBlogId] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [blogStatus, setBlogStatus] = useState("");
+  const [blogPriority, setBlogPriority] = useState("");
+  const [tempContentUpdate, setTempContentUpdate] = useState(null);
+
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
   // // -----------------------------------------------------------------------
@@ -58,12 +62,25 @@ const GeneracionBlog = () => {
         if (data) {
           // 2. Guardar el objeto Blog de la BD en el estado principal
           setDatosFinales(data);
+
+          if (data.estimated_word_count) {
+            setEstimatedWordCount(data.estimated_word_count);
+          }
           if (data.estructura_blog_json) {
             setTablaEstructuraFinal(data.estructura_blog_json);
           }
           if (data.consolidated_content) {
             setContenidoConsolidado(data.consolidated_content);
-          } // Opcional: setLocalBlogId
+          }
+          if (data.estado) {
+            setBlogStatus(data.estado);
+          }
+          if (data.prioridad) {
+            setBlogPriority(data.prioridad);
+          }
+          if (data.urls && referenciaUrls.current) {
+            referenciaUrls.current.value = data.urls;
+          }
           setLocalBlogId(data.id);
         } else {
           setFetchError("No se pudieron cargar los datos del blog.");
@@ -79,16 +96,19 @@ const GeneracionBlog = () => {
 
     loadBlogData();
   }, [blogId, navigate]);
+
   // =======================================================================
   // // 3. CONSTANTES Y DATOS INICIALES
   // // =======================================================================
   // //--- URLs de la API del backend ---
-
   const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
+  const URL_CONTENIDO_SECCION = "http://192.168.1.129:8000/ai/generate_content";
   const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
   const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/";
   const URL_API_IA_COMPLETO =
     "http://192.168.1.129:8000/ai/generate_full_content";
+
+  const URL_API_IA_DOWNLOAD = "http://192.168.1.129:8000/ai/download_blog_doc";
 
   const URL_API_IA_REGEN = "http://192.168.1.129:8000/ai/regenerate_titles"; // <-- NUEVO ENDPOINT
 
@@ -111,7 +131,6 @@ const GeneracionBlog = () => {
     estiloTono: true,
     contexto: true,
   });
-  const [wordLimit, setWordLimit] = useState(300);
   const [contentType, setContentType] = useState("ia_libre");
 
   // =======================================================================
@@ -156,16 +175,14 @@ const GeneracionBlog = () => {
       }
       return;
     }
-
-    if (!tablaEstructuraFinal) {
-      showToast("No hay estructura que guardar.", "warning");
-      return;
-    }
-
     setIsSaving(true);
+
     const payload = {
       estructura_blog_json: tablaEstructuraFinal,
+      estado: blogStatus,
+      prioridad: blogPriority,
     };
+
     const URL_API_SAVE = `${URL_API_BASE_BLOGS}${localBlogId}`;
 
     try {
@@ -179,7 +196,7 @@ const GeneracionBlog = () => {
       });
 
       if (!response.ok) {
-        // ... (Lógica de manejo de error que genera errorMessage)
+        // ... (Lógica de manejo de error existente)
         const errorText = await response.text();
         let errorMessage = `Error ${response.status}: Falló la actualización del blog.`;
         try {
@@ -194,7 +211,8 @@ const GeneracionBlog = () => {
         throw new Error(errorMessage);
       }
 
-      showToast("Guardado exitoso. Estructura actualizada.", "success");
+      // Mensaje de éxito más genérico para incluir la actualización de estado/prioridad
+      showToast("Guardado exitoso. Blog actualizado.", "success");
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Error al guardar la estructura:", error);
@@ -205,6 +223,8 @@ const GeneracionBlog = () => {
   }, [
     localBlogId,
     tablaEstructuraFinal,
+    blogStatus,
+    blogPriority,
     isSaving,
     setHasUnsavedChanges,
     authToken,
@@ -219,6 +239,125 @@ const GeneracionBlog = () => {
     }));
   };
 
+  const handleDownloadDocx = async () => {
+    // 1. Validaciones Iniciales
+    const structureToDownload = structureWithCount;
+    console.log("Estructura para descargar:", structureToDownload);
+
+    if (!structureToDownload || structureToDownload.length === 0) {
+      alert(
+        "La estructura del blog está vacía. No se puede descargar el Word."
+      );
+      return;
+    }
+
+    const downloadUrl = `${URL_API_IA_DOWNLOAD}/${blogId}`;
+
+    try {
+      // 2. Petición POST al Backend
+      const response = await fetch(downloadUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          structure_data: structureToDownload,
+          title: datosFinales?.title || "Documento del Blog",
+        }),
+      });
+
+      console.log(
+        "Iniciando descarga del documento Word...",
+        datosFinales?.title
+      );
+
+      // 3. Manejo de Errores HTTP y de Contenido
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error del Servidor:", response.status, errorText);
+        alert(
+          `Fallo al descargar (Error HTTP ${response.status}). Revisa el console log y los logs de FastAPI.`
+        );
+        return;
+      }
+
+      const contentType = response.headers.get("Content-Type");
+      const isDocx = contentType?.includes(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+
+      if (!isDocx) {
+        const responseText = await response.text();
+        console.error(
+          "Error de Contenido:",
+          "El servidor devolvió un contenido inesperado, no un DOCX.",
+          responseText.substring(0, 200) + "..."
+        );
+        alert("El servidor no envió un archivo Word válido.");
+        return;
+      }
+
+      // 4. Procesamiento, Creación del Nombre de Archivo y Descarga
+
+      // ** A. Obtener y Formatear SOLO la Fecha **
+      const now = new Date();
+
+      // Formatear Fecha (ej: 2025-12-15)
+      const dateString = now
+        .toLocaleDateString("es-CO", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+        .replace(/\//g, "-");
+
+      // Sufijo de Solo Fecha: Ahora solo incluye el guión bajo y la fecha
+      const dateSuffix = `_${dateString}`;
+
+      // ** B. Construir Nombre de Archivo **
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition");
+
+      // Nombre de archivo por defecto
+      let fileName = `${
+        datosFinales?.title || "Documento del Blog"
+      }${dateSuffix}.docx`;
+
+      // Si el servidor especificó un nombre de archivo, lo usamos y añadimos la fecha
+      if (disposition && disposition.indexOf("filename=") !== -1) {
+        let serverFileName = disposition
+          .split("filename=")[1]
+          .replace(/"/g, "");
+
+        // Quitar ".docx" si existe para insertar el sufijo
+        if (serverFileName.toLowerCase().endsWith(".docx")) {
+          serverFileName = serverFileName.slice(0, -5);
+        }
+
+        // Reconstruir el nombre con el sufijo de fecha y la extensión
+        fileName = `${serverFileName}${dateSuffix}.docx`;
+      }
+
+      // ** C. Iniciar Descarga **
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName; // <- Nombre de archivo con solo la Fecha
+      document.body.appendChild(a);
+      a.click();
+
+      // 5. Limpieza
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error de red/petición:", error);
+      alert(
+        "Fallo en la comunicación con el servidor. ¿El servicio de FastAPI está corriendo?"
+      );
+    }
+  };
+
   // Convierte la estructura de objeto anidada de vuelta a una cadena de Markdown
   const convertStructureToMarkdown = (structure) => {
     let markdownLines = [];
@@ -231,6 +370,15 @@ const GeneracionBlog = () => {
         // --- LÓGICA DE H1 --- (Título Principal/Introducción)
         const h1Line = `[H1 - ${item.enumeration}] ${item.text.trim()}`;
         markdownLines.push(h1Line);
+
+        // AÑADIDO: AGREGAR MULTIMEDIA/SEO SI EXISTE EN H1
+        if (item.multimedia && item.multimediaDescription) {
+          markdownLines.push(
+            `[MULTIMEDIA: ${
+              item.multimedia
+            } | ${item.multimediaDescription.trim()}]`
+          );
+        }
 
         // AGREGAR BLOQUE DE CONTENIDO H1
         if (item.content && item.content.trim()) {
@@ -695,6 +843,20 @@ const GeneracionBlog = () => {
   //    (Selección, Guardar Título/Contenido, Mover, Eliminar, Agregar)
   // ==============================================================================================================================================
 
+  const handleStatusChange = (e) => {
+    setBlogStatus(e.target.value);
+    markAsChanged();
+  };
+
+  const handlePriorityChange = (e) => {
+    setBlogPriority(e.target.value);
+    markAsChanged();
+  };
+
+  const urlsAlreadySaved = useMemo(() => {
+    return !!datosFinales?.urls && datosFinales.urls.trim().length > 0;
+  }, [datosFinales]);
+
   // Funcion que Maneja la selección del título en el StructureRenderer
   const handleSectionSelect = (section, event) => {
     // 1. Establece la sección seleccionada para activar el panel de edición
@@ -747,37 +909,56 @@ const GeneracionBlog = () => {
       );
       return;
     }
+
     const newTitle = regenTextareaValue.trim();
-    const level = selectedSectionForRegen.level.toUpperCase();
-    const enumeration = selectedSectionForRegen.enumeration;
-    const currentMarkdown = tablaEstructuraFinal;
+    const { level, enumeration } = selectedSectionForRegen;
 
-    // 1. RegEx para encontrar la línea completa
-    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
+    // 1. Obtener la estructura actual como objeto
+    // Nota: Aunque no lo vemos, asumimos que 'parseMarkdownStructure' es robusto.
+    let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
 
-    const targetRegex = new RegExp(
-      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
-      "m"
-    );
+    // Variables para seguimiento
+    const idH2 = enumeration.split(".")[0];
+    const h2Padre = nuevaEstructura.find((item) => item.enumeration === idH2);
+    let substitutionSuccess = false; // Bandera para verificar el éxito
 
-    // 2. Construcción de la nueva línea completa
-    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
+    // 2. Encontrar y actualizar el TÍTULO en el objeto anidado
+    if (h2Padre) {
+      if (level === "h2") {
+        // Actualizar el título del H2
+        h2Padre.text = newTitle; // <--- Se cambia 'content' por 'text' para el título
+        substitutionSuccess = true;
+      } else if (level === "h3") {
+        // Buscar y actualizar el título del H3
+        const h3Objetivo = h2Padre.children.find(
+          (item) => item.enumeration === enumeration
+        );
+        if (h3Objetivo) {
+          h3Objetivo.text = newTitle; // <--- Se cambia 'content' por 'text' para el subtítulo
+          substitutionSuccess = true;
+        }
+      }
+    }
 
-    // 3. Ejecutar el reemplazo (solo la primera coincidencia)
-    const newStructureString = currentMarkdown.replace(
-      targetRegex,
-      newFullLine
-    );
+    // 3. Convertir la estructura modificada de vuelta a Markdown
+    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
 
     // 4. Verificación y Actualización
-    if (newStructureString === currentMarkdown) {
-      showToast("ERROR CRÍTICO: Falló la sustitución..", "error");
+    if (!substitutionSuccess) {
+      // Si no se encontró el objeto, la sustitución falla.
+      showToast(
+        "ERROR CRÍTICO: Falló la sustitución. El título no fue encontrado en la estructura de objeto.",
+        "error"
+      );
     } else {
-      setTablaEstructuraFinal(newStructureString);
+      // 4.1. ACTUALIZAR EL ESTADO PRINCIPAL con la nueva estructura de Markdown
+      setTablaEstructuraFinal(nuevoMarkdown);
       markAsChanged();
+
+      // 4.2. Actualizar el estado local (UI)
       setSelectedSectionForRegen((prevSection) => ({
         ...prevSection,
-        text: newTitle,
+        text: newTitle, // Actualizar el texto de la sección seleccionada
       }));
 
       setRegenTextareaValue(newTitle);
@@ -786,7 +967,7 @@ const GeneracionBlog = () => {
   };
 
   //Funcion para guardar el contenido de los titulos o subtitulos
-  const guardarContenidoLocal = () => {
+  const guardarContenidoLocal = (fieldToUpdate, newValue) => {
     if (!selectedSectionForRegen) {
       showToast(
         "ERROR: No hay una sección seleccionada para guardar el contenido.",
@@ -794,65 +975,77 @@ const GeneracionBlog = () => {
       );
       return;
     }
+    // 1. Preparar el valor a guardar (trim)
+    const valueToSave = (newValue ?? "").trim();
 
-    const nuevoContenido = sectionContentValue.trim();
+    // 2. Determina la propiedad real de la estructura ('text' o 'content')
+    const propertyToUpdate = fieldToUpdate === "title" ? "text" : "content";
 
-    // 1. Obtener la estructura actual como objeto
+    // 3. Obtener la estructura actual como objeto
     let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
     const { level, enumeration } = selectedSectionForRegen;
 
-    // 2. Encontrar y actualizar el objeto en el array anidado
+    // 4. Encontrar y actualizar el objeto en el array anidado
     const idH2 = enumeration.split(".")[0];
     const h2Padre = nuevaEstructura.find((item) => item.enumeration === idH2);
 
     if (h2Padre) {
-      if (level === "h2") {
-        h2Padre.content = nuevoContenido;
+      if (level === "h1" || level === "h2") {
+        // ASIGNACIÓN DINÁMICA DE PROPIEDAD: OK
+        h2Padre[propertyToUpdate] = valueToSave;
       } else if (level === "h3") {
         const h3Objetivo = h2Padre.children.find(
           (item) => item.enumeration === enumeration
         );
         if (h3Objetivo) {
-          h3Objetivo.content = nuevoContenido;
+          // ASIGNACIÓN DINÁMICA DE PROPIEDAD: OK
+          h3Objetivo[propertyToUpdate] = valueToSave;
         }
       }
     }
 
-    // 3. Convertir la estructura modificada de vuelta a Markdown
-    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
+    // --- Lógica de Palabras Generadas (Solo si se actualiza el Contenido) ---
+    let nuevoTotalPalabras;
 
-    // 3.1. Calcular el nuevo total de palabras de TODA la estructura con la función mejorada
-    const nuevoTotalPalabras = recalcularPalabrasGeneradas(nuevaEstructura);
+    if (fieldToUpdate === "content") {
+      nuevoTotalPalabras = recalcularPalabrasGeneradas(nuevaEstructura);
+      setTotalGeneratedWords(nuevoTotalPalabras);
 
-    // 3.2. ACTUALIZAR EL ESTADO GLOBAL DE PALABRAS GENERADAS
-    setTotalGeneratedWords(nuevoTotalPalabras);
-
-    // 3.3. Notificación de límite de palabras
-    if (estimatedWordCount && estimatedWordCount > 0) {
-      if (nuevoTotalPalabras > estimatedWordCount) {
-        const exceso = nuevoTotalPalabras - estimatedWordCount;
-        // Aviso de excedente de límite
-        showToast(
-          ` ADVERTENCIA: Has excedido la longitud estimada de ${estimatedWordCount.toLocaleString()} palabras por ${exceso.toLocaleString()}.`,
-          "warning"
-        );
+      // Notificación de límite de palabras
+      if (estimatedWordCount && estimatedWordCount > 0) {
+        if (nuevoTotalPalabras > estimatedWordCount) {
+          const exceso = nuevoTotalPalabras - estimatedWordCount;
+          showToast(
+            ` ADVERTENCIA: Has excedido la longitud estimada de ${estimatedWordCount.toLocaleString()} palabras por ${exceso.toLocaleString()}.`,
+            "warning"
+          );
+        }
       }
     }
 
-    // 4. ACTUALIZAR EL ESTADO PRINCIPAL
+    // 5. Convertir la estructura modificada de vuelta a Markdown
+    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
+
+    // 6. ACTUALIZAR EL ESTADO PRINCIPAL
     setTablaEstructuraFinal(nuevoMarkdown);
     markAsChanged();
 
-    // 5. Limpieza de UI
+    // 7. Limpieza de UI
     setSelectedSectionForRegen(null);
     setSectionContentValue("");
     setRegenTextareaValue("");
+    if (setTempContentUpdate) {
+      setTempContentUpdate(null);
+    }
+    // ------------------------------------------------------------------------
 
-    if (!nuevoContenido) {
-      showToast("Contenido de la sección borrado localmente.", "success");
+    const fieldName = fieldToUpdate === "title" ? "Título" : "Contenido";
+
+    if (!valueToSave) {
+      showToast(`${fieldName} de la sección borrado localmente.`, "success");
     } else {
       showToast(
-        " Contenido de la sección guardado localmente y actualizado.",
+        `${fieldName} de la sección guardado localmente y actualizado.`,
         "success"
       );
     }
@@ -875,17 +1068,23 @@ const GeneracionBlog = () => {
     const currentStructure = parseMarkdownStructure(tablaEstructuraFinal);
     let newStructure = [...currentStructure];
 
-    const isH2 = sectionToMove.level === "h2";
+    const isH2 = sectionToMove.level === "h2" || sectionToMove.level === "h1";
 
     if (isH2) {
-      // LÓGICA DE MOVIMIENTO DE H2 (Mueve toda la sección, incluyendo hijos)
       const currentIndex = newStructure.findIndex(
         (item) => item.uniqueId === sectionToMove.uniqueId
       );
       if (currentIndex === -1) return;
+      if (currentIndex === 0) {
+        return;
+      }
+      // ====================================================================
 
       let newIndex = currentIndex;
       if (direction === "UP" && currentIndex > 0) {
+        if (currentIndex - 1 === 0) {
+          return;
+        }
         newIndex = currentIndex - 1;
       } else if (
         direction === "DOWN" &&
@@ -900,7 +1099,6 @@ const GeneracionBlog = () => {
       const [movedItem] = newStructure.splice(currentIndex, 1);
       newStructure.splice(newIndex, 0, movedItem);
     } else {
-      // LÓGICA DE MOVIMIENTO DE H3 (Mueve solo dentro de su padre H2)
       const h2IdMatch = sectionToMove.enumeration.split(".")[0];
       const parentH2 = newStructure.find(
         (item) => item.enumeration === h2IdMatch
@@ -1166,12 +1364,14 @@ const GeneracionBlog = () => {
     const signal = controller.signal;
 
     // 2. Procesar input de URLs y Query
-    const lineasConsulta = referenciaUrls.current?.value
+    const rawInput = referenciaUrls.current?.value; // 🆕 Obtener el texto crudo completo
+
+    const lineasConsulta = rawInput
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
     const consulta = lineasConsulta[0];
-    const urls = lineasConsulta.slice(1); // 👈 URLs que queremos guardar
+    const urls = lineasConsulta.slice(1); // URLs array para la API de scraping
     const numResultados = urls.length > 0 ? urls.length : 3;
 
     if (!consulta || numResultados < 1) {
@@ -1192,40 +1392,70 @@ const GeneracionBlog = () => {
     const acento = datosFinales?.acento || "";
     const tono = datosFinales?.tono || "";
 
-    // Definir URL de guardado y GUARDAR
+    // Definir URL de guardado
     const URL_API_SAVE = `${URL_API_BASE_BLOGS}${blogId}`;
 
-    if (urls.length > 0) {
-      fetch(URL_API_SAVE, {
+    // =======================================================================
+    // 🆕 PASO 1: GUARDAR EL TEXTO RAW DEL INPUT (QUERY + URLs) EN LA DB
+    // (Ahora es un bloque await/try-catch para asegurar la persistencia)
+    // =======================================================================
+    try {
+      if (!rawInput) {
+        throw new Error("El campo de URLs/Consulta no puede estar vacío.");
+      }
+
+      // El payload envía el valor completo del textarea con la clave 'urls'
+      const savePayload = {
+        urls: rawInput, // <-- CLAVE: 'urls' (coincide con la BD)
+      };
+
+      const responseSave = await fetch(URL_API_SAVE, {
+        // Usamos await para que sea sincrónico
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({
-          scraped_urls: urls, // El array de URLs del input
-        }),
-      })
-        .then((res) => {
-          if (!res.ok)
-            console.warn(
-              `[SCRAPING] Aviso: Falló el guardado de URLs con estado ${res.status}`
-            );
-          else console.log("[SCRAPING] URLs iniciales guardadas en el blog.");
-        })
-        .catch((err) => console.error("[SCRAPING] Error al enviar URLs:", err));
+        body: JSON.stringify(savePayload),
+        signal: signal,
+      });
+
+      if (!responseSave.ok) {
+        const errorText = await responseSave.text();
+        throw new Error(
+          `Falló el guardado de URLs con estado ${responseSave.status}. Respuesta: ${errorText}`
+        );
+      }
+
+      console.log(
+        "[SCRAPING] URLs y consulta guardadas en el blog exitosamente."
+      );
+    } catch (error) {
+      // Manejo de errores de guardado
+      if (error.name !== "AbortError") {
+        console.error("[SCRAPING] Error al guardar URLs:", error);
+        setError(`Fallo al guardar las URLs: ${error.message}`);
+        // Usar showToast que está disponible en su código original
+        // Se asume que showToast está disponible en el scope
+        showToast("Error al guardar URLs. Proceso cancelado.", "error");
+      }
+      setCargandoScraping(false);
+      referenciaControladorAborto.current = null;
+      return; // Detener si falla el guardado
     }
 
+    // =======================================================================
+    // 🆕 PASO 2: EJECUTAR LA LÓGICA DE SCRAPING EXISTENTE (Solo si el guardado fue exitoso)
+    // =======================================================================
     try {
       const finalScrapingUrl = `${URL_API_SCRAPING}/${blogId}`;
 
       const response = await fetch(finalScrapingUrl, {
-        // <-- Usamos la URL completa
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: consulta,
-          urls,
+          urls, // Aquí aún enviamos el array de URLs a la API de scraping, lo cual es correcto
           num_results: numResultados,
           use_ai: usarIA,
           run_intent_keywords: false,
@@ -1277,7 +1507,7 @@ const GeneracionBlog = () => {
                 setDatosFinales((prevDatos) => ({ ...prevDatos, ...parsed }));
 
                 finalDataReceived = true;
-                const consolidatedContent = parsed.consolidated_content || null; // Extraer contenido
+                const consolidatedContent = parsed.consolidated_content || null;
 
                 // 🆕 GUARDADO DEL CONTENIDO CONSOLIDADO (No bloqueante)
                 if (consolidatedContent) {
@@ -1307,7 +1537,7 @@ const GeneracionBlog = () => {
                     );
                 }
 
-                setContenidoConsolidado(consolidatedContent); // Actualizar estado local
+                setContenidoConsolidado(consolidatedContent);
 
                 if (parsed.log && Array.isArray(parsed.log)) {
                   console.log("[SCRAPING - LOGS DETALLADOS]");
@@ -1454,7 +1684,7 @@ const GeneracionBlog = () => {
       return;
     }
 
-    if (!idDelBlog && !contenidoConsolidado) {
+    if (!idDelBlog) {
       setError(
         "Error: blogId o contenido consolidado no disponible. Se necesita una fuente de datos."
       );
@@ -1565,7 +1795,6 @@ const GeneracionBlog = () => {
 
   // Funcion generacion de contenido
   const generarContenidoIA = async () => {
-    // Aseguramos que haya una sección seleccionada y el contenido consolidado para la IA
     if (!selectedSectionForRegen) {
       showToast(
         "ERROR: Faltan datos clave (Sección o Contenido Consolidado).",
@@ -1574,29 +1803,15 @@ const GeneracionBlog = () => {
       return;
     }
 
-    // Validar límite de palabras
-    const finalWordLimit = Math.min(Math.max(wordLimit, 100), 1000);
-    if (wordLimit !== finalWordLimit) {
-      setWordLimit(finalWordLimit);
-
-      showToast(`Límite de palabras ajustado a ${finalWordLimit}.`, "warning");
-    }
-
     setCargandoIA(true);
     setError(null);
 
-    const levelDisplay = selectedSectionForRegen.level.toUpperCase();
-    showToast(
-      `Solicitando contenido para el ${levelDisplay} con límite de ${finalWordLimit} palabras...`,
-      "info"
-    );
-
-    // --- GENERACIÓN DE CONTEXTO (Anti-Canibalismo) ---
+    // --- GENERACIÓN DE CONTEXTO  ---
     let contextData = "";
-    const sectionId = selectedSectionForRegen.uniqueId; // ID de la sección objetivo
-    const targetSection = selectedSectionForRegen; // Objeto de la sección objetivo
+    const sectionId = selectedSectionForRegen.uniqueId;
+    const targetSection = selectedSectionForRegen;
 
-    // 1. Construir el contexto basado en el nivel (H2 vs H3)
+    // 1. Construir el contexto basado en el nivel (H2 vs H3) - Lógica de Contexto Mantenida
     if (targetSection && sectionId) {
       const level = targetSection.level.toLowerCase();
       contextData = `Contexto del Articulo (NO REPITA O REDUNDE en las ideas listadas):`;
@@ -1606,7 +1821,6 @@ const GeneracionBlog = () => {
         structureWithCount
           .filter((item) => item.level.toLowerCase() === "h2")
           .forEach((h2) => {
-            // Usamos structureWithCount que tiene la estructura viva
             if (h2.uniqueId !== sectionId) {
               contextData += `- Título: "${h2.text}"`;
               if (h2.content) contextData += ` (Contenido ya generado)`;
@@ -1639,36 +1853,35 @@ const GeneracionBlog = () => {
       }
     }
 
-    // 2. Filtrar contexto vacío (solo enviar si es significativo)
+    // 2. Filtrar contexto vacío
     const finalContextData = contextData.length > 50 ? contextData : "";
+    const blogId = datosFinales.id;
 
-    // 1. CONSTRUCCIÓN DEL PAYLOAD PARA EL BACKEND
-    const payload = {
-      // Campos requeridos por AIAnalysisRequest
+    // --- CONSTRUCCIÓN DEL PAYLOAD ---
+    let payload = {
       query: datosFinales.query,
-      consolidated_content: contenidoConsolidado,
+      blog_id: blogId,
+      consolidated_content: datosFinales.contenidoConsolidado,
       keywords: datosFinales.keywords || [],
       idioma: datosFinales.idioma,
       acento: datosFinales.acento,
       tono: datosFinales.tono,
-
-      // Tipo de sección que activa la delegación en el backend
+      tecnica: datosFinales.tecnica,
       section_type: "content_generation",
 
-      // --- Aqui se envian los datos para la regeneracion de contenido  ---
       regenerate_data: {
         section_title: selectedSectionForRegen.text,
         section_level: selectedSectionForRegen.level,
-        full_structure_markdown: tablaEstructuraFinal, // Esto ya incluye el H1 en el string
-        word_limit: finalWordLimit,
-        content_type: contentType,
+        full_structure_markdown: tablaEstructuraFinal,
         context_data: finalContextData,
+        required_keywords: selectedSectionForRegen.keywords || [],
+        content_type: contentType,
       },
     };
 
     try {
-      // 2. LLAMADA A LA API
-      const response = await fetch(URL_API_IA, {
+      // 1. LLAMADA A LA API (SU LÓGICA INTACTA)
+      const response = await fetch(URL_CONTENIDO_SECCION, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1681,43 +1894,23 @@ const GeneracionBlog = () => {
 
       const result = await response.json();
 
-      // 3. PROCESAMIENTO E INTEGRACIÓN DEL RESULTADO
+      // 2. PROCESAMIENTO E INTEGRACIÓN DEL RESULTADO
       if (result.generated_content) {
         const nuevoContenido = result.generated_content.trim();
-        const { level, enumeration } = selectedSectionForRegen;
 
-        // 3.1. Obtener la estructura actual (Objeto)
-        let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
-
-        // 3.2. Encontrar y actualizar la sección con el nuevo contenido
-        const idH2 = enumeration.split(".")[0];
-        const h2Padre = nuevaEstructura.find(
-          (item) => item.enumeration === idH2
-        );
-
-        if (h2Padre) {
-          if (level === "h2") {
-            h2Padre.content = nuevoContenido;
-          } else if (level === "h3") {
-            const h3Objetivo = h2Padre.children.find(
-              (item) => item.enumeration === enumeration
-            );
-            if (h3Objetivo) {
-              h3Objetivo.content = nuevoContenido;
-            }
-          }
-        }
-
-        // 3.3. Convertir la estructura modificada de vuelta a Markdown
-        const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
-
-        // 3.4. ACTUALIZAR EL ESTADO (¡Esto actualiza la vista del blog!)
-        setTablaEstructuraFinal(nuevoMarkdown);
-
-        // 3.5. Mostrar el contenido en el editor para revisión
+        // 2.1. Actualizar el editor para la vista previa (DESEADO)
         setSectionContentValue(nuevoContenido);
 
-        showToast("Contenido generado por IA y aplicado al editor.", "success");
+        // 2.2. Aplicar el contenido al estado TEMPORAL para la vista de la estructura
+        setTempContentUpdate({
+          uniqueId: selectedSectionForRegen.uniqueId,
+          newContent: nuevoContenido,
+        });
+
+        showToast(
+          "✅ Contenido generado y listo para revisión. Presiona 'Guardar Contenido Local' para aplicarlo.",
+          "info"
+        );
       } else {
         throw new Error(
           "Respuesta de IA inesperada. No se encontró el contenido."
@@ -2122,6 +2315,8 @@ const GeneracionBlog = () => {
         const nuevoMarkdown = convertStructureToMarkdown(estructuraTemporal);
         setTablaEstructuraFinal(nuevoMarkdown);
 
+        setHasUnsavedChanges(true);
+
         // --- ACTUALIZACIÓN DE CONTADORES PARA LA SIGUIENTE ITERACIÓN (SIN CAMBIOS) ---
         palabrasAcumuladas = recalcularPalabrasGeneradas(estructuraTemporal);
         subseccionesGeneradas = recalcularSubseccionesGeneradas(
@@ -2186,19 +2381,20 @@ const GeneracionBlog = () => {
           const isH1 = item.level === "h1"; // Identificador para H1
           const isH2 = item.level === "h2";
 
-          //  Si es H1, lo renderizamos de forma simplificada y sin anidación.
+          // Si es H1, lo renderizamos de forma simplificada y sin anidación,
+          // PERO ahora incluimos el contenido y SEO.
           if (isH1) {
             return (
               <li
                 key={item.uniqueId || item.enumeration}
                 className={`
-                  structure-item structure-item-h1 // Clase específica para el H1
-                  ${
-                    selectedSection?.uniqueId === item.uniqueId
-                      ? "structure-item-selected"
-                      : ""
-                  }
-                `}
+                                structure-item structure-item-h1 // Clase específica para el H1
+                                ${
+                                  selectedSection?.uniqueId === item.uniqueId
+                                    ? "structure-item-selected"
+                                    : ""
+                                }
+                            `}
                 title="H1 (Título Principal). Haga click para editar."
               >
                 <div className="structure-content-wrapper">
@@ -2240,30 +2436,78 @@ const GeneracionBlog = () => {
                     )}
                   </div>
 
-                  {/* os botones de acción se OMITEN aquí para el H1 */}
+                  {/* Los botones de acción se OMITEN aquí para el H1 */}
                   <div className="structure-buttons-group">
                     {/* Opcional: Se pueden poner botones de solo info, pero NO de mover/eliminar */}
                   </div>
                 </div>
-                {/* Omitimos recursividad y previsualización de contenido/multimedia dentro del H1 por ser el título */}
+
+                {/* Bloque de previsualización del CONTENIDO - AÑADIDO AL H1 */}
+                {item.content && item.content.trim() && (
+                  <div
+                    className="content-preview-block"
+                    style={{
+                      marginTop: "10px",
+                      padding: "8px 12px",
+                      borderLeft: "4px solid #10a2f4", // Color distintivo
+                      backgroundColor: "#f0f8ff",
+                      fontSize: "0.9em",
+                      color: "#333",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
+                    title="Contenido generado. Haga clic para editar."
+                  >
+                    <i
+                      className="uil uil-file-alt"
+                      style={{ marginRight: "8px", color: "#10a2f4" }}
+                    ></i>
+                    <strong>CONTENIDO:</strong>{" "}
+                    {item.content.trim().substring(0, 150)}
+                    {item.content.trim().length > 150 ? "..." : ""}
+                  </div>
+                )}
+
+                {/* Bloque de recomendación SEO (DIV) - AÑADIDO AL H1 */}
+                {item.multimediaDescription && (
+                  <div
+                    className="multimedia-recommendation-seo"
+                    style={{
+                      marginTop: "10px",
+                      padding: "8px 12px",
+                      borderLeft: "4px solid #f29727",
+                      backgroundColor: "#fff8f0",
+                      fontSize: "0.9em",
+                      color: "#333",
+                    }}
+                  >
+                    <i
+                      className="uil uil-search-alt"
+                      style={{ marginRight: "8px", color: "#f29727" }}
+                    ></i>
+                    <strong>RECOMENDACIÓN SEO ({item.multimedia}):</strong>{" "}
+                    {item.multimediaDescription}
+                  </div>
+                )}
+
+                {/* Omitimos recursividad para H1 */}
               </li>
             );
           }
 
           // Lógica para H2 y H3 (Continúa el flujo normal)
-
           return (
             <li
               key={item.uniqueId || item.enumeration}
               className={`
-                structure-item
-                ${isH2 ? "structure-item-h2" : "structure-item-h3"}
-                ${
-                  selectedSection?.uniqueId === item.uniqueId
-                    ? "structure-item-selected"
-                    : ""
-                }
-              `}
+                            structure-item
+                            ${isH2 ? "structure-item-h2" : "structure-item-h3"}
+                            ${
+                              selectedSection?.uniqueId === item.uniqueId
+                                ? "structure-item-selected"
+                                : ""
+                            }
+                        `}
               title={`Haga click en el texto para editar este ${item.level.toUpperCase()}`}
             >
               {/* CONTENEDOR PRINCIPAL DEL TEXTO Y BOTONES */}
@@ -2367,7 +2611,7 @@ const GeneracionBlog = () => {
                 </div>
               )}
 
-              {/* 5. Bloque de recomendación SEO (DIV) */}
+              {/* Bloque de recomendación SEO (DIV) */}
               {item.multimediaDescription && (
                 <div
                   className="multimedia-recommendation-seo"
@@ -2480,8 +2724,7 @@ const GeneracionBlog = () => {
             className={`btn-download ${
               hasUnsavedChanges ? "btn-active-save" : ""
             }`}
-            onClick={handleSaveProject} // Llama a la función con el useCallback
-            // Deshabilitado si: no hay ID O no hay estructura (objeto/null) O está guardando O no hay cambios pendientes
+            onClick={handleSaveProject}
             disabled={
               !localBlogId ||
               !tablaEstructuraFinal ||
@@ -2510,34 +2753,98 @@ const GeneracionBlog = () => {
 
         {/* Sección de Input */}
         <section className="preconfig">
-          <h2>Ingresa URLs (mínimo 3)</h2>
-          <textarea
-            ref={referenciaUrls}
-            className="auto-expand"
-            placeholder="[Query Principal/Título base]&#10;https://example1.com&#10;https://example2.com&#10;https://example3.com"
-            rows={5}
-            disabled={cargandoScraping}
-          />
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "15px",
             }}
           >
-            <label htmlFor="usar-ia-checkbox" style={{ fontWeight: "bold" }}>
-              <input
-                type="checkbox"
-                id="usar-ia-checkbox"
-                checked={usarIA}
-                onChange={(e) => setUsarIA(e.target.checked)}
-                disabled={cargandoScraping}
-                style={{ marginRight: "10px" }}
-              />
-              Usar Resúmenes de IA por Bloque
-            </label>
+            <h2>Ingresa URLs (mínimo 3)</h2>
+
+            {/* Contenedor de los selectores: usa gap para separarlos */}
+            <div style={{ display: "flex", gap: "25px" }}>
+              {/* 1. Selector de Estado del Blog */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <label
+                  htmlFor="blog-status"
+                  style={{
+                    marginRight: "10px",
+                    fontWeight: "bold",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Estado:
+                </label>
+                <select
+                  id="blog-status"
+                  value={blogStatus}
+                  onChange={handleStatusChange}
+                  disabled={cargandoScraping}
+                  style={{
+                    padding: "7px 10px",
+                    borderRadius: "6px",
+                    border: "1px solid #aaa",
+                    backgroundColor: "white",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
+                    minWidth: "160px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {/* Es CRÍTICO que el VALUE coincida con el dato que la BD devuelve/espera */}
+                  <option value="draft">Borrador</option>
+                  <option value="generated">Estructura Generada</option>
+                  <option value="review">En Revisión</option>
+                  <option value="approved">Aprobado</option>
+                  <option value="published">Publicado</option>
+                </select>
+              </div>
+              {/* 2. Selector de Prioridad del Blog */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <label
+                  htmlFor="blog-priority"
+                  style={{
+                    marginRight: "10px",
+                    fontWeight: "bold",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Prioridad:
+                </label>
+                <select
+                  id="blog-priority"
+                  value={blogPriority}
+                  onChange={handlePriorityChange}
+                  disabled={cargandoScraping}
+                  style={{
+                    padding: "7px 10px",
+                    borderRadius: "6px",
+                    border: "1px solid #aaa",
+                    backgroundColor: "white",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
+                    minWidth: "100px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="Baja">Baja</option>
+                  <option value="Media">Media</option>
+                  <option value="Alta">Alta</option>
+                </select>
+              </div>
+            </div>
           </div>
+          {/* ========================================================= */}
+          {/* FIN DEL NUEVO CONTENEDOR DE ENCABEZADO */}
+          {/* ========================================================= */}
+
+          <input
+            ref={referenciaUrls}
+            className="auto-expand"
+            placeholder="&#10;https://example1.com&#10;https://example2.com&#10;https://example3.com"
+            rows={5}
+            disabled={cargandoScraping}
+          />
+
           {/* Botón de Ejecución/Cancelación */}
           <button
             onClick={cargandoScraping ? cancelarScraping : ejecutarScraping}
@@ -2559,13 +2866,13 @@ const GeneracionBlog = () => {
           <h2
             className="analysis-title"
             style={{
-              borderBottomColor: "#1A2E44", // Color corporativo oscuro
+              borderBottomColor: "#1A2E44",
               cursor: "pointer",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
             }}
-            onClick={() => toggleCardVisibility("preconfiguracionUnificada")} // Usar una clave única
+            onClick={() => toggleCardVisibility("preconfiguracionUnificada")}
           >
             <div>
               <i className="uil uil-setting"></i> Preconfiguraciones
@@ -2616,7 +2923,7 @@ const GeneracionBlog = () => {
                 </div>
               </div>
 
-              {/* Contenedor Flex/Grid para Grupos 2 y 3: Estilo/Tono y Contexto (Lado a lado en escritorio) */}
+              {/* Contenedor Flex/Grid para Grupos 2 y 3: Estilo/Tono y Contexto*/}
               <div className="config-group-columns-container">
                 {/* GRUPO 2: Estilo y Tono */}
                 <div className="config-group config-group-column-item">
@@ -2685,7 +2992,7 @@ const GeneracionBlog = () => {
             )}
 
             {/* ---------------------------------------------------- */}
-            {/* --- 3. EDITOR / REGENERACIÓN DE TÍTULOS  --- */}
+            {/* --- EDITOR / REGENERACIÓN DE TÍTULOS  --- */}
             {/* ---------------------------------------------------- */}
             <section className="analysis-result fade-in">
               {/* Condición maestra: solo se muestra si hay una sección seleccionada. */}
@@ -2701,14 +3008,14 @@ const GeneracionBlog = () => {
                     instrucciones para la regeneración con IA.
                   </p>
 
-                  {/* 2. CONTENEDOR FLEX PRINCIPAL: Textarea y Sugerencias lado a lado */}
+                  {/* 2. CONTENEDOR FLEX PRINCIPAL: Textarea y Sugerencias*/}
                   <div
                     className={`
           regen-input-area 
           ${titleSuggestions.length > 0 ? "has-suggestions-flex" : ""}
         `}
                   >
-                    {/* A. Textarea para Edición Directa / Prompt */}
+                    {/* Textarea para Edición Directa / Prompt */}
                     <textarea
                       className="auto-expand"
                       rows="4"
@@ -2717,7 +3024,7 @@ const GeneracionBlog = () => {
                       onChange={(e) => setRegenTextareaValue(e.target.value)}
                     />
 
-                    {/* B. Panel de Sugerencias Generadas (Lateral) - Solo visible si hay sugerencias */}
+                    {/* Panel de Sugerencias Generadas*/}
                     {titleSuggestions.length > 0 && (
                       <div className="regen-side-panel">
                         <h3>Sugerencias de Título</h3>
@@ -2735,7 +3042,7 @@ const GeneracionBlog = () => {
                     )}
                   </div>
 
-                  {/* 3. Botones de Acción */}
+                  {/* Botones de Acción */}
                   <div className="idea-buttons">
                     <button
                       onClick={handleGuardarCambiosTitulo}
@@ -2761,7 +3068,7 @@ const GeneracionBlog = () => {
                   <button
                     onClick={() => {
                       setSelectedSectionForRegen(null);
-                      setTitleSuggestions([]); // Limpia sugerencias al cancelar
+                      setTitleSuggestions([]);
                     }}
                     className="btn btn-cancel"
                     style={{ marginTop: "10px", width: "100%", height: "45px" }}
@@ -2770,7 +3077,7 @@ const GeneracionBlog = () => {
                   </button>
                 </>
               ) : (
-                // Panel de Regeneración INACTIVO (Placeholder)
+                // Panel de Regeneración INACTIVO
                 <div className="analysis-result">
                   <h2 className="analysis-title">
                     Panel de Edición y Regeneración de Ideas
@@ -2784,7 +3091,7 @@ const GeneracionBlog = () => {
             </section>
 
             {/* ---------------------------------------------------- */}
-            {/* --- 4. EDITOR / GENERACIÓN DE CONTENIDO DE SECCIÓN --- */}
+            {/* --- EDITOR / GENERACIÓN DE CONTENIDO DE SECCIÓN --- */}
             {/* ---------------------------------------------------- */}
             {selectedSectionForRegen && (
               <section
@@ -2885,7 +3192,11 @@ const GeneracionBlog = () => {
 
                 <div className="idea-buttons">
                   <button
-                    onClick={guardarContenidoLocal}
+                    // 🚩 CORRECCIÓN APLICADA AQUÍ: Se llama la función con el campo ('content')
+                    // y el valor actual del editor (sectionContentValue).
+                    onClick={() =>
+                      guardarContenidoLocal("content", sectionContentValue)
+                    }
                     className="btn-generate"
                     style={{ flexGrow: 1 }}
                     disabled={cargandoIA}
@@ -2896,7 +3207,7 @@ const GeneracionBlog = () => {
                     onClick={generarContenidoIA}
                     className="btn btn-generate "
                     style={{ flexGrow: 1 }}
-                    disabled={cargandoIA || !contenidoConsolidado}
+                    disabled={cargandoIA}
                   >
                     {cargandoIA && (
                       <i
@@ -2920,15 +3231,6 @@ const GeneracionBlog = () => {
                 </button>
               </section>
             )}
-
-            {/* ---------------------------------------------------- */}
-            {/* --- RESULTADOS DE ANÁLISIS IA (Bloque Vacio) --- */}
-            {/* ---------------------------------------------------- */}
-            {resultadosDisponibles && (
-              <>
-                {/* AGREGAR AQUI GENERACIONES CON IA COMO TITULO,SUBTITULOS, INTRODUCCIONES Y DEMAS DE SER NECESARIO*/}
-              </>
-            )}
           </div>
 
           {/* ========================================================= */}
@@ -2941,7 +3243,7 @@ const GeneracionBlog = () => {
                 style={{
                   marginBottom: "15px",
                   display: "flex",
-                  gap: "10px", // Espacio entre los botones
+                  gap: "10px",
                 }}
               >
                 {/* BOTÓN DE CANCELAR (Visible solo mientras cargandoIA es TRUE) */}
@@ -3100,6 +3402,9 @@ const GeneracionBlog = () => {
               ) : (
                 // VISTA TIPO WORD
                 <div className="blog-view-toggle-container">
+                  <button onClick={handleDownloadDocx} className="btn-download">
+                    <i className=" uil-file-download"></i> Descargar Word
+                  </button>
                   {/* Contenido principal del blog: Renderiza la estructura dinámica */}
                   {renderBlogContent(structureWithCount)}
                 </div>

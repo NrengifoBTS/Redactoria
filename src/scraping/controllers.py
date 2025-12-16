@@ -8,6 +8,8 @@ from src.database.core import DbSession
 from uuid import UUID
 from . import models,service
 from src.entities.blog import Blog
+from src.scraping.models import DownloadRequest
+from src.scraping.service import DocumentService
 
 
 
@@ -121,17 +123,24 @@ def regenerar_titulos_controller(req: models.AIAnalysisRequest, db: DbSession):
 
 
 @router_ai.post("/generate_content", response_model=Dict[str, str])
-def generar_contenido_seccion(req: models.PeticionGeneracionContenido):
+def generar_contenido_seccion(req: models.PeticionGeneracionContenido, db:DbSession): # Mantiene db, req
     """
     Genera el contenido de la sección de un blog (H2, H3, H4) usando IA, 
     basándose en la estructura y el contenido de scraping.
     """
     try:
-        # Llama a la nueva función de servicio en español
-        return service.generar_contenido_seccion(req)
+        # 1. Instanciar el servicio AI
+        ai_service = service.AIService() 
+        
+        # 2. Llamar al método de instancia, pasándole solo 'req'
+        # NOTA: Si generar_contenido_seccion no usa la DB (como parece ser el caso), no necesita pasar 'db'. 
+        # Si lo necesita, debe pasarlo como un argumento nombrado si el servicio lo acepta.
+        return ai_service.generar_contenido_seccion(req)
+        
     except HTTPException as http_e:
         raise http_e
     except Exception as e:
+        # El error original era el que ocurría aquí
         raise HTTPException(status_code=500, detail=f"Fallo en el controlador de generación de contenido: {str(e)}")
 
 
@@ -165,5 +174,25 @@ def update_title_and_persist(req: models.TitleUpdateRequest):
     
 
 
-
-
+@router_ai.post("/download_blog_doc/{blog_id}", response_class=StreamingResponse)
+def download_blog_document(
+    blog_id: UUID, 
+    request_data: DownloadRequest, # request_data ahora tiene el campo 'title'
+    db: DbSession 
+):
+    """
+    Endpoint para descargar la estructura final del blog en formato Word (.docx).
+    """
+    try:
+        document_service = DocumentService()
+        
+        # 2. Llamar al método de instancia refactorizado
+        return document_service.generar_documento_word(
+            blog_id=blog_id, 
+            datos_estructura=request_data.structure_data, 
+            db=db
+        )
+    except HTTPException as http_e:
+        raise http_e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fallo al generar el documento de Word: {str(e)}")
