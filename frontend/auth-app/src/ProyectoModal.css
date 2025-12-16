@@ -1,0 +1,254 @@
+/* ProyectoModal.css */
+
+.proyecto-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.proyecto-modal-content {
+  background: white;
+  border-radius: 16px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.proyecto-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #6b7280;
+  z-index: 1;
+}
+
+.proyecto-modal-close:hover {
+  background: #e5e7eb;
+  color: #111827;
+  transform: rotate(90deg);
+}
+
+.proyecto-modal-header {
+  padding: 32px 32px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.proyecto-modal-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #111827;
+  margin-bottom: 12px;
+  padding-right: 40px;
+}
+
+.proyecto-modal-descripcion {
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.proyecto-modal-body {
+  padding: 32px;
+}
+
+.proyecto-modal-subtitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 20px;
+}
+
+/* Grid de Links */
+.proyecto-links-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.proyecto-link-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.proyecto-link-card:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+}
+
+.proyecto-link-card:hover .proyecto-link-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.proyecto-link-card:hover .proyecto-link-title,
+.proyecto-link-card:hover .proyecto-link-descripcion {
+  color: white;
+}
+
+.proyecto-link-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  transition: all 0.3s ease;
+}
+
+.proyecto-link-content {
+  flex: 1;
+}
+
+.proyecto-link-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+  transition: color 0.3s ease;
+}
+
+.proyecto-link-descripcion {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+  transition: color 0.3s ease;
+}
+
+/* Modal con link único */
+.proyecto-modal-single {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.proyecto-modal-message {
+  font-size: 16px;
+  color: #4b5563;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.proyecto-modal-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  color: white;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+.proyecto-modal-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .proyecto-modal-overlay {
+    padding: 16px;
+  }
+
+  .proyecto-modal-content {
+    max-height: 95vh;
+  }
+
+  .proyecto-modal-header {
+    padding: 24px 24px 20px;
+  }
+
+  .proyecto-modal-title {
+    font-size: 24px;
+  }
+
+  .proyecto-modal-descripcion {
+    font-size: 15px;
+  }
+
+  .proyecto-modal-body {
+    padding: 24px;
+  }
+
+  .proyecto-modal-subtitle {
+    font-size: 16px;
+  }
+
+  .proyecto-link-card {
+    padding: 16px;
+  }
+
+  .proyecto-link-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .proyecto-link-title {
+    font-size: 15px;
+  }
+
+  .proyecto-link-descripcion {
+    font-size: 13px;
+  }
+}

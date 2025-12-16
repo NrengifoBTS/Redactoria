@@ -10,7 +10,7 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   // Configuración base de la API
-  const API_BASE = "http://192.168.1.129:8000";
+  const API_BASE = process.env.REACT_APP_API_URL || "http://192.168.1.36:8000";
 
   // Funciones de utilidad para headers de API
   const getAuthHeaders = () => {
@@ -428,7 +428,7 @@ export function AppProvider({ children }) {
   const loadTemplates = async () => {
     try {
       const response = await fetch(
-        "http://192.168.1.129:8000/templates/public/active"
+        `${API_BASE}/templates/public/active`
       );
       if (response.ok) {
         const templatesData = await response.json();

@@ -55,11 +55,11 @@ const GeneracionBlog = () => {
   // 3. CONSTANTES Y DATOS INICIALES
   // =======================================================================
   //--- URLs de la API del backend ---
-  const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
-  const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
-  const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/"; // <-- URL para el GET /blogs/{id}
+  const URL_API_SCRAPING = "http://192.168.1.36:8000/scraping/stream";
+  const URL_API_IA = "http://192.168.1.36:8000/ai/generate_structure";
+  const URL_API_BASE_BLOGS = "http://192.168.1.36:8000/blogs/"; // <-- URL para el GET /blogs/{id}
   const URL_API_IA_COMPLETO =
-    "http://192.168.1.129:8000/ai/generate_full_content";
+    "http://192.168.1.36:8000/ai/generate_full_content";
 
   // -----------------------------------------------------------------------
   // ESTADO DEL FORMULARIO INICIAL (Valores por defecto para el primer render)

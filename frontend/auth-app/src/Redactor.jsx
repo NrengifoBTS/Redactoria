@@ -856,7 +856,8 @@ export default function Redactor() {
       };
 
       // Llamar al endpoint
-      const response = await fetch("http://192.168.1.129:8000/export/excel", {
+      const API_BASE = process.env.REACT_APP_API_URL || "http://192.168.1.36:8000";
+      const response = await fetch(`${API_BASE}/export/excel`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1045,6 +1046,8 @@ export default function Redactor() {
         const templateData = template?.template_config?.templateData || {};
 
         const mergedTableData = {};
+
+        // Primero iterar sobre el templateData
         Object.keys(templateData).forEach((key) => {
           const templateCell = templateData[key];
           const existingCell = existingSections[key];
@@ -1054,6 +1057,15 @@ export default function Redactor() {
               ? existingCell.content
               : templateCell?.text || "",
           };
+        });
+
+        // Luego agregar cualquier celda guardada que no esté en templateData
+        Object.keys(existingSections).forEach((key) => {
+          if (!mergedTableData[key]) {
+            mergedTableData[key] = {
+              content: existingSections[key].content,
+            };
+          }
         });
 
         setTableData(mergedTableData);

@@ -1155,8 +1155,9 @@ function CreateProyectoModal({ onClose, onSubmit }) {
     const loadTemplates = async () => {
       try {
         setTemplatesLoading(true);
+        const API_BASE = process.env.REACT_APP_API_URL || "http://192.168.1.36:8000";
         const response = await fetch(
-          "http://192.168.1.129:8000/templates/public/active"
+          `${API_BASE}/templates/public/active`
         );
 
         if (response.ok) {

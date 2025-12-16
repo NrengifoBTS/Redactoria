@@ -7,9 +7,10 @@ function ProtectedPage() {
   useEffect(() => {
     const verifyToken = async () => {
       const token = localStorage.getItem('token');
-      
+      const API_BASE = process.env.REACT_APP_API_URL || "http://192.168.1.36:8000";
+
       try {
-        const response = await fetch(`http://172.28.64.1:8000/auth/verify-token/${token}`);
+        const response = await fetch(`${API_BASE}/auth/verify-token/${token}`);
         if (!response.ok) {
           throw new Error('Token verification failed');
         }
