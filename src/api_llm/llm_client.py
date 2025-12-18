@@ -21,7 +21,7 @@ class LLMClient:
             temperature: Temperatura para la generación (0.0-1.0)
         """
         if model_url is None:
-            base_url = os.getenv('LM_STUDIO_URL', 'http://localhost:1234')  # fallback para desarrollo local
+            base_url = 'http://192.168.1.36:1234'  # fallback para desarrollo local
             model_url = f"{base_url}/v1/chat/completions"
             
         self.model_url = model_url
