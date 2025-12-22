@@ -464,6 +464,122 @@ const AnnotationPanel = React.memo(
 
 export { AnnotationPanel };
 
+// Componente de progreso para generación masiva
+const BulkGenerationProgress = React.memo(
+  function BulkGenerationProgress({ isVisible, progress }) {
+    if (!isVisible) return null;
+
+    const percentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 2000,
+          backgroundColor: "white",
+          border: "2px solid #8b5cf6",
+          borderRadius: "12px",
+          padding: "24px",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+          minWidth: "400px",
+          maxWidth: "500px",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            marginBottom: "16px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "24px",
+              animation: "spin 1s linear infinite",
+            }}
+          >
+            🔄
+          </div>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "18px",
+              fontWeight: "600",
+              color: "#1f2937",
+            }}
+          >
+            Generando contenido...
+          </h3>
+        </div>
+
+        {/* Status message */}
+        <p
+          style={{
+            margin: "0 0 16px 0",
+            fontSize: "14px",
+            color: "#6b7280",
+            fontWeight: "500",
+          }}
+        >
+          {progress.status}
+        </p>
+
+        {/* Progress bar */}
+        <div
+          style={{
+            width: "100%",
+            height: "12px",
+            backgroundColor: "#e5e7eb",
+            borderRadius: "6px",
+            overflow: "hidden",
+            marginBottom: "8px",
+          }}
+        >
+          <div
+            style={{
+              width: `${percentage}%`,
+              height: "100%",
+              backgroundColor: "#8b5cf6",
+              transition: "width 0.3s ease",
+              borderRadius: "6px",
+            }}
+          />
+        </div>
+
+        {/* Counter */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: "12px",
+            color: "#9ca3af",
+            fontWeight: "500",
+          }}
+        >
+          <span>
+            {progress.current} de {progress.total}
+          </span>
+          <span>{Math.round(percentage)}%</span>
+        </div>
+
+        <style>
+          {`
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}
+        </style>
+      </div>
+    );
+  }
+);
+
 export default function Redactor() {
   const { lpId } = useParams();
   const navigate = useNavigate();
@@ -974,6 +1090,267 @@ export default function Redactor() {
       tema
     );
   };
+
+  // Función para generar toda la fila en español (todos los bloques)
+  const generateAllRowsSpanish = async () => {
+    if (!blocksMetadata || Object.keys(blocksMetadata).length === 0) {
+      alert('No se encontró información de bloques');
+      return;
+    }
+
+    if (!currentLP?.title) {
+      alert('No se encontró información de la landing page');
+      return;
+    }
+
+    console.log('🚀 Iniciando generación de todos los bloques...');
+    console.log('📦 Bloques disponibles:', blocksMetadata);
+
+    const tema = currentLP.title;
+    const currentTemplate = getCurrentTemplate();
+
+    // Recopilar todas las celdas de todos los bloques
+    const allBlocks = Object.entries(blocksMetadata).map(([blockId, blockData]) => ({
+      number: parseInt(blockId),
+      name: blockData.name,
+      type: blockData.type,
+      contentMapping: blockData.contentMapping || {},
+      titleRow: blockData.titleRow,
+      descRow: blockData.descRow,
+      startRow: blockData.startRow,
+      endRow: blockData.endRow,
+    }));
+
+    console.log('📋 Bloques procesados:', allBlocks);
+
+    // Contar solo las celdas desc (no contar cada faq/fav_city individual)
+    let totalBlocks = allBlocks.length;
+
+    setIsBulkGenerating(true);
+    setBulkProgress({ current: 0, total: totalBlocks, status: 'Iniciando generación...' });
+
+    let currentBlockIndex = 0;
+
+    // Procesar cada bloque
+    for (const block of allBlocks) {
+      currentBlockIndex++;
+
+      console.log(`\n🔄 Procesando bloque ${currentBlockIndex}/${totalBlocks}:`, block.name);
+
+      setBulkProgress({
+        current: currentBlockIndex,
+        total: totalBlocks,
+        status: `Generando bloque ${currentBlockIndex} de ${totalBlocks}: ${block.name}...`
+      });
+
+      try {
+        // Obtener la celda de descripción principal del bloque
+        const descCellKey = `${block.descRow}-3`;
+
+        console.log(`  📝 Celda desc: ${descCellKey}`);
+
+        // Obtener información del título para este bloque
+        const titleInfo = getTitleForIAGeneration(descCellKey, block, tableData);
+        const blockTitle = titleInfo.title;
+
+        console.log(`  📌 Título del bloque: "${blockTitle}"`);
+        console.log(`  ❓ FAQs:`, titleInfo.faqQuestions);
+        console.log(`  🏙️ Ciudades:`, titleInfo.favCityQuestions);
+        console.log(`  🚗 Autos:`, titleInfo.carTypes);
+
+        if (!blockTitle || blockTitle.trim() === "") {
+          console.log(`  ⚠️ Saltando bloque ${block.name} - sin título`);
+          continue;
+        }
+
+        const generatedContent = await callIAEndpoint({
+          blockNumber: block.number,
+          blockTitle: blockTitle,
+          cellKey: descCellKey,
+          tema: tema,
+          faqQuestions: titleInfo.faqQuestions || [],
+          favCityQuestions: titleInfo.favCityQuestions || [],
+          carTypes: titleInfo.carTypes || [],
+          blockType: block.type,
+          templateInfo: currentTemplate,
+        });
+
+        console.log(`  ✅ Contenido generado:`, generatedContent);
+
+        // Actualizar tableData con el contenido generado
+        if (generatedContent?.structured_content) {
+          setTableData((prev) => {
+            const updates = { ...prev };
+            Object.entries(block.contentMapping).forEach(([contentField, contentCellKey]) => {
+              let contentValue = generatedContent.structured_content[contentField];
+
+              if (contentValue !== undefined) {
+                console.log(`    ➕ Actualizando ${contentCellKey} con campo ${contentField}`);
+                updates[contentCellKey] = { content: contentValue };
+              }
+            });
+            return updates;
+          });
+        }
+
+        // Pequeña pausa para que el usuario vea el progreso
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+      } catch (error) {
+        console.error(`❌ Error generando bloque ${block.name}:`, error);
+        alert(`Error generando bloque ${block.name}: ${error.message}`);
+      }
+    }
+
+    console.log('✅ Generación completada!');
+
+    setBulkProgress({ current: totalBlocks, total: totalBlocks, status: '¡Completado!' });
+    setTimeout(() => {
+      setIsBulkGenerating(false);
+      setBulkProgress({ current: 0, total: 0, status: '' });
+    }, 2000);
+  };
+
+  // Función para traducir todas las filas a inglés y portugués (todos los bloques)
+  const translateAllRows = async () => {
+    if (!blocksMetadata || Object.keys(blocksMetadata).length === 0) {
+      alert('No se encontró información de bloques');
+      return;
+    }
+
+    console.log('🌐 Iniciando traducción de todos los bloques...');
+
+    const tema = currentLP.title;
+
+    // Recopilar todas las celdas de todos los bloques
+    const allBlocks = Object.entries(blocksMetadata).map(([blockId, blockData]) => ({
+      number: parseInt(blockId),
+      name: blockData.name,
+      type: blockData.type,
+      startRow: blockData.startRow,
+      endRow: blockData.endRow,
+    }));
+
+    console.log('📋 Bloques a traducir:', allBlocks);
+
+    // Recopilar TODAS las celdas de español (columna 3) en cada bloque
+    const allSpanishCells = [];
+
+    allBlocks.forEach(block => {
+      // Iterar por todas las filas del bloque
+      for (let row = block.startRow; row <= block.endRow; row++) {
+        const spanishCellKey = `${row}-3`;
+        const spanishContent = tableData[spanishCellKey]?.content || "";
+
+        // Solo agregar si tiene contenido
+        if (spanishContent && spanishContent.trim() !== "") {
+          allSpanishCells.push({
+            cellKey: spanishCellKey,
+            row: row,
+            blockName: block.name,
+            content: spanishContent,
+          });
+        }
+      }
+    });
+
+    console.log(`📝 Total de celdas con contenido español: ${allSpanishCells.length}`);
+
+    const totalSteps = allSpanishCells.length * 2; // x2 para inglés y portugués
+    let currentStep = 0;
+
+    setIsBulkGenerating(true);
+    setBulkProgress({ current: 0, total: totalSteps, status: 'Iniciando traducción...' });
+
+    // Paso 1: Traducir todo a inglés
+    console.log('\n🇬🇧 Fase 1: Traduciendo a inglés...');
+
+    for (let i = 0; i < allSpanishCells.length; i++) {
+      const cell = allSpanishCells[i];
+      const englishCellKey = `${cell.row}-4`;
+      currentStep++;
+
+      setBulkProgress({
+        current: currentStep,
+        total: totalSteps,
+        status: `[EN] [${cell.blockName}] Traduciendo ${i + 1} de ${allSpanishCells.length}...`
+      });
+
+      console.log(`  🔄 [EN] Traduciendo celda ${cell.cellKey} -> ${englishCellKey}`);
+
+      try {
+        const translatedContent = await callTranslationEndpoint(
+          cell.content,
+          "en",
+          englishCellKey,
+          null,
+          tema
+        );
+
+        if (translatedContent) {
+          setTableData((prev) => ({
+            ...prev,
+            [englishCellKey]: { content: translatedContent },
+          }));
+          console.log(`    ✅ Traducido exitosamente`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+      } catch (error) {
+        console.error(`    ❌ Error traduciendo a inglés celda ${englishCellKey}:`, error);
+      }
+    }
+
+    // Paso 2: Traducir todo a portugués
+    console.log('\n🇧🇷 Fase 2: Traduciendo a portugués...');
+
+    for (let i = 0; i < allSpanishCells.length; i++) {
+      const cell = allSpanishCells[i];
+      const portugueseCellKey = `${cell.row}-5`;
+      currentStep++;
+
+      setBulkProgress({
+        current: currentStep,
+        total: totalSteps,
+        status: `[PT] [${cell.blockName}] Traduciendo ${i + 1} de ${allSpanishCells.length}...`
+      });
+
+      console.log(`  🔄 [PT] Traduciendo celda ${cell.cellKey} -> ${portugueseCellKey}`);
+
+      try {
+        const translatedContent = await callTranslationEndpoint(
+          cell.content,
+          "pt",
+          portugueseCellKey,
+          null,
+          tema
+        );
+
+        if (translatedContent) {
+          setTableData((prev) => ({
+            ...prev,
+            [portugueseCellKey]: { content: translatedContent },
+          }));
+          console.log(`    ✅ Traducido exitosamente`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+      } catch (error) {
+        console.error(`    ❌ Error traduciendo a portugués celda ${portugueseCellKey}:`, error);
+      }
+    }
+
+    console.log('✅ Traducción completada!');
+
+    setBulkProgress({ current: totalSteps, total: totalSteps, status: '¡Completado!' });
+    setTimeout(() => {
+      setIsBulkGenerating(false);
+      setBulkProgress({ current: 0, total: 0, status: '' });
+    }, 2000);
+  };
+
   const getBlockFromRow = (row) => {
     console.log("🔍 getBlockFromRow - Analizando fila:", row);
     console.log("🔍 blocksMetadata disponible:", blocksMetadata);
@@ -1109,6 +1486,10 @@ export default function Redactor() {
 
   const [isResizing, setIsResizing] = useState(false);
   const [resizeData, setResizeData] = useState(null);
+
+  // Estados para generación masiva
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, status: '' });
 
   const inputRef = useRef(null);
   const tableRef = useRef(null);
@@ -2278,6 +2659,12 @@ export default function Redactor() {
         getColumnLabel={getColumnLabel}
       />
 
+      {/* Indicador de progreso para generación masiva */}
+      <BulkGenerationProgress
+        isVisible={isBulkGenerating}
+        progress={bulkProgress}
+      />
+
       {/* Navbar */}
       <nav
         style={{
@@ -2927,6 +3314,66 @@ export default function Redactor() {
               </button>
             );
           })()}
+
+          {/* Botón para generar todas las filas en español */}
+          <button
+            style={{
+              ...tableStyles.mergeButton,
+              backgroundColor: isBulkGenerating ? "#9ca3af" : "#6366f1",
+              color: "white",
+              cursor: isBulkGenerating ? "not-allowed" : "pointer",
+              marginRight: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontWeight: "600",
+            }}
+            onClick={async () => {
+              if (isBulkGenerating) return;
+
+              const confirm = window.confirm(
+                `¿Generar TODO el contenido en español de TODOS los bloques?\n\nEsto procesará todos los bloques de la tabla.\nPuede tomar varios minutos.`
+              );
+              if (!confirm) return;
+
+              await generateAllRowsSpanish();
+            }}
+            disabled={isBulkGenerating}
+            title="Generar todo el contenido en español (todos los bloques)"
+          >
+            <span>⚡</span>
+            <span>Generar Todo (ES)</span>
+          </button>
+
+          {/* Botón para traducir todas las filas */}
+          <button
+            style={{
+              ...tableStyles.mergeButton,
+              backgroundColor: isBulkGenerating ? "#9ca3af" : "#ec4899",
+              color: "white",
+              cursor: isBulkGenerating ? "not-allowed" : "pointer",
+              marginRight: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontWeight: "600",
+            }}
+            onClick={async () => {
+              if (isBulkGenerating) return;
+
+              const confirm = window.confirm(
+                `¿Traducir TODO el contenido a inglés y portugués?\n\nEsto traducirá el contenido español existente de todos los bloques.\nPuede tomar varios minutos.`
+              );
+              if (!confirm) return;
+
+              await translateAllRows();
+            }}
+            disabled={isBulkGenerating}
+            title="Traducir todo el contenido a inglés y portugués (todos los bloques)"
+          >
+            <span>🌐</span>
+            <span>Traducir Todo (EN+PT)</span>
+          </button>
 
           <button
             style={{
