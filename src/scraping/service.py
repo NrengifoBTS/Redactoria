@@ -249,6 +249,7 @@ class AIService:
         except Exception as e:
             return f"[Error interno inesperado: {e}]"
 
+    
 
     # PARSEO DE FORMATO JSON DE LA RESPUESTA IA 
     def limpieza_extraccion_json(self, json_string: str) -> Dict[str, Any]:
@@ -398,178 +399,106 @@ class AIService:
 
 
     # --- ANALISIS DE BLOQUES CON IA ---
-    def analizar_bloque_contenido(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str) -> str:
+    def analizar_bloque_contenido(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str, contexto_previo: str = "") -> str:
         """
-        Analiza un bloque de contenido, aplicando SÍNTESIS EXTREMA y deduplicación 
-        a nivel de IA para reducir la extensión del análisis consolidado.
+        Versión Optimizada: Extrae el 100% de la información pero en formato de 
+        puntos de datos densos para evitar el colapso de tokens.
         """
-        MAX_CHARS_PER_LLM_CALL = 6500
+        MAX_CHARS_PER_LLM_CALL = 6000
         media_text = self._build_media_text(media_info)
 
-        # --- 1. Definición del Prompt (Refactorizado para Síntesis) ---
-        def _generate_prompt(sub_chunk: str, is_first_chunk: bool) -> str:
-            """Genera el prompt para un sub-chunk específico, forzando la concisión."""
-            
-            prompt = f"Basándote en el siguiente bloque de CONTENIDO CONSOLIDADO relacionado con el tema de SEO y competencia web '{query}':\n---\n{sub_chunk}\n{media_text}\n---\n\n"
+        # Memoria optimizada: Solo pasamos los últimos temas para evitar repetición
+        memoria_ia = f"\nTEMAS YA CUBIERTOS (No repetir, solo expandir):\n{contexto_previo[-1500:]}\n" if contexto_previo else ""
 
-            # INSTRUCCIÓN CLAVE: ANÁLISIS ESTRATÉGICO Y SINTETIZADO
-            prompt += f"""Realiza un **ANÁLISIS ESTRATÉGICO Y SINTETIZADO** para la creación de un artículo sobre '{query}'. Tu misión es extraer **SOLAMENTE** los **datos, subtemas, keywords e intenciones de búsqueda más valiosos y DIVERSOS** que la competencia está usando.
+        def _generate_prompt(sub_chunk: str) -> str:
+            return f"""Analiza este contenido para un artículo SEO sobre '{query}':
+            ---
+            {sub_chunk}
+            {media_text}
+            ---
+            {memoria_ia}
 
-            **CRITERIOS DE EXTRACCIÓN Y SÍNTESIS ESTRICTOS (¡La clave para la reducción de tokens!):**
+            **INSTRUCCIONES DE EXTRACCIÓN (MÁXIMA DENSIDAD):**
+            1. Misión: Extraer CUALQUIER dato relevante, cifra, precio, nombre o hecho.
+            2. NO RESUMAS, pero sé DIRECTO. Usa frases cargadas de información.
+            3. Si el dato ya está en 'TEMAS YA CUBIERTOS', ignóralo. Si es un detalle nuevo sobre un tema existente, añádelo.
+            4. FORMATO: Devuelve la información organizada por 'Subtema' y 'Hecho'.
 
-            1.  **Palabras Clave/Long-Tail Keywords:** Extrae **solo las frases de cola larga más específicas y distintas**. **SINTETIZA Y AGRUPA** las keywords que sean muy similares, eligiendo el concepto más amplio para representarlas.
-            2.  **Intenciones de Búsqueda (Search Intent):** **COMPACTA** las intenciones en las categorías más amplias y únicas (ej: solo 'Informacional sobre sucesión procesal').
-            3.  **Subtemas:** **Prioriza los encabezados de alto nivel** y descarta los subtemas granulares o repetitivos.
-            4.  **Conceptos/Hechos:** Extrae **SOLO datos duros, puntos de anclaje legales o hechos fundamentales**. **EVITA FRASES ENTERAS Y DESCARTA TODA LA INFORMACIÓN YA IMPLÍCITA O GENERAL** (ej: No incluyas 'El caso no desaparece automáticamente' si ya tienes 'Sucesión procesal permite la continuidad').
-
-            **REGLA DE ORO:** **CADA PUNTO DEBE SER ÚNICO Y AÑADIR NUEVO VALOR TEMÁTICO**. Si el concepto es redundante o demasiado parecido a uno ya extraído, **DEBES OMITIRLO COMPLETAMENTE.**
-
-            --- FORMATO DE SALIDA OBLIGATORIO Y COMPACTO ---
-
-            1. **Formato:** Genera una lista de puntos usando **guiones (`-`)** para la deduplicación, con la menor cantidad de saltos de línea posible.
-            2. **Identificación de Tipo:** Usa los prefijos para clasificar (ej: `- Palabra clave: `, `- Intención de Búsqueda: `, `- Subtema: `, `- Concepto/Hecho: `).
-            3. **PROHIBICIÓN CRÍTICA:** NO incluyas encabezados de sección, ni metadatos de fuente (ej: `--- INICIO DE ANÁLISIS...`, `### [SECCIÓN...`, `CONTENIDO CLAVE SINTETIZADO:`, `[FUENTE: ...]`) o bloques de código.
-
-            Devuelve el análisis **ÚNICAMENTE con la lista de guiones atómicos**, sin ninguna introducción ni explicación.
+            **FORMATO DE SALIDA:**
+            - Subtema: (Nombre del tema)
+            - Hecho: (Párrafo corto pero denso con datos técnicos/específicos)
             """
-            return prompt
 
-        # REFACTORIZACIÓN DEL SYSTEM MESSAGE
-        system_msg = "Eres un Analista de Contenido SEO de **NIVEL AVANZADO**. Tu única tarea es realizar un **PROCESO DE SÍNTESIS EXTREMA Y DE DEDUPLICACIÓN**. Debes analizar la información de la competencia y extraer **SOLAMENTE los puntos MÁS ESENCIALES, ÚNICOS y NO REDUNDANTES** para la creación de un artículo optimizado. **TU PRIORIDAD ES LA COMPRESIÓN MÁXIMA PARA EVITAR EL EXCESO DE TOKENS EN LA FASE DE CONSOLIDACIÓN.**"
+        system_msg = "Eres un Documentalista de Datos SEO. Tu objetivo es la precisión y la densidad informativa sin redundancia."
         
-        # --- 2. Inicialización de la lógica de Deduplicación ---
-        all_analysis_points: Set[str] = set()
-        first_header = "" 
+        paragraphs = chunk.split('\n\n')
+        current_sub = ""
+        bloques_respuesta = []
+
+        for p in paragraphs:
+            if len(current_sub) + len(p) > MAX_CHARS_PER_LLM_CALL:
+                res = self._llm_generate(_generate_prompt(current_sub), system_msg, 0.2)
+                if res and '[FALLO' not in res: bloques_respuesta.append(res)
+                current_sub = p + "\n\n"
+            else:
+                current_sub += p + "\n\n"
         
-        # --- Función interna para procesar el resultado del LLM ---
-        def _process_llm_result(result_str: str):
-            nonlocal first_header
-            lines = result_str.strip().split('\n')
+        if current_sub.strip():
+            res = self._llm_generate(_generate_prompt(current_sub), system_msg, 0.2)
+            if res and '[FALLO' not in res: bloques_respuesta.append(res)
 
-            for line in lines:
-                cleaned_line = line.strip()
-                if cleaned_line and '[FALLO LLM' not in cleaned_line:
-                    if not cleaned_line.startswith('-'):
-                        cleaned_line = '- ' + cleaned_line
-                    all_analysis_points.add(cleaned_line)
-        
-        # --- 3. Lógica principal de División y Análisis (Sin cambios) ---
-        
-        if len(chunk) < MAX_CHARS_PER_LLM_CALL:
-            prompt = _generate_prompt(chunk, is_first_chunk=True)
-            result_str = self._llm_generate(prompt, system_msg, temperature=0.5)
-            _process_llm_result(result_str)
-        else:
-            # Contenido largo, necesita división (chunking)
-            paragraphs = chunk.split('\n\n')
-            current_sub_chunk = ""
-            
-            for p in paragraphs:
-                p_with_newline = p + "\n\n"
-                
-                # Chequear si excederá el límite
-                if len(current_sub_chunk) + len(p_with_newline) > MAX_CHARS_PER_LLM_CALL: 
-                    if current_sub_chunk:
-                        is_first_chunk = (len(all_analysis_points) == 0)
-                        prompt = _generate_prompt(current_sub_chunk, is_first_chunk)
-                        
-                        sub_analysis = self._llm_generate(prompt, system_msg, temperature=0.5)
-                        _process_llm_result(sub_analysis)
-                    
-                    current_sub_chunk = p_with_newline
-                else:
-                    current_sub_chunk += p_with_newline
+        # Procesamiento final para asegurar limpieza
+        final_output = []
+        for bloque in bloques_respuesta:
+            # Limpiamos líneas vacías o basura del LLM
+            lines = [l.strip() for l in bloque.split('\n') if len(l.strip()) > 5]
+            final_output.extend(lines)
 
-            # Procesar el último sub-chunk restante
-            if current_sub_chunk.strip():
-                is_first_chunk = (len(all_analysis_points) == 0)
-                prompt = _generate_prompt(current_sub_chunk, is_first_chunk)
-                
-                sub_analysis = self._llm_generate(prompt, system_msg, temperature=0.5)
-                _process_llm_result(sub_analysis)
-
-        # --- 4. Consolidación FINAL y Formato de Salida Compacta (Sin cambios, ya que ahora la IA hizo el filtro) ---
-        
-        final_analysis_lines = []
-        # Definimos las categorías que vamos a buscar
-        categorized_points: Dict[str, List[str]] = {
-            "Palabra clave": [],
-            "Intención de Búsqueda": [],
-            "Subtema": [],
-            "Concepto/Hecho": []
-        }
-
-        # 4.1. Clasificar y limpiar los puntos del set (que vienen con guión)
-        for point in sorted(list(all_analysis_points)):
-            clean_point = point.lstrip('- ').strip() 
-            
-            found = False
-            for category in categorized_points.keys():
-                prefix = f"{category}:"
-                
-                if clean_point.startswith(prefix):
-                    # Añadir solo el contenido (todo lo que sigue a "Palabra clave:")
-                    content = clean_point[len(prefix):].strip()
-                    if content:
-                        categorized_points[category].append(content)
-                    found = True
-                    break
-            
-            # Si la IA puso contenido sin prefijo (aunque se prohibió), va a Concepto/Hecho
-            if not found and clean_point:
-                categorized_points["Concepto/Hecho"].append(clean_point)
-
-        # 4.2. Construir la respuesta final en el formato de comas
-        for category, points_list in categorized_points.items():
-            if points_list:
-                
-                # 1. Unir todos los strings en una gran cadena (ej: "X, Y, A, B")
-                raw_combined_string = ', '.join(points_list)
-                
-                # 2. Separar por coma, limpiar espacios y garantizar unicidad
-                final_elements = [
-                    el.strip() 
-                    for el in raw_combined_string.split(',') 
-                    if el.strip()
-                ]
-                
-                unique_sorted_points = sorted(list(set(final_elements)))
-                
-                # Formato final: "Palabra clave: elemento1, elemento2, elemento3"
-                final_line = f"{category}: {', '.join(unique_sorted_points)}"
-                final_analysis_lines.append(final_line)
-                
-        return '\n'.join(final_analysis_lines).strip()
-
-
-    # --- GENERA EL ESQUEMA COMPLETO DEL BLOG (CORREGIDO PARA DENSIDAD Y NO REDUNDANCIA)
+        return "\n".join(final_output).strip()
+    
+    
     def generar_estructura_seo_final(self, query: str, title_base: str, categoria: str, idioma: str, tecnica: str, acento: str, tono: str, 
                                  consolidated_text: str, estimated_word_count: int) -> Dict[str, Any]:
         """
-        Genera la estructura SEO final, aplicando saneamiento de caracteres 
-        al texto consolidado para evitar el error 400 del LLM.
+        Genera la estructura SEO final procesando el 100% del contenido consolidado 
+        en fragmentos para evitar errores de contexto (Error 400).
         """
 
         if not consolidated_text:
              return {
-                "structure_markdown": "[ERROR: No se pudo obtener el texto consolidado para la generación de la estructura.]",
+                "structure_markdown": "[ERROR: No hay texto consolidado]",
                 "estimated_word_count": 0
             }
+
+        # --- PASO 1: EXTRACCIÓN DETALLADA POR BLOQUES (SIN PÉRDIDA) ---
+        # Dividimos el texto en bloques de 10,000 caracteres para procesar TODO
+        chunk_size = 10000
+        text_chunks = [consolidated_text[i:i+chunk_size] for i in range(0, len(consolidated_text), chunk_size)]
         
-        try:
-            safe_text = consolidated_text.encode('utf-8', 'ignore').decode('utf-8')
-            control_chars_pattern = r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' 
-            cleaned_consolidated_text = re.sub(control_chars_pattern, '', safe_text)
-            cleaned_consolidated_text = re.sub(r'\n{4,}', '\n\n\n', cleaned_consolidated_text).strip()
-            
-        except Exception:
-            cleaned_consolidated_text = consolidated_text
+        puntos_clave_extraidos = []
+        print(f"Analizando {len(text_chunks)} bloques de investigación para la estructura...")
+
+        for idx, chunk in enumerate(text_chunks):
+            # Prompt de extracción intermedio (no es el final, solo para recolectar datos)
+            prompt_extraccion = f"""
+            Analiza este fragmento de investigación ({idx+1}/{len(text_chunks)}) sobre '{query}':
+            ---
+            {chunk}
+            ---
+            Extrae TODOS los temas, subtemas, datos técnicos y puntos clave que deberían ser un encabezado en un artículo SEO.
+            Escríbelos como una lista de temas detallados.
+            """
+            res = self._llm_generate(prompt_extraccion, "Eres un analista de datos SEO.", temperature=0.2)
+            puntos_clave_extraidos.append(res)
+
+        # Unimos todos los puntos extraídos (esto ya es mucho más ligero que el texto bruto)
+        contexto_completo_para_ia = "\n".join(puntos_clave_extraidos)
 
         # -- SYSTEM MESSAGE: contexto base del modelo --
         system_message = f"""
             Eres un Estratega SEO Senior y Arquitecto de Contenidos Competitivo y Estratégico experto en planificación estructural.
 
-            Tu tarea es **diseñar estructuras jerárquicas SEO completas, naturales y competitivas** para artículos de turismo familiar y cultural.
+            Tu tarea es diseñar estructuras jerárquicas SEO completas, naturales y competitiv* para artículos de todo tipo.
 
             Debes trabajar en el idioma '{idioma}', con el acento cultural '{acento}' y aplicando el tono de voz '{tono}'.
 
@@ -588,7 +517,7 @@ class AIService:
         El objetivo es **superar a la competencia** en cobertura temática, coherencia semántica y relevancia, con una estructura clara y rica en contenido útil.
 
         ---
-        {consolidated_text}
+        {contexto_completo_para_ia}
         ---
 
         --- MANDATOS DE ESTRUCTURA ---
@@ -649,10 +578,10 @@ class AIService:
 
         --- FORMATO FINAL EXCLUSIVO ---
             Devuelve únicamente el siguiente objeto JSON, sin texto adicional:
-            {{
+            
             "structure_markdown": "Estructura detallada con formato [H{{N}} - X.Y] Título.\\n[MULTIMEDIA: TIPO | Descripción SEO]",
             "estimated_word_count": {estimated_word_count}
-            }}
+            
         """
 
         # -- Llamada al modelo --
@@ -936,36 +865,30 @@ class AIService:
 
 
     # -- GENERA EL CONTENIDO DE EL ESQUEMA DEL BLOG
-    def generar_contenido_blog_libre(self, db:Session, req: models.AIAnalysisRequest) -> Dict[str, Any]: 
+    def generar_contenido_blog_libre(self, db: Session, req: models.AIAnalysisRequest) -> Dict[str, Any]:
         blog_id = req.blog_id
 
-        # 1. Validación y Extracción de Datos, y Carga desde DB (Mantenido)
+        # 1. Validación y Extracción de Datos
         if not req.regenerate_data:
             raise HTTPException(status_code=400, detail="El campo 'regenerate_data' es requerido para la generación completa.")
 
         try:
-            # ... (Toda la lógica de extracción de datos del req, manejo de errores y carga desde DB, se mantiene igual) ...
             data = req.regenerate_data
             section_title = data.get('section_title')
             section_level = data.get('section_level')
             
             full_structure_markdown = data.get('full_structure_markdown')
             section_to_generate_markdown = data.get('section_text') 
+            estimated_word_count = data.get('estimated_word_count', 0)
             
             consolidated_content = getattr(req, "consolidated_content", None)
             
-            # --- LÓGICA DE CARGA DESDE DB MANTENIDA ---
-            from uuid import UUID 
-            from src.entities.scraping import Scraping 
-            from src.entities.blog import Blog 
-
+            # --- CARGA DESDE DB ---
             if blog_id and (not consolidated_content or not full_structure_markdown):
                 try:
                     blog_uuid = UUID(str(blog_id))
-                except ValueError:
-                    pass
-                else:
                     scraping_data = db.query(Scraping).filter(Scraping.blog_id == blog_uuid).first()
+                    
                     if scraping_data:
                         if not consolidated_content:
                             consolidated_content = getattr(scraping_data, 'consolidated_content', None)
@@ -977,179 +900,207 @@ class AIService:
                             if full_structure_markdown:
                                 req.regenerate_data['full_structure_markdown'] = full_structure_markdown
                                 data = req.regenerate_data
-            
-            # --- RE-VALIDACIÓN CRÍTICA ---
+                except ValueError:
+                    pass
+
+            # RE-VALIDACIÓN
             if not req.consolidated_content: 
-                raise HTTPException(status_code=400, detail="Error: El campo 'consolidated_content' está vacío después de la búsqueda en la DB.")
+                raise HTTPException(status_code=400, detail="Error: 'consolidated_content' vacío.")
             if not data.get('full_structure_markdown'):
-                raise HTTPException(status_code=400, detail="Error: El campo 'full_structure_markdown' está vacío después de la búsqueda en la DB.")
+                raise HTTPException(status_code=400, detail="Error: 'full_structure_markdown' vacío.")
+            if not all([section_title, data.get('full_structure_markdown'), section_to_generate_markdown]):
+                raise ValueError("Faltan campos críticos en regenerate_data.")
             
-            if not all([section_title, data.get('full_structure_markdown'), section_to_generate_markdown]): 
-                raise ValueError("Faltan campos críticos ('section_text', 'full_structure_markdown', o 'section_title') en regenerate_data.")
-                
-            main_title = getattr(req, "main_title", None)
             idioma = getattr(req, "idioma", None)
             acento = getattr(req, "acento", None)
-            
             if not idioma or not acento:
-                raise HTTPException(status_code=400, detail="Los campos 'idioma' o 'acento' no fueron proporcionados en la solicitud.")
-                
+                raise HTTPException(status_code=400, detail="Idioma/Acento requerido.")
+
         except (TypeError, ValueError) as e:
-            raise HTTPException(status_code=400, detail=f"Error en la estructura de regenerate_data: {e}")
+            raise HTTPException(status_code=400, detail=f"Error estructural: {e}")
 
-        # ----------------------------------------------------------------------
-        # 💥 3. Lógica de Longitud y Densidad (CORRECCIÓN CRÍTICA DE PRESUPUESTO)
-        # ----------------------------------------------------------------------
+        # 2. Preparación de Contexto (Historial) - OPTIMIZADO PARA EVITAR SATURACIÓN
+        history_text = "No hay contenido previo."
+        if isinstance(req.previous_content, list) and req.previous_content:
+            # Enviamos solo la parte final del bloque anterior para dar continuidad sin duplicar tokens innecesarios
+            ultimo_bloque = str(req.previous_content[-1])
+            history_text = f"Conexión narrativa con el bloque anterior: ...{ultimo_bloque[-1000:]}"
+        elif isinstance(req.previous_content, str) and req.previous_content:
+            history_text = req.previous_content[-1000:]
+
+        # 3. Lógica de Longitud
         instruccion_longitud = ""
-        
-        blog_entity = db.query(Blog).filter(Blog.id == blog_id).first()
-        
-        total_word_budget = int(blog_entity.estimated_word_count)
-        palabras_acumuladas = getattr(req, 'palabras_acumuladas', 0)
-        num_remaining_sections = getattr(req, 'subsecciones_pendientes', 0)
-        
-        # 🎯 CORRECCIÓN CLAVE: Obtener el presupuesto precalculado desde el frontend (payload)
-        max_words_limit_strict = getattr(req, 'limite_palabras_bloque', 0)
-        remaining_budget = max(0, total_word_budget - palabras_acumuladas)
-        
-        if max_words_limit_strict <= 0 and num_remaining_sections > 0:
-            # Lógica de fallback si limite_palabras_bloque no fue enviado o es 0 
-            # (usando la lógica original de distribución igualitaria)
-            max_words_limit_strict = int(remaining_budget / num_remaining_sections)
+        if estimated_word_count > 0:
+            num_sections = len([
+                line for line in full_structure_markdown.split('\n')
+                if re.match(r'^\[H[1-9]\s*-\s*[0-9.]+\]', line.strip())
+            ]) or 1
+            target_avg_words = int(estimated_word_count / num_sections)
+            instruccion_longitud = f"Referencia orientativa: **{target_avg_words} palabras**. Desarrolla con profundidad técnica/vivida."
 
-        if max_words_limit_strict > 0:
-            
-            # Asegurar un mínimo de 100 palabras si el presupuesto es bajo, pero hay palabras restantes
-            if max_words_limit_strict < 100 and remaining_budget > 0:
-                max_words_limit_strict = 100 
-                
-            # Cálculo del Límite Mínimo Efectivo (95% del estricto, para máxima densidad)
-            min_words_for_quality = int(max_words_limit_strict * 0.95) 
-
-            instruccion_longitud = (
-                f"### ORDEN CRÍTICA DE MÁXIMA EXTENSIÓN (100% de Uso): \n"
-                f"**IMPERATIVO DE EXTENSIÓN (CRÍTICO):** Para asegurar la máxima calidad SEO y la densidad narrativa requerida, **DEBES USAR {max_words_limit_strict:,} palabras**. Este es tu LÍMITE MÁXIMO, pero también tu **OBJETIVO MÍNIMO de calidad**.\n"
-                f"**CRÍTICO:** Tu tarea es desarrollar el contenido con la MÁXIMA densidad narrativa posible, alcanzando o superando las **{min_words_for_quality:,} palabras** y aspirando fuertemente a alcanzar el 100% del límite ({max_words_limit_strict:,}). El contenido con una extensión significativamente menor a {max_words_limit_strict:,} palabras será considerado un **fallo de calidad, extensión y densidad**."
-            )
-        # ----------------------------------------------------------------------
-        
-        # 4. Preparación de Contexto (Historial) - Mantenido
-        MAX_HISTORY_CHARS = 4000 
-        history_text = "No se ha generado contenido previo. Genera de forma cohesiva." 
-        
-        if req.previous_content:
-            if isinstance(req.previous_content, list) and req.previous_content:
-                # Tomamos solo el último bloque y lo truncamos si es muy largo
-                last_block = req.previous_content[-1]
-                if len(last_block) > MAX_HISTORY_CHARS:
-                    last_block = last_block[:MAX_HISTORY_CHARS] + "\n[... ÚLTIMO HISTORIAL TRUNCADO para ahorrar tokens ...]"
-                
-                # Solo incluimos el último bloque, como se solicitó.
-                history_text = f"Último bloque de contenido generado: \n{last_block}"
-                
-            elif isinstance(req.previous_content, str):
-                # Si se envió como una cadena (contexto general), también lo truncamos
-                if len(req.previous_content) > MAX_HISTORY_CHARS:
-                    history_text = req.previous_content[:MAX_HISTORY_CHARS] + "\n[... Historial Truncado ...]"
-                else:
-                    history_text = req.previous_content
-
-        # 5. Extracción de Cabeceras para JSON (Mantenido)
-        # ... (Lógica de JSONSchema mantenida) ...
-        import re 
-        import json
+        # 4. Extracción de Cabeceras para JSON
         headers_for_json = [section_title] 
         sub_headers_pattern = r'(\[H[0-9] - [0-9.]+\].*\s*(.+)$)|(^[#]{3,}\s*(.+)$)'
         sub_headers_raw = re.findall(sub_headers_pattern, section_to_generate_markdown, re.MULTILINE)
-        
         sub_headers = [h for match in sub_headers_raw for h in (match[1] or match[3]).strip().split('\n') if h.strip() and h.strip() != section_title]
-
         headers_for_json.extend(h for h in sub_headers if h not in headers_for_json)
         
-        json_schema_example = {header: f"[CONTENIDO EN MARKDOWN PARA '{header}']" for header in headers_for_json}
+        json_schema_example = {header: f"[CONTENIDO PARA {header}]" for header in headers_for_json}
         json_schema_example_str = json.dumps(json_schema_example, indent=2, ensure_ascii=False)
+        EDITORIAL_PROFILES = {
+        "viajemos": """
+            PROYECTO: VIAJEMOS (Voz de Experto que Acompaña)
 
-        # 6. Construcción del Prompt (Máxima prioridad a Idioma y Conteo) - Mantenido, usando la instruccion_longitud corregida
+            Voz Editorial:
+            - No eres un folleto: Eres un viajero experimentado. Evita el tono institucional. Habla desde la recomendación real ("Te sugiero", "Lo mejor es").
+            
+            Enfoque de Datos SEO:
+            - El valor está en el detalle: Si el Consolidated Content dice que algo cuesta 10 USD, no digas que es "barato", di que cuesta <strong>10 USD</strong>. La precisión es lo que genera confianza (E-E-A-T).
+            
+            Reglas de Oro del Tono:
+            - Cero Relleno: Si vas a describir un lugar, usa detalles sensoriales (olores, colores, clima) mezclados con los datos técnicos.
+            - Persuasión Útil: Cada párrafo debe ayudar al lector a tomar una decisión o imaginar el lugar.
+            - Prohibido el lenguaje robótico: Sustituye "Miami ofrece diversas opciones" por "En Miami te vas a encontrar con...".
+        """,
+
+        "arriendo": """
+            PROYECTO: ARRIENDO (Voz Educativa y Práctica)
+
+            Voz Editorial:
+            - Eres un asesor experto, neutral y didáctico. Tu objetivo es dar seguridad y claridad ante procesos legales o comerciales.
+
+            Enfoque Narrativo:
+            - Directo al grano: el lector busca soluciones, riesgos y consecuencias reales.
+            - Define los escenarios de forma explicativa para que un ciudadano común los entienda sin esfuerzo.
+
+            Reglas de Estilo:
+            - Estilo limpio y profesional, sin storytelling emocional.
+            - Prioriza la jerarquía de obligaciones, derechos y recomendaciones preventivas.
+            - Transmite autoridad a través de la precisión y la sencillez.
+            """,
+
+        "guia_legal": """
+            PROYECTO: GUÍA LEGAL (Voz de Autoridad y Confianza)
+
+            Voz Editorial:
+            - Eres un profesional del derecho que comunica con rigor pero con un lenguaje accesible para no-abogados. Transmites calma y respaldo experto.
+
+            Enfoque Narrativo:
+            - Informativo-legal puro. El texto debe responder con autoridad: qué es, cuándo aplica y qué acción debe tomar el lector.
+
+            Reglas de Estilo:
+            - Formal y profesional. Queda estrictamente prohibido el lenguaje promocional o emocional.
+            - El valor reside en la exactitud de la norma y la claridad del procedimiento.
+            - Cada párrafo debe reforzar la sensación de que el lector está en manos expertas.
+        """
+        }
+
+        project_key = getattr(req, "project", "viajemos").lower()
+        editorial_profile = EDITORIAL_PROFILES.get(project_key, EDITORIAL_PROFILES["viajemos"])
+
+
+
+        # 5. Construcción del Prompt (El corazón de la simplificación) 
         system_message = f"""
-            Eres un redactor experto en SEO narrativo, análisis competitivo y storytelling editorial.
-            Tu tarea es generar el contenido completo de la sección actual del blog, asegurando coherencia, valor semántico y desarrollo natural.
+            Eres un redactor experto en SEO, arquitectura semántica y edición editorial.
+            Tu tarea es generar el contenido completo de la sección actual del blog
+            respetando jerarquía temática, profundidad progresiva y coherencia global.
 
             ---
+
             CONTEXTO EDITORIAL
             - Título principal: {req.main_title}
             - Idioma: {idioma}
             - Acento: {acento}
             - Técnica: {req.tecnica}
             - Tono: {req.tono}
+            - Autoridad SEO: Tu credibilidad se basa en la precisión. No ignores los datos técnicos del análisis; úsalos para dar peso al texto.
 
-            Escribe con naturalidad humana, fluidez narrativa y precisión informativa. Evita la redundancia de ideas entre el contenido generado y la introducción de la sección.
-
-            ---
-            REGLAS CRÍTICAS DE SALIDA:
-            - SALIDA (CRÍTICA):** Debes devolver **únicamente un objeto JSON**. No incluyas ningún texto fuera del bloque JSON.
-            - CLAVES: El JSON debe tener una clave por cada título/subtítulo. Las claves deben coincidir **exactamente** con los títulos limpios.
-            - VALORES: Los valores deben contener el **contenido redactado en formato Markdown plano**, sin encabezados (##, ###) dentro de ellos.
-            - ESCAPE (CRÍTICO):** Dentro del JSON, usa **doble barra invertida (\\\\)** para representar una barra literal (\).
-            - **IMPERATIVO DE IDIOMA (CRÍTICO):** **TODO EL TEXTO DEBE GENERARSE ÍNTEGRAMENTE EN ESPAÑOL ({acento}), SIN EXCEPCIONES. CUALQUIER FALLO EN ESTE PUNTO HACE FALLAR LA TAREA.**
-            - **CONTROL DE DESBORDAMIENTO (CRÍTICO):** **El conteo de palabras de todos los valores de tu JSON sumados NO DEBE SUPERAR {max_words_limit_strict:,} palabras.**
+            Redacta con naturalidad humana, precisión informativa y control semántico.
+            Evita texto genérico, redundante o reutilizable en otras secciones.
 
             ---
-            OBJETIVO
-            1. Crear contenido original competitivo.
-            2. Mantener coherencia con el contexto global y las secciones anteriores (Historial).
+
+            ANÁLISIS INTERNO (NO MOSTRAR)
+            1. Identifica el rol semántico de esta sección.
+            2. Determina qué información pertenece EXCLUSIVAMENTE a este nivel.
+            3. No anticipes, resumas ni dupliques contenido de secciones hermanas o hijas.
 
             ---
-            ESTRUCTURA Y REDACCIÓN
-            - Redacta cada apartado de forma completa, con explicación, desarrollo y cierre natural.
-            - **IMPERATIVO DE CALIDAD:** **El contenido debe ser PROSA CONTINUA (narrativa fluida). Está TERMINANTEMENTE PROHIBIDO generar contenido en formato de resumen, lista simple (viñetas), o frases sueltas sin conexión y sin desarrollo.** Utiliza párrafos bien conectados.
-            - **IMPERATIVO DE VERACIDAD Y COHERENCIA:** Asegura la **coherencia y precisión factual** en todo el artículo. **Los datos deben ser consistentes a lo largo de todas las secciones.**
-            - **NOTA ESPECIAL PARA INTRODUCCIONES (H1):** Si esta es la primera sección, la introducción que escribas para el título principal debe ser **100% original, densa y en el idioma requerido ({idioma})**, sin basarse en resúmenes previos que puedan haber introducido errores.
-            - Si el título principal agrupa subtítulos, genera solo una breve introducción narrativa para contextualizar.
-            - Mantén proporción entre secciones según la instrucción de longitud.
-            - No inventes datos falsos.
+
+            REGLAS CRÍTICAS DE SALIDA
+            - Devuelve únicamente un objeto JSON.
+            - Las claves deben coincidir exactamente con los títulos/subtítulos.
+            - Usa doble barra invertida (\\\\) para representar una barra literal (\).
 
             ---
-            INSTRUCCIÓN DE LONGITUD
-            {instruccion_longitud}
-            
-            ---
-            CALIDAD Y COHESIÓN
-            - El texto debe ser claro, natural y sin repeticiones.
-            - Mantén continuidad con el historial recibido, sin duplicar ideas.
-            """
+
+            ### ALGORITMO DE ASIGNACIÓN Y CIERRE SEMÁNTICO (VERSIÓN SUPREMA)
+
+            1. NIVEL H1 [Título 0] - ACTIVADOR DE INTENCIÓN:
+            - Misión: Validar la intención de búsqueda (Search Intent).
+            - Regla: PROHIBIDO usar datos técnicos, listas o precios del Consolidated Content. 
+            - SEO: No resumas el blog aquí. Genera la necesidad de leer los detalles que vendrán después.
+
+            2. NIVEL H2 [Títulos 1, 2, 3...] - ORGANIZADOR TEMÁTICO:
+            - Misión: Agrupar conceptos y establecer el contexto.
+            - Regla: Detente antes de tocar el contenido detallado de los sub-bloques (H3).
+
+            3. NIVEL H3 [Títulos 1.1, 2.1.1...] - UNIDAD DE VALOR Y EJECUCIÓN:
+            - Misión: Entrega total de sustancia (E-E-A-T).
+            - Obligación: Extraer CADA nombre propio, marca, precio o tecnicismo del 'Consolidated Content'. Si el dato existe, debe aparecer.
+
+            ### PROTOCOLO DE CALIDAD Y RITMO EDITORIAL (ANTI-IA)
+
+            - Variedad de Párrafos: Alterna párrafos de impacto con párrafos de desarrollo.
+            - Escaneabilidad Semántica: Usa etiquetas HTML <strong> para resaltar datos duros (fechas, precios, lugares, cifras). No resaltes frases vacías; solo información útil para el SEO.
+            - Naturalidad Narrativa: Evita muletillas de IA ("En este recorrido", "Prepárate para"). Usa afirmaciones directas de experto.
+            - Cero Redundancia: Si un dato ya aparece en el 'Historial', queda estrictamente prohibido repetirlo. Pasa al siguiente detalle técnico.
+        """
+        
+
+        # 6. Prompt: Instrucciones de segmentación para que no "vuelque" todo el scraping
+        secciones_posteriores = full_structure_markdown.split(section_title)[-1][:500] if section_title in full_structure_markdown else ""
 
         prompt = f"""
 
-            ## HISTORIAL DE CONTENIDO (NO REPETIR IDEAS)
-            {history_text}
+        PERFIL EDITORIAL ACTIVO
+        {editorial_profile}
 
-            ## REFERENCIA DE CONTEXTO (SCRAPING)
-            {req.consolidated_content or 'No hay contenido scrapeado disponible.'}
+        ### CONTEXTO DE REDACCIÓN
+        - **Sección ACTUAL:** {section_title}
+        - **Secciones SIGUIENTES (Prohibido mencionar):** {secciones_posteriores}
+        - **Historial:** {history_text}
 
+        ### FUENTE DE DATOS (CONSOLIDATED CONTENT)
+        {req.consolidated_content}
 
-            ## ESTRUCTURA DE LA SECCIÓN A GENERAR
-            Tu tarea es llenar el contenido de **TODOS** los títulos/subtítulos de esta sección H2.
-            **RECUERDA:** Si el título principal solo introduce los subtítulos, su valor de contenido **DEBE SER VACÍO ("")** en el JSON.
-            {section_to_generate_markdown}
+        ### TAREA: PROTOCOLO DE ASIGNACIÓN SEMÁNTICA (OBLIGATORIO)
+        1. **Si esta sección es un H1 o Introducción:** Prohibido usar datos específicos, precios, listas o detalles del análisis. Usa el análisis solo para entender el tema y generar un gancho narrativo que prepare al lector. Tu objetivo es la expectativa, no la información.
+        2. **Si esta sección es un H2 o H3:** Extrae únicamente los datos técnicos y experiencias del análisis que correspondan específicamente a este título. 
 
-            ## FORMATO DE SALIDA REQUERIDO (JSON)
-            **Claves Requeridas:** {', '.join(headers_for_json)}
-            ```json
-            {json_schema_example_str}
-            ```
-            **Instrucción Final:** Genera el JSON que contiene el contenido asociado a CADA título/subtítulo.
-            """
+        ### REGLA DE EXCLUSIVIDAD (ANTI-REDUNDANCIA)
+        - No repitas información que ya aparezca en el 'Historial'.
+        - Si un dato (ej. porcentajes, temporadas, precios generales) ya se mencionó, queda inhabilitado para el resto del artículo.
+        - Si el análisis no tiene datos nuevos para este punto, mantén la profundidad solicitada en el perfil editorial usando la técnica de redacción, pero sin reciclar información de otras secciones.
 
-        # 7. LLAMADA AL LLM (Temperatura Mantenida)
+        ### FORMATO DE SALIDA (JSON)
+        Claves: {', '.join(headers_for_json)}
+        ```json
+        {json_schema_example_str}
+        ```
+        **Instrucción Final:** Genera el JSON que contiene el contenido asociado a CADA título/subtítulo.
+        """
+
         try:
             generated_response = self._llm_generate( 
                 prompt=prompt,
                 system_message=system_message,
-                temperature=0.5, 
+                temperature=0.7, 
                 max_tokens=10000 
             )
             
-            # ... (Limpieza y extracción del JSON mantenida) ...
+            # Limpieza de json 
             response_corrected = re.sub(
                 r'(?<!\\)\\(?![ntrbvf/\\]|u[0-9a-fA-F]{4}|\"|\')', 
                 r'\\\\', 
@@ -1163,15 +1114,16 @@ class AIService:
         except HTTPException as http_e:
             raise http_e
         except Exception as llm_e:
-            raise HTTPException(status_code=503, detail=f"Fallo al generar contenido libre: Fallo en la comunicación/parseo con el modelo LLM. {str(llm_e)}")
+            raise HTTPException(status_code=503, detail=f"Fallo en la comunicación/parseo con el modelo LLM. El modelo devolvió contenido no JSON o no se pudo corregir el error de escape: {str(llm_e)}")
 
         
-        # 8. Respuesta Final
+        # 6. Respuesta Final devuelve el JSON serializado al frontend
         return {
             "generated_content": json.dumps(structured_content), 
             "success": "True",
             "log": f"Contenido estructurado generado para la sección: {section_title} (Nivel {section_level})."
         }
+
 
 
     # --- AQUI ESTA LA LOGICA DE REGENERACION Y LIMPIEZA DEL JSON QUE DEVUELVE LA IA 
@@ -1885,223 +1837,126 @@ class AnalysisOrchestrator:
 
     def execute_scraping(self, req: models.ScrapeRequest) -> Generator[str, None, None]:
         """
-        Ejecuta el flujo completo de scraping, análisis y generación de resúmenes IA (FASE 1 a 3),
-        devolviendo el resultado final como un generador de eventos (SSE). 
+        Ejecuta el flujo completo de scraping y análisis acumulativo.
+        Mantiene el consolidated_content creciendo URL tras URL sin recortes.
         """
         query = req.query
         urls = [u.strip() for u in query.split(",") if u.strip()][:req.num_results]
 
         all_results = []
+        consolidated_text = "" # <--- MEMORIA GLOBAL ACUMULATIVA
         log = [f"Iniciando scraping de URLs a las {datetime.now().strftime('%H:%M:%S')}"]
         
         MIN_BLOCKS = 1 
         MIN_CONTENT_CHARS = 300
 
-        yield f"data: Iniciando scraping de {len(urls)} URLs...\n\n"
+        print(f"Iniciando scraping de {len(urls)} URLs")
 
         for i, url in enumerate(urls, 1):
-            yield f"data: Procesando URL {i} de {len(urls)}: {url}\n\n"
+            print(f"Procesando URL {i} de {len(urls)}: {url}")
 
-            # 1. Scraping y Limpieza de página
+            # 1. Scraping y Limpieza
             title, full_text, soup = self.extractor.fetch_webpage(url) 
-            
             if not full_text:
-                msg = f"Contenido nulo o error de conexión en {url} (Título: {title}), se descarta."
-                yield f"data: {msg}\n\n"; log.append(msg); continue
-                
+                msg = f"Contenido nulo en {url}, se descarta."
+                print(msg); log.append(msg); continue
             
-            # 2. FASE 2: ADAPTABILIDAD ESTRUCTURAL (Plan A -> Plan B -> Plan C)
+            # 2. Extracción Estructurada
             structured_chunks = self.extractor._scrape_with_fallback(soup)
-            
-            total_content_len = sum(len(b.get('content', '')) for b in structured_chunks)
-            is_structured_successful = total_content_len >= MIN_CONTENT_CHARS and len(structured_chunks) >= MIN_BLOCKS
-
-            if is_structured_successful:
-                yield f"data: [PLAN A/B - ÉXITO] Extracción Estructurada exitosa ({len(structured_chunks)} bloques).\n\n"
-            elif structured_chunks:
-                yield f"data: [PLAN A/B - ALERTA] Extracción Estructurada con bajo rendimiento ({len(structured_chunks)} bloques), pero se usará.\n\n"
-            else:
-                # Plan C: Fallback Ultra Robusto
-                yield "data: La división estructural falló COMPLETAMENTE. Intentando usar texto plano y simplificado con extracción agresiva (Plan C - Ultra Robusto).\n\n"
-                
+            if not structured_chunks:
+                print("Fallo estructural, aplicando Plan C (Aggressive Fallback)...")
                 structured_chunks = self._aggressive_text_fallback(soup, title)
 
-                if not structured_chunks:
-                    msg = f"Contenido insuficiente en {url} (fallo en Plan A, B y C), se descarta."
-                    yield f"data: {msg}\n\n"; log.append(msg); continue
-                
-                yield f"data: Éxito! Se recuperó texto forzado (Plan C revisado) en un solo bloque.\n\n"
-            
-            ai_analysis_result = " ".join([c['content'] for c in structured_chunks]) 
-            context_data = ai_analysis_result
-            
-            # 3. FASE 3: Iteración sobre Bloques (Análisis de IA por Chunk)
-            summaries = []
-            
-            url_consolidated_content = "\n\n".join([
-                f"--- SECCIÓN {j+1}: {chunk_data['heading']} ---\nCONTENIDO:\n{chunk_data['content']}" 
-                for j, chunk_data in enumerate(structured_chunks)
+            if not structured_chunks:
+                log.append(f"Contenido insuficiente en {url}"); continue
+
+            # Consolidamos el contenido bruto de esta URL para la IA
+            url_consolidated_raw = "\n\n".join([
+                f"--- SECCIÓN: {chunk_data['heading']} ---\n{chunk_data['content']}" 
+                for chunk_data in structured_chunks
             ])
             
-            # El texto consolidado se empaqueta como el ÚNICO 'bloque' para el análisis final
-            chunk_data_for_ai = {
-                'heading': title,
-                'content': url_consolidated_content,
-                'media_elements': [
-                    media for b in structured_chunks for media in b.get('media_elements', [])
-                ]
-            }
+            # Preparamos el bloque multimedia
+            all_media = [media for b in structured_chunks for media in b.get('media_elements', [])]
             
-            if url_consolidated_content:
-                
-                # RE-INTRODUCCIÓN DEL LOGGING DETALLADO PARA EL DEBUG DEL FRONT-END
-                yield f"data: Procesando {len(structured_chunks)} secciones estructurales (FASE 3: Extracción Detallada)....\n\n"
-                
-                # Bucle para SIMULAR el progreso y GENERAR los logs detallados 
-                for j, chunk_data in enumerate(structured_chunks, 1):
-                    
-                    chunk_content = chunk_data['content']
-                    chunk_heading = chunk_data['heading']
-                    num_media = len(chunk_data.get('media_elements', []))
-                    
-                    # LOG DE BLOQUE
-                    log_msg_block = f"[BLOQUE {j}] Encabezado: '{chunk_heading}' (Multimedia: {num_media} elementos encontrados)"
-                    yield f"data: {log_msg_block}\n\n"
-                    log.append(log_msg_block)
-                    
-                    # LOG DE DEBUG de Contenido
-                    clean_debug_content = chunk_content[:150].replace('"', "'").strip() 
-                    log_msg_debug = f"[DEBUG: CHUNK SCRAPEADO] Contenido: \"{clean_debug_content}...\" (Tamaño: {len(chunk_content)} chars)"
-                    yield f"data: {log_msg_debug}\n\n"
-                    log.append(log_msg_debug)
-                    
-                # 2. LLAMADA A IA CONSOLIDADA 
-                yield f"data: Análisis de IA en curso sobre el contenido CONSOLIDADO de la URL...\n\n"
-                
-                chunk_content = chunk_data_for_ai['content'] # Contenido consolidado
-                chunk_heading = chunk_data_for_ai['heading'] # Título principal
-                chunk_media = chunk_data_for_ai['media_elements'] # Media consolidada
-                
-                # Log del BLOQUE ÚNICO (para el log detallado del backend)
-                log_msg_final = f"[BLOQUE ÚNICO URL {i}] Encabezado: '{chunk_heading}' (Multimedia Total: {len(chunk_media)} elementos encontrados)"
-                log.append(log_msg_final)
-                
-                # LÍNEA CORREGIDA CON COMILLAS TRIPLES (Evita el SyntaxError)
-                log.append(f"""[DEBUG: CONTENIDO CONSOLIDADO] Inicio: "{chunk_content[:150].replace('"', "'").strip()}..." (Tamaño: {len(chunk_content)} chars)""")
-
+            # 3. FASE 3: Análisis de IA con CONTINUIDAD
+            summary = ""
+            if url_consolidated_raw:
                 if req.use_ai:
-                    summary = self.ai_service.analizar_bloque_contenido(chunk_content, chunk_media, query, chunk_heading) 
-                    summaries.append(summary)
-                    chunk_data_for_ai['ai_chunk_summary'] = summary
-                    yield "data: Resumen de IA por URL completado.\n\n"
+                    print(f"Análisis IA URL {i} integrando con memoria previa...")
+                    # PASAMOS EL consolidated_text QUE LLEVAMOS HASTA EL MOMENTO
+                    summary = self.ai_service.analizar_bloque_contenido(
+                        url_consolidated_raw, 
+                        all_media, 
+                        query, 
+                        title,
+                        contexto_previo=consolidated_text 
+                    )
+                    # ACTUALIZAMOS EL CONSOLIDADO GLOBAL
+                    consolidated_text += f"\n\n--- ANÁLISIS FUENTE: {url} ---\n{summary}"
                 else:
-                    summaries.append(chunk_content)
-                    chunk_data_for_ai['ai_chunk_summary'] = chunk_content
-                        
-                # Determinación del contexto consolidado
-                context_data = " ".join(summaries)
-                ai_analysis_result = context_data
-                
-                # structured_chunks debe contener solo el resultado consolidado para la FASE 4
-                structured_chunks = [chunk_data_for_ai] 
-                
-            else: # Fallback si el contenido estructurado está vacío
-                context_data = full_text 
-                ai_analysis_result = context_data
-                structured_chunks = [{"heading": title, "content": full_text, "media_elements": [], "ai_chunk_summary": context_data}]
-                yield "data: Alerta: Contenido estructurado vacío, se usó texto plano para el resumen.\n\n"
+                    summary = url_consolidated_raw
+                    consolidated_text += f"\n\n{summary}"
 
+            # Guardamos el resultado individual para esta URL
+            # Nota: article_blocks contendrá el resumen generado para esta URL
+            chunk_for_result = {
+                'heading': title,
+                'content': url_consolidated_raw,
+                'media_elements': all_media,
+                'ai_chunk_summary': summary
+            }
 
-            # Preparación del resultado del scrapeo para consolidación
             result = models.ScrapeResult(
                 url=url,
                 title=title,
                 ai_titles=[],
                 subtitles=[],
-                text_content=context_data,
-                headers={"main_heading": [structured_chunks[0]['heading']] if structured_chunks else [title], "count": [str(len(structured_chunks))]},
-                ai_analysis=ai_analysis_result,
+                text_content=summary, # Guardamos el resumen de esta URL
+                headers={"main_heading": [title], "count": [str(len(structured_chunks))]},
+                ai_analysis=summary,
                 title_suggestions=[], 
                 final_structure="",
-                article_blocks=structured_chunks, 
+                article_blocks=[chunk_for_result], 
                 status='OK' 
             )
             all_results.append(result)
 
-        # 4. FASE 4: Preparación para Análisis Manual (Omisión de LLAMADAS IA FINALES)
+        # 4. FASE 4: Persistencia (YA TENEMOS EL consolidated_text COMPLETO)
         valid_results = [r for r in all_results if r.status == 'OK'] 
-        consolidated_text = ""
-        # Asumiendo que esta variable de ejemplo no se calcula antes:
-        longitudes_competencia_str = 'N/A' 
         
-        if valid_results and req.use_ai: 
-            # Consolidación del texto para la FASE 4 (Análisis Final)
-            structured_context_parts = []
-            block_counter = 0 
-            for r in valid_results: 
-                structured_context_parts.append(f"\n\n--- INICIO DE ANÁLISIS DE URL: {r.url} ---")
-                blocks_to_process = getattr(r, 'article_blocks', []) 
-                if blocks_to_process:
-                    for b in blocks_to_process:
-                        heading = b.get('heading')
-                        analysis = b.get('ai_chunk_summary') 
-                        if analysis and heading:
-                            block_counter += 1
-                            structured_context_parts.append(f"### [SECCIÓN {block_counter}] {heading}")
-                            structured_context_parts.append(f"CONTENIDO CLAVE SINTETIZADO:\n{analysis}")
-                            
-            consolidated_text = "\n\n".join(structured_context_parts)
+        if valid_results and consolidated_text:
+            print(f"Scraping finalizado. Contenido consolidado: {len(consolidated_text)} caracteres.")
             
-            # Persistencia de Datos
-            if self.db and self.blog_id and consolidated_text:
+            if self.db and self.blog_id:
                 try:
-                    
-                    # <<<<<<<<<<<<<<<<< 1. CALCULAR EL DATO >>>>>>>>>>>>>>>>>>>>>
-                    # El conteo de palabras del texto consolidado
                     estimated_word_count_calculated = len(consolidated_text.split())
-
-                    all_article_blocks_combined = []
-                    for res in all_results:
-                        if res.article_blocks:
-                            all_article_blocks_combined.extend(res.article_blocks)
+                    all_article_blocks_combined = [b for res in all_results for b in (res.article_blocks or [])]
                     
                     datos_a_guardar_scraping = {
                         "consolidated_content": consolidated_text, 
                         'scrape_blocks_json': all_article_blocks_combined 
                     }
 
-                    # LLAMADA EXISTENTE (Guarda el consolidated_content en Scraping)
                     actualizar_o_crear_resultado_scraping(self.db, self.blog_id, datos_a_guardar_scraping) 
                     
-                    # <<<<<<<<<<<<<<<<< 2. PERSISTENCIA EN TABLA BLOG (NUEVA) >>>>>>>>>>>>>>>>>>>>>
-                    # Se asume que la estructura actual está en la DB
-                    # Se debe obtener la estructura actual antes de actualizar
                     blog_entity = self.db.query(Blog).filter(Blog.id == self.blog_id).first()
                     estructura_actual = blog_entity.estructura_blog_json if blog_entity else {}
                     
                     actualizar_estructura_blog(
-                        self.db, 
-                        self.blog_id, 
+                        self.db, self.blog_id, 
                         estructura_data=estructura_actual, 
-                        estimated_word_count=estimated_word_count_calculated # <-- AHORA SE GUARDA EN BLOG
+                        estimated_word_count=estimated_word_count_calculated
                     )
-                    
-                    log.append(f"Persistencia exitosa de consolidated_content y CONTEO DE PALABRAS en Blog ID: {self.blog_id}")
+                    print(f"Persistencia exitosa en Blog ID: {self.blog_id}")
                 except Exception as e:
+                    print(f"ERROR DB: {str(e)}"); log.append(f"ERROR DB: {str(e)}")
 
-                    logging.error(f"Error al guardar consolidated_content en DB para Blog ID {self.blog_id}: {e}")
-                    log.append(f"ERROR: Fallo al guardar consolidated_content en DB: {str(e)}")
-            
-            elif not valid_results:
-                logging.warning("No se proporcionaron datos válidos para la persistencia de consolidated_content.")
-                log.append("WARNING: No se proporcionaron datos válidos para la persistencia de consolidated_content.")
-            pass
-        
-        # 5. FASE 5: PREPARACIÓN DE RESPUESTA FINAL
+        # 5. FASE 5: RESPUESTA FINAL
         final_response = models.ScrapeResponse(
             query=query,
             count=len(valid_results),
-            results=all_results, # <-- Incluimos el JSON completo
+            results=all_results,
             log=log,
             consolidated_content=consolidated_text 
         )

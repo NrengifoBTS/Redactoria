@@ -10,6 +10,31 @@ import "@iconscout/unicons/css/line.css";
 import apiService from "./services/apiService";
 import "./css/blog_Generacion.css";
 
+// Importaciones para el editor de texto enriquecido
+import ReactDOM from "react-dom";
+import ReactQuill, { Quill } from "react-quill-new"; // Importamos desde la nueva librería
+import "react-quill-new/dist/quill.snow.css"; // Los estilos también cambian de ruta
+
+// --- PARCHE DE COMPATIBILIDAD REACT 19 ---
+if (typeof window !== "undefined" && !ReactDOM.findDOMNode) {
+  ReactDOM.findDOMNode = (instance) => {
+    if (instance instanceof HTMLElement) return instance;
+    return null;
+  };
+}
+
+// Configuración de fuentes
+const Font = Quill.import("formats/font");
+Font.whitelist = ["sans-serif", "serif", "monospace"];
+Quill.register(Font, true);
+
+// Añade esta pequeña función arriba en tu componente
+const stripHtml = (html) => {
+  const tmp = document.createElement("DIV");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+};
+
 const GeneracionBlog = () => {
   // =======================================================================
   // 0. HOOKS PRINCIPALES Y DE NAVEGACIÓN (INICIO ABSOLUTO)
@@ -110,7 +135,7 @@ const GeneracionBlog = () => {
 
   const URL_API_IA_DOWNLOAD = "http://192.168.1.129:8000/ai/download_blog_doc";
 
-  const URL_API_IA_REGEN = "http://192.168.1.129:8000/ai/regenerate_titles"; // <-- NUEVO ENDPOINT
+  const URL_API_IA_REGEN = "http://192.168.1.129:8000/ai/regenerate_titles";
 
   const mainTitle = datosFinales?.title || "Generación de Blog"; // <-- ¡Lee directo de datosFinales!
   // =======================================================================
@@ -300,10 +325,8 @@ const GeneracionBlog = () => {
 
       // 4. Procesamiento, Creación del Nombre de Archivo y Descarga
 
-      // ** A. Obtener y Formatear SOLO la Fecha **
       const now = new Date();
 
-      // Formatear Fecha (ej: 2025-12-15)
       const dateString = now
         .toLocaleDateString("es-CO", {
           year: "numeric",
@@ -343,7 +366,7 @@ const GeneracionBlog = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = fileName; // <- Nombre de archivo con solo la Fecha
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
 
@@ -367,11 +390,11 @@ const GeneracionBlog = () => {
       const isH1 = item.level === "h1";
 
       if (isH1) {
-        // --- LÓGICA DE H1 --- (Título Principal/Introducción)
+        // --- LÓGICA DE H1 ---
+        // Usamos .trim() en el título porque suele ser una sola línea de texto/html
         const h1Line = `[H1 - ${item.enumeration}] ${item.text.trim()}`;
         markdownLines.push(h1Line);
 
-        // AÑADIDO: AGREGAR MULTIMEDIA/SEO SI EXISTE EN H1
         if (item.multimedia && item.multimediaDescription) {
           markdownLines.push(
             `[MULTIMEDIA: ${
@@ -381,22 +404,21 @@ const GeneracionBlog = () => {
         }
 
         // AGREGAR BLOQUE DE CONTENIDO H1
-        if (item.content && item.content.trim()) {
-          markdownLines.push("\n[CONTENIDO]");
-          markdownLines.push(item.content.trim());
+        // CAMBIO CLAVE: No usamos .trim() en el contenido para preservar el HTML puro de Quill
+        if (item.content) {
+          markdownLines.push("[CONTENIDO]");
+          markdownLines.push(item.content);
           markdownLines.push(""); // Línea vacía para separación visual
         }
         return;
       }
 
       // --- 1. LÓGICA DE H2 (y sus H3s) ---
-      // Si no es H1, lo contamos para la numeración 1, 2, 3...
       h2Counter++;
       const h2Enumeration = h2Counter.toString();
       const h2Line = `[H2 - ${h2Enumeration}] ${item.text.trim()}`;
       markdownLines.push(h2Line);
 
-      // 1.1. Agregar Multimedia si existe en H2
       if (item.multimedia && item.multimediaDescription) {
         markdownLines.push(
           `[MULTIMEDIA: ${
@@ -406,37 +428,39 @@ const GeneracionBlog = () => {
       }
 
       // 1.2. AGREGAR BLOQUE DE CONTENIDO H2
-      if (item.content && item.content.trim()) {
-        markdownLines.push("\n[CONTENIDO]");
-        markdownLines.push(item.content.trim());
+      // CAMBIO CLAVE: Preservamos el contenido tal cual viene del editor
+      if (item.content) {
+        markdownLines.push("[CONTENIDO]");
+        markdownLines.push(item.content);
         markdownLines.push("");
       }
 
       // --- 2. LÓGICA DE H3 ---
       let h3Counter = 0;
-      item.children.forEach((h3Item) => {
-        h3Counter++;
-        const h3Enumeration = `${h2Enumeration}.${h3Counter}`;
+      if (item.children) {
+        item.children.forEach((h3Item) => {
+          h3Counter++;
+          const h3Enumeration = `${h2Enumeration}.${h3Counter}`;
 
-        const h3Line = `[H3 - ${h3Enumeration}] ${h3Item.text.trim()}`;
-        markdownLines.push(h3Line);
+          const h3Line = `[H3 - ${h3Enumeration}] ${h3Item.text.trim()}`;
+          markdownLines.push(h3Line);
 
-        // 2.1. Agregar Multimedia si existe en H3
-        if (h3Item.multimedia && h3Item.multimediaDescription) {
-          markdownLines.push(
-            `[MULTIMEDIA: ${
-              h3Item.multimedia
-            } | ${h3Item.multimediaDescription.trim()}]`
-          );
-        }
+          if (h3Item.multimedia && h3Item.multimediaDescription) {
+            markdownLines.push(
+              `[MULTIMEDIA: ${
+                h3Item.multimedia
+              } | ${h3Item.multimediaDescription.trim()}]`
+            );
+          }
 
-        // 2.2. AGREGAR BLOQUE DE CONTENIDO H3
-        if (h3Item.content && h3Item.content.trim()) {
-          markdownLines.push("\n[CONTENIDO]");
-          markdownLines.push(h3Item.content.trim());
-          markdownLines.push("");
-        }
-      });
+          // 2.2. AGREGAR BLOQUE DE CONTENIDO H3
+          if (h3Item.content) {
+            markdownLines.push("[CONTENIDO]");
+            markdownLines.push(h3Item.content);
+            markdownLines.push("");
+          }
+        });
+      }
 
       // 3. Separador final para bloques H2
       if (markdownLines[markdownLines.length - 1] !== "") {
@@ -444,7 +468,8 @@ const GeneracionBlog = () => {
       }
     });
 
-    return markdownLines.join("\n").trim();
+    // Al final unimos con un solo salto de línea
+    return markdownLines.join("\n");
   };
 
   //Funcion para el conteo de palabras por seccion de H
@@ -453,6 +478,7 @@ const GeneracionBlog = () => {
 
     // 1. Limpieza de marcadores de estructura:
     let textoLimpio = texto
+      .replace(/<[^>]*>/g, "") // Elimina etiquetas HTML
       .replace(/\[H[2-4]\s*-\s*[0-9.]+\]\s*|\[MULTIMEDIA:.*\]/g, "")
       .replace(/(\*\*|__|\*|_)/g, "")
       .replace(/\s+/g, " ")
@@ -463,7 +489,6 @@ const GeneracionBlog = () => {
   };
 
   // Funcion para parsear el Markdown de estructura H2/H3 a un objeto anidado para renderizar
-
   const parseMarkdownStructure = (markdown) => {
     // Si la entrada es nula o vacía, retorna un array vacío.
     if (!markdown) return [];
@@ -476,15 +501,12 @@ const GeneracionBlog = () => {
       markdown !== null &&
       !Array.isArray(markdown)
     ) {
-      // PRIORIDAD: Si contiene la clave de la estructura, usamos ese valor.
       if (
         markdown.structure_markdown &&
         typeof markdown.structure_markdown === "string"
       ) {
         finalStructureString = markdown.structure_markdown;
       } else {
-        // FIX ANTERIOR (menos robusto): Serializar el objeto si no tiene la clave esperada.
-        // Esto solo se hace como fallback, pero NO debe ocurrir si la API devuelve el formato correcto.
         try {
           finalStructureString = JSON.stringify(markdown);
         } catch (e) {
@@ -717,6 +739,7 @@ const GeneracionBlog = () => {
   };
 
   const renderBlogContent = (structure) => {
+    // 1. Si no hay estructura, mostrar placeholder
     if (!structure || structure.length === 0) {
       return (
         <div className="blog-view-placeholder">
@@ -725,78 +748,86 @@ const GeneracionBlog = () => {
       );
     }
 
+    // Función auxiliar para verificar si un string HTML tiene contenido real
+    const hasActualContent = (html) => {
+      if (!html) return false;
+      const plainText = html
+        .replace(/<[^>]*>/g, "")
+        .replace(/&nbsp;/g, "")
+        .trim();
+      return plainText.length > 0;
+    };
+
     return (
-      <div className="blog-document-window">
+      <div className="blog-document-window" style={{ overflowX: "hidden" }}>
         {structure.map((item) => {
-          // 1. MANEJO DEL H1 (Título y Contenido/Introducción)
+          // Solo procesamos el item si tiene texto en el título o tiene contenido
+          const hasTitle = hasActualContent(item.text);
+          const hasBody = hasActualContent(item.content);
+          const hasChildren = item.children && item.children.length > 0;
+
+          if (!hasTitle && !hasBody && !hasChildren) return null;
+
+          // --- MANEJO DEL H1 ---
           if (item.level === "h1") {
             return (
               <React.Fragment key={item.uniqueId || "h1-main"}>
-                {/* TÍTULO H1: No tiene enumeración */}
-                <h1 className="blog-title">{item.text}</h1>
-
-                {/* CONTENIDO DEL H1 (INTRODUCCIÓN) */}
-                {item.content && (
-                  <div className="content-block intro-content">
-                    {item.content
-                      .split("\n")
-                      .map((paragraph, index) =>
-                        paragraph.trim() ? (
-                          <p key={`h1-p-${index}`}>{paragraph}</p>
-                        ) : null
-                      )}
-                  </div>
+                {hasTitle && (
+                  <h1
+                    className="blog-title"
+                    dangerouslySetInnerHTML={{ __html: item.text }}
+                  />
+                )}
+                {hasBody && (
+                  <div
+                    className="content-block intro-content ql-editor"
+                    dangerouslySetInnerHTML={{ __html: item.content }}
+                  />
                 )}
               </React.Fragment>
             );
           }
 
-          // 2. MANEJO DE H2 (Sección Principal y sus hijos H3)
-          const h2Item = item;
-
+          // --- MANEJO DE H2 Y SUS HIJOS (H3) ---
           return (
-            <React.Fragment key={h2Item.uniqueId}>
-              {/* H2 - Título de la Sección Principal */}
-              <h2 className="section-h2">{h2Item.text}</h2>
-
-              {/* Contenido del H2 (Cuerpo del H2) */}
-              {h2Item.content && (
-                <div className="content-block">
-                  {h2Item.content
-                    .split("\n")
-                    .map((paragraph, index) =>
-                      paragraph.trim() ? (
-                        <p key={`h2-p-${h2Item.uniqueId}-${index}`}>
-                          {paragraph}
-                        </p>
-                      ) : null
-                    )}
-                </div>
+            <React.Fragment key={item.uniqueId}>
+              {hasTitle && (
+                <h2
+                  className="section-h2"
+                  dangerouslySetInnerHTML={{ __html: item.text }}
+                />
+              )}
+              {hasBody && (
+                <div
+                  className="content-block ql-editor"
+                  dangerouslySetInnerHTML={{ __html: item.content }}
+                />
               )}
 
-              {/* H3 - Subsecciones (Bucle anidado) */}
-              {h2Item.children &&
-                h2Item.children.map((h3Item) => (
-                  <React.Fragment key={h3Item.uniqueId}>
-                    {/* H3 - Título de la Subsección */}
-                    <h3 className="subsection-h3">{h3Item.text}</h3>
+              {/* Renderizar hijos (H3) solo si existen y tienen contenido */}
+              {item.children?.map((h3Item) => {
+                const hasH3Title = hasActualContent(h3Item.text);
+                const hasH3Body = hasActualContent(h3Item.content);
 
-                    {/* Contenido del H3 */}
-                    {h3Item.content && (
-                      <div className="content-block">
-                        {h3Item.content
-                          .split("\n")
-                          .map((paragraph, index) =>
-                            paragraph.trim() ? (
-                              <p key={`h3-p-${h3Item.uniqueId}-${index}`}>
-                                {paragraph}
-                              </p>
-                            ) : null
-                          )}
-                      </div>
+                if (!hasH3Title && !hasH3Body) return null;
+
+                return (
+                  <React.Fragment key={h3Item.uniqueId}>
+                    {hasH3Title && (
+                      <h3
+                        className="subsection-h3"
+                        dangerouslySetInnerHTML={{ __html: h3Item.text }}
+                      />
+                    )}
+                    {hasH3Body && (
+                      <div
+                        className="content-block ql-editor"
+                        dangerouslySetInnerHTML={{ __html: h3Item.content }}
+                      />
                     )}
                   </React.Fragment>
-                ))}
+                );
+              })}
             </React.Fragment>
           );
         })}
@@ -810,26 +841,26 @@ const GeneracionBlog = () => {
 
   // 2. Crear una NUEVA estructura inyectando 'wordCount'
   const structureWithCount = useMemo(() => {
-    // 1. Convertir el string de la API (tablaEstructuraFinal) a la estructura Array/JSON
+    // 1. Convertir el string de la API a Array/JSON (Tu lógica original)
     const structureArray = parseMarkdownStructure(tablaEstructuraFinal);
 
-    // Guard Clause: Si no hay estructura o el parsing falló, retorna un array vacío.
     if (!structureArray || structureArray.length === 0) {
       return [];
     }
 
-    // 2. Aplicar la lógica de mapeo directamente al resultado del parsing
-    // (Ahora 'structureArray' es el array que antes se llamaba 'structureToRender')
-    return structureArray.map((item) => ({
-      ...item,
-      wordCount: contarPalabras(item.content || ""),
-      children: item.children
-        ? item.children.map((h3) => ({
-            ...h3,
-            wordCount: contarPalabras(h3.content || ""),
-          }))
-        : [],
-    }));
+    // 2. Función interna para procesar cualquier nivel (H1, H2, H3...)
+    // Esto asegura que NADA se pierda, incluyendo multimediaDescription
+    const processLevel = (item) => {
+      return {
+        ...item, // Mantiene text, level, multimedia, multimediaDescription, etc.
+        wordCount: contarPalabras(item.content || ""),
+        // Si tiene hijos, los procesamos con esta misma función (recursividad)
+        children: item.children ? item.children.map(processLevel) : [],
+      };
+    };
+
+    // 3. Aplicamos el proceso a toda la estructura
+    return structureArray.map(processLevel);
   }, [tablaEstructuraFinal]);
 
   // 3. Usar tu función existente para calcular el total
@@ -899,74 +930,56 @@ const GeneracionBlog = () => {
     setSectionContentValue(contentToEdit);
   };
 
-  // Funcion para guardar los titulos
   const handleGuardarCambiosTitulo = () => {
-    // 1. Validaciones
-    if (!selectedSectionForRegen || !regenTextareaValue) {
-      showToast(
-        "ERROR: No se ha seleccionado una sección o el nuevo título está vacío.",
-        "error"
-      );
+    // 1. Validaciones (Quill puede devolver <p><br></p> si está vacío)
+    const isValueEmpty =
+      !regenTextareaValue || regenTextareaValue === "<p><br></p>";
+
+    if (!selectedSectionForRegen || isValueEmpty) {
+      showToast("ERROR: El título está vacío.", "error");
       return;
     }
 
-    const newTitle = regenTextareaValue.trim();
-    const { level, enumeration } = selectedSectionForRegen;
+    // IMPORTANTE: No usamos .trim() aquí para no romper posibles espacios de etiquetas HTML
+    const newTitle = regenTextareaValue;
+    const level = selectedSectionForRegen.level.toUpperCase();
+    const enumeration = selectedSectionForRegen.enumeration;
+    const currentMarkdown = tablaEstructuraFinal;
 
-    // 1. Obtener la estructura actual como objeto
-    // Nota: Aunque no lo vemos, asumimos que 'parseMarkdownStructure' es robusto.
-    let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
+    const escapedEnumeration = enumeration.replace(/\./g, "\\.");
 
-    // Variables para seguimiento
-    const idH2 = enumeration.split(".")[0];
-    const h2Padre = nuevaEstructura.find((item) => item.enumeration === idH2);
-    let substitutionSuccess = false; // Bandera para verificar el éxito
+    // Regex para capturar la línea del título
+    const targetRegex = new RegExp(
+      `^\\s*\\[${level}\\s*-\\s*${escapedEnumeration}\\]\\s*(.*)$`,
+      "m"
+    );
 
-    // 2. Encontrar y actualizar el TÍTULO en el objeto anidado
-    if (h2Padre) {
-      if (level === "h2") {
-        // Actualizar el título del H2
-        h2Padre.text = newTitle; // <--- Se cambia 'content' por 'text' para el título
-        substitutionSuccess = true;
-      } else if (level === "h3") {
-        // Buscar y actualizar el título del H3
-        const h3Objetivo = h2Padre.children.find(
-          (item) => item.enumeration === enumeration
-        );
-        if (h3Objetivo) {
-          h3Objetivo.text = newTitle; // <--- Se cambia 'content' por 'text' para el subtítulo
-          substitutionSuccess = true;
-        }
-      }
-    }
+    // Construimos la línea manteniendo el HTML que viene de Quill
+    const newFullLine = `[${level} - ${enumeration}] ${newTitle}`;
 
-    // 3. Convertir la estructura modificada de vuelta a Markdown
-    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
+    const newStructureString = currentMarkdown.replace(
+      targetRegex,
+      newFullLine
+    );
 
-    // 4. Verificación y Actualización
-    if (!substitutionSuccess) {
-      // Si no se encontró el objeto, la sustitución falla.
-      showToast(
-        "ERROR CRÍTICO: Falló la sustitución. El título no fue encontrado en la estructura de objeto.",
-        "error"
-      );
+    if (newStructureString === currentMarkdown) {
+      showToast("ERROR CRÍTICO: Falló la sustitución.", "error");
     } else {
-      // 4.1. ACTUALIZAR EL ESTADO PRINCIPAL con la nueva estructura de Markdown
-      setTablaEstructuraFinal(nuevoMarkdown);
+      setTablaEstructuraFinal(newStructureString);
       markAsChanged();
 
-      // 4.2. Actualizar el estado local (UI)
       setSelectedSectionForRegen((prevSection) => ({
         ...prevSection,
-        text: newTitle, // Actualizar el texto de la sección seleccionada
+        text: newTitle, // Aquí ahora va el HTML (ej: <strong>Texto</strong>)
       }));
 
       setRegenTextareaValue(newTitle);
-      showToast(" Edición local del título guardada exitosamente.", "success");
+      showToast("Edición local del título guardada exitosamente.", "success");
     }
   };
 
   //Funcion para guardar el contenido de los titulos o subtitulos
+  // Mantengo tu nombre y parámetros originales
   const guardarContenidoLocal = (fieldToUpdate, newValue) => {
     if (!selectedSectionForRegen) {
       showToast(
@@ -975,80 +988,55 @@ const GeneracionBlog = () => {
       );
       return;
     }
-    // 1. Preparar el valor a guardar (trim)
-    const valueToSave = (newValue ?? "").trim();
 
-    // 2. Determina la propiedad real de la estructura ('text' o 'content')
+    // CAMBIO: Eliminamos el .trim() agresivo para no romper el HTML de Quill
+    // Si newValue es nulo, usamos string vacío.
+    const valueToSave = newValue ?? "";
+
     const propertyToUpdate = fieldToUpdate === "title" ? "text" : "content";
-
-    // 3. Obtener la estructura actual como objeto
     let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
     const { level, enumeration } = selectedSectionForRegen;
 
-    // 4. Encontrar y actualizar el objeto en el array anidado
+    // Localizamos el item (Mantenemos tu lógica de búsqueda)
     const idH2 = enumeration.split(".")[0];
-    const h2Padre = nuevaEstructura.find((item) => item.enumeration === idH2);
 
-    if (h2Padre) {
-      if (level === "h1" || level === "h2") {
-        // ASIGNACIÓN DINÁMICA DE PROPIEDAD: OK
-        h2Padre[propertyToUpdate] = valueToSave;
-      } else if (level === "h3") {
-        const h3Objetivo = h2Padre.children.find(
-          (item) => item.enumeration === enumeration
-        );
-        if (h3Objetivo) {
-          // ASIGNACIÓN DINÁMICA DE PROPIEDAD: OK
-          h3Objetivo[propertyToUpdate] = valueToSave;
+    // Manejo especial para H1 (que no suele estar dentro de un H2 padre en tu parser)
+    if (level === "h1") {
+      const h1Item = nuevaEstructura.find((item) => item.level === "h1");
+      if (h1Item) h1Item[propertyToUpdate] = valueToSave;
+    } else {
+      const h2Padre = nuevaEstructura.find((item) => item.enumeration === idH2);
+      if (h2Padre) {
+        if (level === "h2") {
+          h2Padre[propertyToUpdate] = valueToSave;
+        } else if (level === "h3") {
+          const h3Objetivo = h2Padre.children.find(
+            (item) => item.enumeration === enumeration
+          );
+          if (h3Objetivo) h3Objetivo[propertyToUpdate] = valueToSave;
         }
       }
     }
-
-    // --- Lógica de Palabras Generadas (Solo si se actualiza el Contenido) ---
-    let nuevoTotalPalabras;
 
     if (fieldToUpdate === "content") {
-      nuevoTotalPalabras = recalcularPalabrasGeneradas(nuevaEstructura);
+      const nuevoTotalPalabras = recalcularPalabrasGeneradas(nuevaEstructura);
       setTotalGeneratedWords(nuevoTotalPalabras);
-
-      // Notificación de límite de palabras
-      if (estimatedWordCount && estimatedWordCount > 0) {
-        if (nuevoTotalPalabras > estimatedWordCount) {
-          const exceso = nuevoTotalPalabras - estimatedWordCount;
-          showToast(
-            ` ADVERTENCIA: Has excedido la longitud estimada de ${estimatedWordCount.toLocaleString()} palabras por ${exceso.toLocaleString()}.`,
-            "warning"
-          );
-        }
-      }
     }
 
-    // 5. Convertir la estructura modificada de vuelta a Markdown
+    // 5. Convertir de vuelta (Aquí es donde se pierden los estilos si no se tiene cuidado)
     const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
 
-    // 6. ACTUALIZAR EL ESTADO PRINCIPAL
     setTablaEstructuraFinal(nuevoMarkdown);
     markAsChanged();
 
-    // 7. Limpieza de UI
+    // Limpieza de UI
     setSelectedSectionForRegen(null);
     setSectionContentValue("");
     setRegenTextareaValue("");
-    if (setTempContentUpdate) {
-      setTempContentUpdate(null);
-    }
-    // ------------------------------------------------------------------------
+    if (setTempContentUpdate) setTempContentUpdate(null);
 
     const fieldName = fieldToUpdate === "title" ? "Título" : "Contenido";
-
-    if (!valueToSave) {
-      showToast(`${fieldName} de la sección borrado localmente.`, "success");
-    } else {
-      showToast(
-        `${fieldName} de la sección guardado localmente y actualizado.`,
-        "success"
-      );
-    }
+    showToast(`${fieldName} guardado localmente.`, "success");
   };
 
   //  Cancelar Edición de Contenido
@@ -1691,12 +1679,10 @@ const GeneracionBlog = () => {
       return;
     }
 
-    // 2. CONSTRUCCIÓN DE LA CONSULTA (TEMA CENTRAL)
-    // Se usa el primer URL como último recurso (fallback).
+    // 2. CONSTRUCCIÓN DE LA CONSULTA
     const urlContent =
       referenciaUrls.current?.value.split("\n")[0].trim() || "";
 
-    // 💥 CAMBIO CLAVE: Priorizamos el 'title', luego el 'query', luego la URL.
     const topic = datosFinales?.title || datosFinales?.query || urlContent;
     const consulta = topic.trim(); // Tema final para la IA
 
@@ -1716,12 +1702,8 @@ const GeneracionBlog = () => {
     setCargandoIA(true);
     setError(null);
 
-    // Si tenemos blogId, el backend buscará el contenido consolidado en la DB.
-    // Si NO tenemos blogId (modo prueba), enviamos el contenido consolidado del estado.
     const textoConsolidado = idDelBlog ? undefined : contenidoConsolidado;
-
-    // Los parámetros se construyen con el 'title_base' usando la 'consulta' ya definida.
-    const title_base = consulta; // title_base es ahora la consulta
+    const title_base = consulta;
     const categoria = datosFinales?.categoria || "";
     const idioma = datosFinales?.idioma || "";
     const tecnica = datosFinales?.tecnica || "";
@@ -1731,14 +1713,9 @@ const GeneracionBlog = () => {
     try {
       // LLamada al endpoint de generación de estructura
       const requestData = {
-        query: consulta, // OBLIGATORIO: Tema central para la IA (Ahora el Título)
-
-        // CRÍTICO: Se envía el blog_id para que el backend lo busque en la tabla Scraping
+        query: consulta,
         blog_id: idDelBlog,
-
-        // Opcional/Fallback: Se envía consolidated_text solo si no hay blogId
         consolidated_content: textoConsolidado,
-
         title_base,
         categoria,
         idioma,
@@ -1793,7 +1770,7 @@ const GeneracionBlog = () => {
     }
   });
 
-  // Funcion generacion de contenido
+  // GENERACION DE CONTENIDO PARA SECCIÓN ESPECÍFICA
   const generarContenidoIA = async () => {
     if (!selectedSectionForRegen) {
       showToast(
@@ -1880,7 +1857,7 @@ const GeneracionBlog = () => {
     };
 
     try {
-      // 1. LLAMADA A LA API (SU LÓGICA INTACTA)
+      // 1. LLAMADA A LA API
       const response = await fetch(URL_CONTENIDO_SECCION, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1898,7 +1875,7 @@ const GeneracionBlog = () => {
       if (result.generated_content) {
         const nuevoContenido = result.generated_content.trim();
 
-        // 2.1. Actualizar el editor para la vista previa (DESEADO)
+        // 2.1. Actualizar el editor para la vista previa
         setSectionContentValue(nuevoContenido);
 
         // 2.2. Aplicar el contenido al estado TEMPORAL para la vista de la estructura
@@ -1908,7 +1885,7 @@ const GeneracionBlog = () => {
         });
 
         showToast(
-          "✅ Contenido generado y listo para revisión. Presiona 'Guardar Contenido Local' para aplicarlo.",
+          "Contenido generado y listo para revisión. Presiona 'Guardar Contenido Local' para aplicarlo.",
           "info"
         );
       } else {
@@ -1930,11 +1907,6 @@ const GeneracionBlog = () => {
 
   // Generación Única con Historial
   const regenerarSeccion = async (sectionType, historyArray) => {
-    // 1. Validaciones Iniciales
-    console.log("--- DEBUG REGENERACION INICIAL ---");
-    console.log("Valor de datosFinales.title:", datosFinales?.title);
-    console.log("ID de Blog:", datosFinales?.id);
-    console.log("-----------------------------------");
     if (!datosFinales || !datosFinales.title || !datosFinales.id) {
       setError(
         "Error: Título principal o ID del blog no disponibles. Necesarios para la consulta."
@@ -1949,10 +1921,10 @@ const GeneracionBlog = () => {
     setError(null);
 
     const consulta = datosFinales.title;
-    const blogId = datosFinales.id; // 2. Preparación de los datos de la solicitud base (SIN consolidated_content)
+    const blogId = datosFinales.id;
     const requestData = {
       query: consulta,
-      blog_id: blogId, // Enviamos el ID para la consulta DB del backend
+      blog_id: blogId,
       section_type: sectionType,
       previous_content: historyArray,
       idioma: datosFinales?.idioma || "",
@@ -1960,7 +1932,7 @@ const GeneracionBlog = () => {
       tono: datosFinales?.tono || "",
       tecnica: datosFinales?.tecnica || "",
       regenerate_data: undefined,
-    }; // 3. Lógica de Manejo Específico para 'structure_section'
+    };
 
     if (sectionType === "structure_section") {
       const fullStructure =
@@ -2000,7 +1972,7 @@ const GeneracionBlog = () => {
 
       const result = await response.json();
       let regeneratedSuggestions = result?.regenerated_suggestions;
-      let generatedContent = null; // 🟢 Lógica de Extracción y Parseo Robusta (Corregida) // Si no viene en el formato esperado (regenerated_suggestions), asumimos que es la respuesta cruda de la IA.
+      let generatedContent = null;
       if (
         !Array.isArray(regeneratedSuggestions) ||
         regeneratedSuggestions.length === 0
@@ -2011,14 +1983,12 @@ const GeneracionBlog = () => {
         if (aiMessageContent) {
           try {
             // 2. Parsear la cadena JSON anidada
-            const parsedContent = JSON.parse(aiMessageContent); // 3. **CRÍTICO:** Extraer el valor del campo que la IA está devolviendo
-            // 👇 ESTA ES LA LÍNEA CORREGIDA 👇
+            const parsedContent = JSON.parse(aiMessageContent);
+
             if (
               sectionType === "structure_section" &&
               parsedContent.structure_markdown
             ) {
-              // CORRECCIÓN: Si el modelo devuelve la estructura completa (formato no deseado),
-              // NO la asignamos para que el flujo de validación falle limpiamente.
               generatedContent = null;
             } else if (
               parsedContent.suggestions &&
@@ -2102,9 +2072,10 @@ const GeneracionBlog = () => {
   };
 
   // Funncion generacion de contenido completo
+
   const generarContenidoCompleto = async () => {
     // 1. OBTENCIÓN DE ID DEL BLOG Y VALIDACIONES INICIALES
-    const idDelBlog = blogId; // Asumiendo que blogId es accesible desde useParams()
+    const idDelBlog = blogId;
 
     if (!idDelBlog) {
       showToast(
@@ -2131,7 +2102,7 @@ const GeneracionBlog = () => {
       "info"
     );
 
-    // --- LÓGICA DE PRESUPUESTO DINÁMICO: INICIALIZACIÓN (SIN CAMBIOS) ---
+    // --- LÓGICA DE PRESUPUESTO DINÁMICO ---
     let estructuraAnidada = parseMarkdownStructure(tablaEstructuraFinal);
     let estructuraTemporal = estructuraAnidada;
     let generatedContentHistory = [];
@@ -2144,7 +2115,6 @@ const GeneracionBlog = () => {
       estructuraAnidada,
       contarPalabras
     );
-    // --- FIN INICIALIZACIÓN DE PRESUPUESTO ---
 
     // 3. Procesar CADA BLOQUE H2 secuencialmente
     for (const h2Block of estructuraAnidada) {
@@ -2161,20 +2131,25 @@ const GeneracionBlog = () => {
 
       setSelectedSectionForRegen(h2Block);
 
-      const blockTitle = h2Block.enumeration + ". " + h2Block.text;
+      // --- LIMPIEZA DE TEXTOS PARA EL PAYLOAD ---
+      // Limpiamos el texto del H2 de etiquetas HTML
+      const cleanH2Text = stripHtml(h2Block.text);
+      const blockTitle = h2Block.enumeration + ". " + cleanH2Text;
+
       showToast(`Generando contenido para BLOQUE: ${blockTitle}`, "info", 4000);
 
-      // Markdown para el H2 y sus H3 (sección a generar)
+      // Markdown limpio para el backend (evita enviar <p> o &nbsp;)
       const blockMarkdownToGenerate = [
-        `## ${h2Block.enumeration}. ${h2Block.text}`,
-        ...h2Block.children.map((h3) => `### ${h3.enumeration}. ${h3.text}`),
+        `## ${h2Block.enumeration}. ${cleanH2Text}`,
+        ...h2Block.children.map(
+          (h3) => `### ${h3.enumeration}. ${stripHtml(h3.text)}`
+        ),
       ].join("\n");
 
-      // Obtenemos el Markdown completo actualizado para el historial
       const fullStructureMarkdown =
         convertStructureToMarkdown(estructuraTemporal);
 
-      // --- CÁLCULO DINÁMICO DEL PRESUPUESTO DEL BLOQUE (SIN CAMBIOS) ---
+      // --- CÁLCULO DINÁMICO DEL PRESUPUESTO ---
       let subseccionesEnBloqueActual = 0;
       if (!h2Block.content || contarPalabras(h2Block.content) === 0) {
         subseccionesEnBloqueActual = 1;
@@ -2185,52 +2160,38 @@ const GeneracionBlog = () => {
         }
       });
 
-      // Este es el valor clave para la fórmula de distribución de presupuesto
       const subseccionesPendientes = Math.max(
         1,
         totalSubsecciones - subseccionesGeneradas
       );
-
-      // FÓRMULA: (Palabras Restantes / Subsecciones Pendientes) * Subsecciones en Bloque Actual
       const limitePalabrasBloqueCalculado = Math.ceil(
         ((palabrasObjetivo - palabrasAcumuladas) / subseccionesPendientes) *
           subseccionesEnBloqueActual
       );
-
       const limiteFinal = Math.max(100, limitePalabrasBloqueCalculado);
-      // --- FIN CÁLCULO DINÁMICO ---
 
-      // --- CONSTRUCCIÓN DEL PAYLOAD (MODIFICADO) ---
+      // --- CONSTRUCCIÓN DEL PAYLOAD (CON TEXTOS LIMPIOS) ---
       const payload = {
-        // 💥 CRÍTICO: Solo enviamos el ID. El backend buscará el resto de datos.
         blog_id: idDelBlog,
-
-        // 💡 SOLUCIÓN CLAVE: Incluir campos de configuración requeridos por el modelo AIAnalysisRequest
-        // Se utiliza optional chaining (?.) para prevenir errores si datosFinales aún no está cargado.
         query: datosFinales?.query,
-        consolidated_content: contenidoConsolidado, // Asumiendo que es accesible en este scope
+        consolidated_content: contenidoConsolidado,
         keywords: datosFinales?.keywords || [],
-        idioma: datosFinales?.idioma, // <--- ESTO SOLUCIONA EL ERROR 400
+        idioma: datosFinales?.idioma,
         acento: datosFinales?.acento,
         tono: datosFinales?.tono,
-
         section_type: "full_block_generation",
         previous_content: generatedContentHistory,
-
-        // CAMPOS DE PRESUPUESTO DINÁMICO enviados al backend
         palabras_acumuladas: palabrasAcumuladas,
         subsecciones_pendientes: subseccionesPendientes,
         limite_palabras_bloque: limiteFinal,
-
         regenerate_data: {
-          section_title: blockTitle,
+          section_title: blockTitle, // Texto plano
           section_level: "h2_block",
-          section_text: blockMarkdownToGenerate,
+          section_text: blockMarkdownToGenerate, // Markdown plano
           full_structure_markdown: fullStructureMarkdown,
           estimated_word_count: palabrasObjetivo || 0,
         },
       };
-      // --- FIN CONSTRUCCIÓN DEL PAYLOAD ---
 
       try {
         const response = await fetch(URL_API_IA_COMPLETO, {
@@ -2240,36 +2201,26 @@ const GeneracionBlog = () => {
           signal: controller.signal,
         });
 
-        // Lógica de manejo de errores HTTP
         if (!response.ok) {
-          let errorMessage = `Error HTTP ${response.status} (${response.statusText})`;
+          let errorMessage = `Error HTTP ${response.status}`;
           try {
             const errorData = await response.json();
-            if (errorData.detail) {
-              errorMessage = JSON.stringify(errorData.detail);
-            } else if (errorData.error) {
-              errorMessage = errorData.error;
-            } else {
-              errorMessage = JSON.stringify(errorData);
-            }
-          } catch (jsonError) {
-            const responseBody = await response.text();
-            errorMessage = responseBody || errorMessage;
+            errorMessage =
+              errorData.detail || errorData.error || JSON.stringify(errorData);
+          } catch (e) {
+            errorMessage = await response.text();
           }
           throw new Error(errorMessage);
         }
 
-        // 💥 Uso de 'result' 💥: La variable 'result' es necesaria
-        // para contener la respuesta JSON de la API.
         const result = await response.json();
 
         if (result.success !== "True" || !result.generated_content) {
           throw new Error(
-            `Respuesta de IA fallida o incompleta. Log: ${result.log || "N/A"}`
+            `Respuesta de IA fallida. Log: ${result.log || "N/A"}`
           );
         }
 
-        // APLICACIÓN Y RENDERIZADO DEL CONTENIDO (SIN CAMBIOS)
         const rawContent =
           typeof result.generated_content === "string"
             ? result.generated_content
@@ -2283,24 +2234,21 @@ const GeneracionBlog = () => {
           generatedContentMap = JSON.parse(cleanContent);
         }
 
-        //Mutar la estructura temporal con el contenido
+        // --- ACTUALIZACIÓN DE ESTRUCTURA CON MAPEO LIMPIO ---
         estructuraTemporal = estructuraTemporal.map((h2Padre) => {
-          if (h2Padre.enumeration !== h2Block.enumeration) {
-            return h2Padre;
-          }
+          if (h2Padre.enumeration !== h2Block.enumeration) return h2Padre;
 
           let h2Actualizado = { ...h2Padre };
 
-          // Actualizar el H2 principal
-          const h2Key = `${h2Padre.enumeration}. ${h2Padre.text}`;
+          // Buscamos en el JSON usando la misma lógica de texto limpio
+          const h2Key = `${h2Padre.enumeration}. ${stripHtml(h2Padre.text)}`;
           if (generatedContentMap[h2Key]) {
             h2Actualizado.content = generatedContentMap[h2Key];
             generatedContentHistory.push(generatedContentMap[h2Key]);
           }
 
-          // Actualizar todos sus H3
           h2Actualizado.children = h2Actualizado.children.map((h3) => {
-            const h3Key = `${h3.enumeration}. ${h3.text}`;
+            const h3Key = `${h3.enumeration}. ${stripHtml(h3.text)}`;
             if (generatedContentMap[h3Key]) {
               generatedContentHistory.push(generatedContentMap[h3Key]);
               return { ...h3, content: generatedContentMap[h3Key] };
@@ -2311,234 +2259,130 @@ const GeneracionBlog = () => {
           return h2Actualizado;
         });
 
-        // Actualizacion del estado completo
         const nuevoMarkdown = convertStructureToMarkdown(estructuraTemporal);
         setTablaEstructuraFinal(nuevoMarkdown);
-
         setHasUnsavedChanges(true);
 
-        // --- ACTUALIZACIÓN DE CONTADORES PARA LA SIGUIENTE ITERACIÓN (SIN CAMBIOS) ---
         palabrasAcumuladas = recalcularPalabrasGeneradas(estructuraTemporal);
         subseccionesGeneradas = recalcularSubseccionesGeneradas(
           estructuraTemporal,
           contarPalabras
         );
-        // --- FIN ACTUALIZACIÓN DE CONTADORES ---
 
-        showToast(
-          `BLOQUE ${blockTitle} generado y aplicado completamente.`,
-          "success"
-        );
+        showToast(`BLOQUE ${blockTitle} generado correctamente.`, "success");
       } catch (error) {
-        if (error.name === "AbortError") {
-          console.log("Generación cancelada por el usuario.");
-          break;
-        }
-
-        const errorMsg =
-          error.message || "Error de red o conexión desconocido.";
-        console.error(
-          `Error al generar contenido para el BLOQUE ${blockTitle}:`,
-          error
-        );
-        setError(`Error al generar contenido: ${errorMsg}`);
-        showToast(`Error al solicitar contenido a la IA: ${errorMsg}`, "error");
+        if (error.name === "AbortError") break;
+        const errorMsg = error.message || "Error desconocido.";
+        console.error(`Error en BLOQUE ${blockTitle}:`, error);
+        setError(`Error: ${errorMsg}`);
+        showToast(`Error: ${errorMsg}`, "error");
         break;
       }
     }
 
-    if (!cancelacionSolicitada) {
-      referenciaControladorAborto.current = null;
-    }
+    if (!cancelacionSolicitada) referenciaControladorAborto.current = null;
     setCargandoIA(false);
     setSelectedSectionForRegen(null);
-    showToast(" Proceso de generación completa finalizado.", "info");
+    showToast("Proceso de generación finalizado.", "info");
   };
 
   // =======================================================================
   // 5. COMPONENTE StructureRenderer
   // =======================================================================
 
-  // FUNCIÓN DE RENDERIZADO PARA INTERACCION
+  // FUNCIÓN DE RENDERIZADO PARA INTERACCIÓN (CORREGIDA)
   const StructureRenderer = ({
     structure,
     onSelect,
     selectedSection,
-    onAction, // Prop unificado para acciones (move/delete)
+    onAction,
   }) => {
-    if (!structure || structure.length === 0) {
+    if (!structure || structure.length === 0) return null;
+
+    /**
+     * Determina si una sección tiene algo que mostrar (Texto, Contenido, SEO o Hijos).
+     * El H1 siempre se retorna true para asegurar que el título principal nunca desaparezca.
+     */
+    const hasContentToShow = (item) => {
+      if (item.level === "h1") return true;
+
+      const textVal =
+        item.text
+          ?.replace(/<[^>]*>/g, "")
+          .replace(/&nbsp;/g, "")
+          .trim() || "";
+      const contentVal =
+        item.content
+          ?.replace(/<[^>]*>/g, "")
+          .replace(/&nbsp;/g, "")
+          .trim() || "";
+      const hasSEO =
+        !!item.multimediaDescription &&
+        item.multimediaDescription.trim() !== "";
+      const hasChildren = item.children && item.children.length > 0;
+
       return (
-        <p className="text-gray-400 italic p-3">
-          Estructura no disponible para renderizar.
-        </p>
+        textVal.length > 0 || contentVal.length > 0 || hasSEO || hasChildren
       );
-    }
+    };
 
     return (
-      // La lista principal <ul>
       <ul className="structure-list">
         {structure.map((item) => {
-          const isH1 = item.level === "h1"; // Identificador para H1
-          const isH2 = item.level === "h2";
+          // Si no hay nada que mostrar en este nodo, saltamos al siguiente
+          if (!hasContentToShow(item)) return null;
 
-          // Si es H1, lo renderizamos de forma simplificada y sin anidación,
-          // PERO ahora incluimos el contenido y SEO.
-          if (isH1) {
-            return (
-              <li
-                key={item.uniqueId || item.enumeration}
-                className={`
-                                structure-item structure-item-h1 // Clase específica para el H1
-                                ${
-                                  selectedSection?.uniqueId === item.uniqueId
-                                    ? "structure-item-selected"
-                                    : ""
-                                }
-                            `}
-                title="H1 (Título Principal). Haga click para editar."
-              >
-                <div className="structure-content-wrapper">
-                  {/* Área que maneja la selección al hacer click en el texto */}
-                  <div
-                    className="structure-text-area"
-                    onClick={(e) => onSelect(item, e)}
-                    style={{ flexGrow: 1, cursor: "pointer" }}
-                  >
-                    {/* 1. Ícono para H1 */}
-                    <span className="structure-icon-wrapper">
-                      <i className="uil uil-heading structure-icon-h1"></i>{" "}
-                      {/* Icono distintivo para H1 */}
-                    </span>
-                    {/* 2. Enumeración y Texto del encabezado */}
-                    <span
-                      style={{
-                        fontWeight: "bolder",
-                        marginRight: "8px",
-                        fontSize: "1.1em",
-                      }}
-                    >
-                      {item.enumeration}
-                    </span>
-                    {item.text}
-                    {/* Contador de palabras por sección (Si el H1 tiene contenido) */}
-                    {item.wordCount !== null && item.wordCount > 0 && (
-                      <span
-                        className="section-word-count"
-                        style={{
-                          marginLeft: "8px",
-                          color: "#6c757d",
-                          fontWeight: "normal",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        ({item.wordCount} palabras)
-                      </span>
-                    )}
-                  </div>
+          const isSelected = selectedSection?.uniqueId === item.uniqueId;
+          const isH1 = item.level === "h1";
 
-                  {/* Los botones de acción se OMITEN aquí para el H1 */}
-                  <div className="structure-buttons-group">
-                    {/* Opcional: Se pueden poner botones de solo info, pero NO de mover/eliminar */}
-                  </div>
-                </div>
-
-                {/* Bloque de previsualización del CONTENIDO - AÑADIDO AL H1 */}
-                {item.content && item.content.trim() && (
-                  <div
-                    className="content-preview-block"
-                    style={{
-                      marginTop: "10px",
-                      padding: "8px 12px",
-                      borderLeft: "4px solid #10a2f4", // Color distintivo
-                      backgroundColor: "#f0f8ff",
-                      fontSize: "0.9em",
-                      color: "#333",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                    }}
-                    title="Contenido generado. Haga clic para editar."
-                  >
-                    <i
-                      className="uil uil-file-alt"
-                      style={{ marginRight: "8px", color: "#10a2f4" }}
-                    ></i>
-                    <strong>CONTENIDO:</strong>{" "}
-                    {item.content.trim().substring(0, 150)}
-                    {item.content.trim().length > 150 ? "..." : ""}
-                  </div>
-                )}
-
-                {/* Bloque de recomendación SEO (DIV) - AÑADIDO AL H1 */}
-                {item.multimediaDescription && (
-                  <div
-                    className="multimedia-recommendation-seo"
-                    style={{
-                      marginTop: "10px",
-                      padding: "8px 12px",
-                      borderLeft: "4px solid #f29727",
-                      backgroundColor: "#fff8f0",
-                      fontSize: "0.9em",
-                      color: "#333",
-                    }}
-                  >
-                    <i
-                      className="uil uil-search-alt"
-                      style={{ marginRight: "8px", color: "#f29727" }}
-                    ></i>
-                    <strong>RECOMENDACIÓN SEO ({item.multimedia}):</strong>{" "}
-                    {item.multimediaDescription}
-                  </div>
-                )}
-
-                {/* Omitimos recursividad para H1 */}
-              </li>
-            );
-          }
-
-          // Lógica para H2 y H3 (Continúa el flujo normal)
           return (
             <li
               key={item.uniqueId || item.enumeration}
-              className={`
-                            structure-item
-                            ${isH2 ? "structure-item-h2" : "structure-item-h3"}
-                            ${
-                              selectedSection?.uniqueId === item.uniqueId
-                                ? "structure-item-selected"
-                                : ""
-                            }
-                        `}
-              title={`Haga click en el texto para editar este ${item.level.toUpperCase()}`}
+              className={`structure-item structure-item-${item.level} ${
+                isSelected ? "structure-item-selected" : ""
+              }`}
             >
-              {/* CONTENEDOR PRINCIPAL DEL TEXTO Y BOTONES */}
+              {/* 1. ENCABEZADO: Icono + Título + Botones */}
               <div className="structure-content-wrapper">
-                {/* Área que maneja la selección al hacer click en el texto */}
                 <div
                   className="structure-text-area"
                   onClick={(e) => onSelect(item, e)}
-                  style={{ flexGrow: 1, cursor: "pointer" }}
+                  style={{
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    flexGrow: 1,
+                  }}
                 >
-                  {/* 1. Ícono para distinguir H2 y H3 visualmente */}
                   <span className="structure-icon-wrapper">
-                    {isH2 ? (
-                      <i className="uil uil-align-left-h structure-icon-h2"></i>
-                    ) : (
-                      <i className="uil uil-corner-down-right structure-icon-h3"></i>
-                    )}
+                    <i
+                      className={`uil ${
+                        isH1
+                          ? "uil-heading"
+                          : item.level === "h2"
+                          ? "uil-align-left-h"
+                          : "uil-corner-down-right"
+                      }`}
+                    ></i>
                   </span>
-                  {/* 2. Enumeración y Texto del encabezado */}
+
                   <span style={{ fontWeight: "bold", marginRight: "8px" }}>
                     {item.enumeration}
                   </span>
-                  {item.text}
-                  {/* Contador de palabras por sección */}
-                  {item.wordCount !== null && item.wordCount > 0 && (
+
+                  {/* Título de la sección (Soporta HTML de Quill) */}
+                  <span
+                    dangerouslySetInnerHTML={{
+                      __html: item.text || "Sin título",
+                    }}
+                  />
+
+                  {item.wordCount > 0 && (
                     <span
-                      className="section-word-count"
                       style={{
                         marginLeft: "8px",
                         color: "#6c757d",
-                        fontWeight: "normal",
+                        fontSize: "0.85em",
                         fontStyle: "italic",
                       }}
                     >
@@ -2547,97 +2391,130 @@ const GeneracionBlog = () => {
                   )}
                 </div>
 
-                {/* GRUPO DE BOTONES DE ACCIÓN (Mover/Eliminar) - SOLO PARA H2/H3 */}
-                <div className="structure-buttons-group">
-                  {/* Mover Arriba */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAction("move", item, "UP");
-                    }}
-                    className="btn-move-up"
-                    title="Mover Arriba"
-                  >
-                    <i className="uil uil-arrow-up"></i>
-                  </button>
-                  {/* Mover Abajo */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAction("move", item, "DOWN");
-                    }}
-                    className="btn-move-down"
-                    title="Mover Abajo"
-                  >
-                    <i className="uil uil-arrow-down"></i>
-                  </button>
-                  {/* Eliminar */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAction("delete", item);
-                    }}
-                    className="btn-delete-section"
-                    title="Eliminar Sección"
-                  >
-                    <i className="uil uil-trash-alt"></i>
-                  </button>
-                </div>
+                {/* Botones de acción: Solo visibles para H2 y H3 para no romper la raíz */}
+                {!isH1 && (
+                  <div className="structure-buttons-group">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAction("move", item, "UP");
+                      }}
+                      title="Mover Arriba"
+                    >
+                      <i className="uil uil-arrow-up"></i>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAction("move", item, "DOWN");
+                      }}
+                      title="Mover Abajo"
+                    >
+                      <i className="uil uil-arrow-down"></i>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAction("delete", item);
+                      }}
+                      title="Eliminar"
+                    >
+                      <i className="uil uil-trash-alt"></i>
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Bloque de previsualización del CONTENIDO */}
-              {item.content && item.content.trim() && (
-                <div
-                  className="content-preview-block"
-                  style={{
-                    marginTop: "10px",
-                    padding: "8px 12px",
-                    borderLeft: "4px solid #10a2f4", // Color distintivo
-                    backgroundColor: "#f0f8ff",
-                    fontSize: "0.9em",
-                    color: "#333",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                  title="Contenido generado. Haga clic para editar."
-                >
-                  <i
-                    className="uil uil-file-alt"
-                    style={{ marginRight: "8px", color: "#10a2f4" }}
-                  ></i>
-                  <strong>CONTENIDO:</strong>{" "}
-                  {item.content.trim().substring(0, 150)}
-                  {item.content.trim().length > 150 ? "..." : ""}
-                </div>
-              )}
+              {/* 2. PREVISUALIZACIÓN DE CONTENIDO (Visible en H1, H2, H3) */}
+              {item.content &&
+                item.content.replace(/<[^>]*>/g, "").trim().length > 0 && (
+                  <div
+                    className="content-preview-block"
+                    style={{
+                      marginTop: "10px",
+                      padding: "8px 12px",
+                      borderLeft: "4px solid #10a2f4",
+                      backgroundColor: "#f0f8ff",
+                      fontSize: "0.9em",
+                      borderRadius: "0 4px 4px 0",
+                    }}
+                  >
+                    <strong
+                      style={{
+                        color: "#007bff",
+                        fontSize: "0.75rem",
+                        display: "block",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      CONTENIDO:
+                    </strong>
+                    <div
+                      style={{ color: "#333", lineHeight: "1.4" }}
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          item.content.trim().substring(0, 160) +
+                          (item.content.length > 160 ? "..." : ""),
+                      }}
+                    />
+                  </div>
+                )}
 
-              {/* Bloque de recomendación SEO (DIV) */}
+              {/* 3. RECOMENDACIÓN SEO / MULTIMEDIA (Visible en H1, H2, H3) */}
               {item.multimediaDescription && (
                 <div
                   className="multimedia-recommendation-seo"
                   style={{
                     marginTop: "10px",
-                    padding: "8px 12px",
+                    padding: "10px",
                     borderLeft: "4px solid #f29727",
                     backgroundColor: "#fff8f0",
-                    fontSize: "0.9em",
-                    color: "#333",
+                    borderRadius: "0 4px 4px 0",
                   }}
                 >
-                  <i
-                    className="uil uil-search-alt"
-                    style={{ marginRight: "8px", color: "#f29727" }}
-                  ></i>
-                  <strong>RECOMENDACIÓN SEO ({item.multimedia}):</strong>{" "}
-                  {item.multimediaDescription}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    <i
+                      className="uil uil-camera"
+                      style={{ color: "#f29727", fontSize: "1.1rem" }}
+                    ></i>
+                    <strong
+                      style={{
+                        color: "#855d10",
+                        fontSize: "0.8rem",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      RECOMENDACIÓN SEO ({item.multimedia || "MULTIMEDIA"}):
+                    </strong>
+                  </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.9rem",
+                      color: "#555",
+                      lineHeight: "1.5",
+                    }}
+                  >
+                    {item.multimediaDescription}
+                  </p>
                 </div>
               )}
 
-              {/* RECURSIVIDAD para H3s ANIDADA dentro del <li> de H2. */}
-              {isH2 && item.children && item.children.length > 0 && (
-                <div style={{ marginLeft: "25px", marginTop: "10px" }}>
+              {/* 4. RECURSIVIDAD: Renderiza los hijos (H3 dentro de H2, etc.) */}
+              {item.children && item.children.length > 0 && (
+                <div
+                  className="structure-children-container"
+                  style={{ marginLeft: "25px", marginTop: "10px" }}
+                >
                   <StructureRenderer
-                    structure={item.children} // Llama al componente con los hijos
+                    structure={item.children}
                     onSelect={onSelect}
                     selectedSection={selectedSection}
                     onAction={onAction}
@@ -3000,7 +2877,8 @@ const GeneracionBlog = () => {
                 <>
                   {/* 1. Encabezado del Panel de Edición */}
                   <h2 className="analysis-title">
-                    Editar/Regenerar Sección: "{selectedSectionForRegen.text}" (
+                    Editar/Regenerar Sección: "
+                    {stripHtml(selectedSectionForRegen.text)}" (
                     {selectedSectionForRegen.level.toUpperCase()})
                   </h2>
                   <p className="result-text">
@@ -3015,14 +2893,35 @@ const GeneracionBlog = () => {
           ${titleSuggestions.length > 0 ? "has-suggestions-flex" : ""}
         `}
                   >
-                    {/* Textarea para Edición Directa / Prompt */}
-                    <textarea
-                      className="auto-expand"
-                      rows="4"
-                      placeholder="Edita el título o selecciona uno nuevo."
-                      value={regenTextareaValue}
-                      onChange={(e) => setRegenTextareaValue(e.target.value)}
-                    />
+                    {/* Edición Directa / Prompt */}
+
+                    <div
+                      className="quill-editor-wrapper"
+                      style={{
+                        border: "1px solid #ddd",
+                        borderRadius: "8px",
+                        overflow: "hidden",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <ReactQuill
+                        theme="snow"
+                        value={regenTextareaValue || ""}
+                        onChange={(content) => setRegenTextareaValue(content)}
+                        placeholder="Edita el título o selecciona uno nuevo."
+                        modules={{
+                          toolbar: [
+                            [{ font: [] }, { size: [] }],
+                            ["bold", "italic", "underline", "strike"],
+                            [{ color: [] }, { background: [] }],
+                            [{ list: "ordered" }, { list: "bullet" }],
+                            ["clean"],
+                          ],
+                        }}
+                        // Estilo más bajo ya que es un título, no necesita 300px
+                        style={{ height: "120px", marginBottom: "45px" }}
+                      />
+                    </div>
 
                     {/* Panel de Sugerencias Generadas*/}
                     {titleSuggestions.length > 0 && (
@@ -3099,8 +2998,9 @@ const GeneracionBlog = () => {
                 style={{ marginTop: "20px" }}
               >
                 <h2 className="analysis-title">
-                  Editar Contenido: {selectedSectionForRegen.text} (
-                  {selectedSectionForRegen.level.toUpperCase()})
+                  {/* Aplicamos stripHtml aquí para que no se vean los <p> ni <span> */}
+                  Editar Contenido: "{stripHtml(selectedSectionForRegen.text)}"
+                  ({selectedSectionForRegen.level.toUpperCase()})
                 </h2>
                 <p className="result-text">
                   Genera o edita el cuerpo de texto para la sección
@@ -3177,23 +3077,34 @@ const GeneracionBlog = () => {
                 {/* FIN : Seleccion de formato */}
 
                 <div
-                  className="regen-input-area"
-                  style={{ marginBottom: "10px" }}
+                  className="quill-editor-wrapper"
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    overflow: "hidden",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                  }}
                 >
-                  <textarea
-                    className="auto-expand"
-                    rows="10"
-                    placeholder="Edita o genera aquí el contenido detallado de la sección..."
-                    value={sectionContentValue}
-                    onChange={(e) => setSectionContentValue(e.target.value)}
+                  <ReactQuill
+                    theme="snow"
+                    value={sectionContentValue || ""}
+                    onChange={(content) => setSectionContentValue(content)}
                     disabled={cargandoIA}
+                    modules={{
+                      toolbar: [
+                        [{ font: [] }, { size: [] }],
+                        ["bold", "italic", "underline", "strike"],
+                        [{ color: [] }, { background: [] }],
+                        [{ list: "ordered" }, { list: "bullet" }],
+                        ["clean"],
+                      ],
+                    }}
+                    style={{ height: "300px", marginBottom: "40px" }} // Margen inferior para que no tape los botones
                   />
                 </div>
 
                 <div className="idea-buttons">
                   <button
-                    // 🚩 CORRECCIÓN APLICADA AQUÍ: Se llama la función con el campo ('content')
-                    // y el valor actual del editor (sectionContentValue).
                     onClick={() =>
                       guardarContenidoLocal("content", sectionContentValue)
                     }

@@ -59,7 +59,28 @@ const formatDateTime = (dateString) => {
 };
 
 // -----------------------------------------------------------------------------
-// 1. COMPONENTE MODAL DE CREACIÓN DE BORRADOR INICIAL
+// CONFIGURACIÓN DINÁMICA POR CATEGORÍA
+// -----------------------------------------------------------------------------
+const configsPorCategoria = {
+  Viajemos: {
+    tecnicas: ["SEO Narrativo", "Top y Curiosidades", "Guía de Destino"],
+    tonos: ["Cercano y Entusiasta", "Inspirador", "Amigable"],
+    acentos: ["Neutral", "Español(España)", "Mexico", "Colombia"],
+  },
+  Arriendo: {
+    tecnicas: ["Informativa", "Comparativa de Precios", "Guía de Trámites"],
+    tonos: ["Profesional", "Directo", "Amigable"],
+    acentos: ["Neutral", "Colombia", "Mexico"],
+  },
+  "Guia legal": {
+    tecnicas: ["Explicativa Educativa", "Análisis de Normativas"],
+    tonos: ["Formal", "Analítico", "Profesional"],
+    acentos: ["Neutral"],
+  },
+};
+
+// -----------------------------------------------------------------------------
+// 1. COMPONENTE MODAL DE CREACIÓN DE BORRADOR INICIAL (DINÁMICO)
 // -----------------------------------------------------------------------------
 const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
   const [formData, setFormData] = useState({
@@ -67,15 +88,29 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
     categoria: "",
     keywords: "",
     idioma: "Español",
-    tecnica: "Persuasiva",
-    acento: "Neutral",
-    tono: "Profesional",
+    tecnica: "",
+    acento: "",
+    tono: "",
     prioridad: "Baja",
   });
 
-  // Usando la función real de creación
   const { createBlog } = useBlogs();
   const [loading, setLoading] = useState(false);
+
+  // MANEJADOR ESPECÍFICO PARA CATEGORÍA
+  const handleCategoriaChange = (e) => {
+    const nuevaCat = e.target.value;
+    const config = configsPorCategoria[nuevaCat];
+
+    setFormData((prev) => ({
+      ...prev,
+      categoria: nuevaCat,
+      // Al cambiar categoría, reseteamos los valores dependientes a los primeros de la lista
+      tecnica: config ? config.tecnicas[0] : "",
+      tono: config ? config.tonos[0] : "",
+      acento: config ? config.acentos[0] : "",
+    }));
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -87,32 +122,29 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
       setLoading(true);
       const payload = {
         ...formData,
-        name: formData.title, // Asegurar que el título se envíe como 'name' si la API lo requiere
-        status: "draft", // Fuerza el estado inicial
+        name: formData.title,
+        status: "draft",
       };
-
-      // 1. LLAMADA A LA API: Guardar la idea/borrador inicial
       const newBlog = await createBlog(payload);
-
       if (newBlog && newBlog.id) {
-        // 2. Éxito: Notificar al dashboard y pasar el ID para la redirección
         onCreateSuccess(newBlog);
       } else {
         throw new Error("No se pudo obtener el ID del borrador creado.");
       }
     } catch (error) {
       alert(`Error al guardar la idea inicial: ${error.message}`);
-      console.error("Error en handleSubmit del Modal:", error);
-      onClose(); // Cerrar si hay error, dependiendo del UX deseado
+      onClose();
     } finally {
       setLoading(false);
     }
   };
+
+  // Obtener la configuración actual según la categoría seleccionada
+  const currentConfig = configsPorCategoria[formData.categoria];
 
   return (
     <div className="modal-backdrop">
@@ -124,25 +156,24 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="modal-form">
-          {/* Campos del formulario */}
           <div className="form-group">
             <label>Título del Blog/Tema Central (Query):</label>
             <input
               type="text"
-              id="title"
               name="title"
               value={formData.title}
               onChange={handleChange}
               required
             />
           </div>
+
           <div className="form-group">
             <label htmlFor="categoria">Categoría:</label>
             <select
               id="categoria"
               name="categoria"
               value={formData.categoria}
-              onChange={handleChange}
+              onChange={handleCategoriaChange}
               required
             >
               <option value="">Selecciona una categoría</option>
@@ -151,81 +182,88 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
               <option value="Guia legal">Guía Legal</option>
             </select>
           </div>
+
           <div className="form-group">
             <label htmlFor="keywords">Keywords Secundarias:</label>
             <textarea
-              id="keywords"
               name="keywords"
               value={formData.keywords}
               onChange={handleChange}
               rows="3"
-              placeholder="Ej: 'impuestos, contrato alquiler, avalúo'"
-            ></textarea>
+              placeholder="Ej: 'impuestos, contrato alquiler'"
+            />
           </div>
-          <div className="form-group-inline">
-            <div className="form-group">
-              <label htmlFor="idioma">Idioma:</label>
-              <select
-                id="idioma"
-                name="idioma"
-                value={formData.idioma}
-                onChange={handleChange}
-                required
-              >
-                <option value="Español">Español</option>
-                <option value="Ingles">Inglés</option>
-                <option value="Portugés">Portugués</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="tecnica">Técnica:</label>
-              <select
-                id="tecnica"
-                name="tecnica"
-                value={formData.tecnica}
-                onChange={handleChange}
-              >
-                <option value="Persuasiva">Persuasiva</option>
-                <option value="Informativa">Informativa/Educativa</option>
-                <option value="Narrativa">Narrativa</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-group-inline">
-            <div className="form-group">
-              <label htmlFor="acento">Acento:</label>
-              <select
-                id="acento"
-                name="acento"
-                value={formData.acento}
-                onChange={handleChange}
-              >
-                <option value="Neutral">Neutral (Latam)</option>
-                <option value="Español(España)">España</option>
-                <option value="Mexico">México</option>
-                <option value="Colombia">Colombia</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="tono">Tono:</label>
-              <select
-                id="tono"
-                name="tono"
-                value={formData.tono}
-                onChange={handleChange}
-              >
-                <option value="Profesional">Profesional</option>
-                <option value="Amigable">Amigable</option>
-                <option value="Formal">Formal</option>
-                <option value="Entusiasta">Entusiasta</option>
-              </select>
-            </div>
-          </div>
+
+          {/* CAMPOS DINÁMICOS: Solo se muestran si hay una categoría elegida */}
+          {currentConfig && (
+            <>
+              <div className="form-group-inline">
+                <div className="form-group">
+                  <label htmlFor="idioma">Idioma:</label>
+                  <select
+                    name="idioma"
+                    value={formData.idioma}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="Español">Español</option>
+                    <option value="Ingles">Inglés</option>
+                    <option value="Portugés">Portugués</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="tecnica">Técnica:</label>
+                  <select
+                    name="tecnica"
+                    value={formData.tecnica}
+                    onChange={handleChange}
+                  >
+                    {currentConfig.tecnicas.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group-inline">
+                <div className="form-group">
+                  <label htmlFor="acento">Acento:</label>
+                  <select
+                    name="acento"
+                    value={formData.acento}
+                    onChange={handleChange}
+                  >
+                    {currentConfig.acentos.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="tono">Tono:</label>
+                  <select
+                    name="tono"
+                    value={formData.tono}
+                    onChange={handleChange}
+                  >
+                    {currentConfig.tonos.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="form-group">
             <label htmlFor="prioridad">Prioridad</label>
             <select
-              id="prioridad"
-              name="prioridad" // El nombre de la propiedad debe ser 'prioridad'
+              name="prioridad"
               value={formData.prioridad}
               onChange={handleChange}
               required
@@ -236,7 +274,11 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
             </select>
           </div>
 
-          <button type="submit" className="btn-generate" disabled={loading}>
+          <button
+            type="submit"
+            className="btn-generate"
+            disabled={loading || !formData.categoria}
+          >
             {loading ? "Guardando Idea..." : "Generar Idea y Borrador"}
           </button>
         </form>
