@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect  } from 'react';
-import { 
+import { useNavigate, Link } from 'react-router-dom';
+import {
   Search, Plus, Edit3, Eye, Trash2, CheckCircle2, Clock, AlertCircle, UserPlus,
-  FileText,      
-  AlertTriangle, 
-  ThumbsUp,      
-  Hash,          
-  Upload,        
-  TestTube,     
+  FileText,
+  AlertTriangle,
+  ThumbsUp,
+  Hash,
+  Upload,
+  TestTube,
+  BarChart3,
 } from 'lucide-react';
 
 // Importar hooks personalizados
@@ -15,8 +17,8 @@ import apiService from './services/apiService.js';
 import { isAdminUser, isEditorUser, ADMIN_USER_IDS } from './utils/roles';
 
 function Dashboard() {
+  const navigate = useNavigate();
 
- 
   // Estados usando hooks personalizados
   const { user: currentUser, loading: loadingUser } = useCurrentUser();
   const { users } = useUsers(true);
@@ -299,34 +301,61 @@ function Dashboard() {
           margin: '0 auto'
         }}>
           <div>
-            <h1 style={{ 
-              margin: 0, 
-              fontSize: '1.875rem', 
-              fontWeight: '700', 
-              color: '#1e293b' 
+            <h1 style={{
+              margin: 0,
+              fontSize: '1.875rem',
+              fontWeight: '700',
+              color: '#1e293b'
             }}>
               Dashboard Redactoria
             </h1>
-            <p style={{ 
-              margin: '0.25rem 0 0 0', 
-              color: '#64748b', 
-              fontSize: '0.875rem' 
+            <p style={{
+              margin: '0.25rem 0 0 0',
+              color: '#64748b',
+              fontSize: '0.875rem'
             }}>
               Gestiona y supervisa todos los proyectos
             </p>
           </div>
-          
-          {currentUser && (
-            
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              backgroundColor: '#f1f5f9',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem'
-            }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Analytics Button - Only for Admin/Editor */}
+            {currentUser && (isAdminUser(currentUser.id) || isEditorUser(currentUser.id)) && (
+              <Link
+                to="/analytics"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  textDecoration: 'none',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+              >
+                <BarChart3 size={18} />
+                Analytics
+              </Link>
+            )}
+
+            {currentUser && (
               <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                backgroundColor: '#f1f5f9',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.5rem'
+              }}>
+                <div style={{
                 width: '2rem',
                 height: '2rem',
                 backgroundColor: '#3b82f6',
@@ -343,22 +372,23 @@ function Dashboard() {
                     ? `${(currentUser.first_name?.[0] || '').toUpperCase()}${(currentUser.last_name?.[0] || '').toUpperCase()}`
                     : (currentUser.email?.[0] || '').toUpperCase()
                 )}
-                
+
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: '600', color: '#1e293b' }}>
+                    {currentUser.name}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
+                    {isAdminUser(currentUser.id)
+                      ? 'Administrador'
+                      : isEditorUser(currentUser.id)
+                        ? 'Editor'
+                        : 'Visualizador'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: '600', color: '#1e293b' }}>
-                  {currentUser.name}
-                </p>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
-                  {isAdminUser(currentUser.id)
-                    ? 'Administrador'
-                    : isEditorUser(currentUser.id)
-                      ? 'Editor'
-                      : 'Visualizador'}
-                </p>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 

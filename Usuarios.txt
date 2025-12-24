@@ -3,49 +3,49 @@
   "first_name": "Jancarlo",
   "last_name": "Palomino",
   "password": "JancarloPIA2025"
-}
+}"id": "452ce522-78cb-4a44-a17a-57f61abe9084"
 
 {
   "email": "gisellh@redactoria.com",
   "first_name": "Gisell",
   "last_name": "Hernandez",
   "password": "GisellHIA2025"
-}
+}"id": "c7c17838-074d-44fa-9248-8dc87c15edd5"
 
 {
   "email": "camilac@redactoria.com",
   "first_name": "Camila",
   "last_name": "Cardenas",
   "password": "CamilaCIA2025"
-}
+}"id": "b43f1d04-f339-4cf9-8e4e-4f127f12af5a"
 
 {
   "email": "mariab@redactoria.com",
   "first_name": "Maria",
   "last_name": "Bravo",
   "password": "MariaBIA2025"
-}
+}"id": "093f0e21-abcb-4726-9d65-a3e0bf973934"
 
 {
   "email": "felipen@redactoria.com",
   "first_name": "Felipe",
   "last_name": "Niño",
   "password": "FelipeNIA2025"
-}
+}"id": "f49cda9b-2138-435e-a497-fda85be87e63"
 
 {
   "email": "daniels@redactoria.com",
   "first_name": "Daniel",
   "last_name": "Sandoval",
   "password": "DanielSIA2025"
-}
+}"id": "a1116359-0fd7-43b4-b4eb-231bc2a14a21"
 
 {
   "email": "angieg@redactoria.com",
   "first_name": "Angie",
   "last_name": "Garzon",
   "password": "AngieGIA2025"
-}
+}"id": "4e7a5222-8bd5-45c5-bdcd-e4dc1dbfe27d"
 
 {
   "email": "aldairf@redactoria.com",
@@ -58,4 +58,4 @@
   "email": "miguelm@redactoria.com",
   "first_name": "Miguel",
   "last_name": "Martinez"
-}
+}"id": "2fd1e540-40be-42cf-9d2b-693b0d3132af"

@@ -606,6 +606,10 @@ export default function Redactor() {
   const [currentLP, setCurrentLP] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Edit tracking states
+  const [editStartTimes, setEditStartTimes] = useState({});
+  const [editContextCache, setEditContextCache] = useState({});
+
   const cleanHtml = (html) => {
     if (!html || html.trim() === "") return "";
 
@@ -640,12 +644,54 @@ export default function Redactor() {
             content: cleanedContent,
           },
         }));
+
+        // Log user edit to backend (async, silent)
+        if (currentLP?.id && currentLP?.proyecto_id && editStartTimes[editingCell]) {
+          const editStartTime = editStartTimes[editingCell];
+          const editContext = editContextCache[editingCell] || {};
+
+          // Send edit log asynchronously (fire and forget)
+          apiService
+            .post("/logs/edit", {
+              landing_page_id: currentLP.id,
+              proyecto_id: currentLP.proyecto_id,
+              cell_position: editingCell,
+              content_before: currentContent,
+              content_after: cleanedContent,
+              edit_context: {
+                block_type: editContext.block_type || "unknown",
+                row: editContext.row,
+                col: editContext.col,
+              },
+              edit_start_time: editStartTime,
+              edit_end_time: new Date().toISOString(),
+            })
+            .then(() => {
+              console.log(`[Edit Tracking] Logged edit for cell ${editingCell}`);
+            })
+            .catch((error) => {
+              console.warn("[Edit Tracking] Failed to log edit:", error);
+              // Silent failure - don't interrupt user workflow
+            });
+
+          // Clean up tracking data
+          setEditStartTimes((prev) => {
+            const updated = { ...prev };
+            delete updated[editingCell];
+            return updated;
+          });
+          setEditContextCache((prev) => {
+            const updated = { ...prev };
+            delete updated[editingCell];
+            return updated;
+          });
+        }
       }
 
       setEditingCell(null);
       editingContentRef.current = "";
     }
-  }, [editingCell, tableData, cleanHtml]);
+  }, [editingCell, tableData, cleanHtml, currentLP, editStartTimes, editContextCache]);
 
   const getThemeFromTable = (tableData) => {
     const themeCellKey = "0-0";
@@ -2225,6 +2271,23 @@ export default function Redactor() {
     ]
   );
 
+  // Helper function to determine block type for a cell
+  const getBlockTypeForCell = (row, col) => {
+    const cellKey = `${row}-${col}`;
+
+    // Search through blocksMetadata to find which block this cell belongs to
+    for (const [blockId, blockData] of Object.entries(blocksMetadata)) {
+      if (blockData.contentMapping) {
+        const cellsInBlock = Object.values(blockData.contentMapping);
+        if (cellsInBlock.includes(cellKey)) {
+          return blockData.type || "unknown";
+        }
+      }
+    }
+
+    return "free_text"; // Default for cells not in a structured block
+  };
+
   const handleCellClick = (row, col, isRangeSelect = false) => {
     const cellKey = `${row}-${col}`;
 
@@ -2241,6 +2304,24 @@ export default function Redactor() {
     } else {
       setSelectedCell(cellKey);
       setSelectedRange(null);
+
+      // Capture edit start timestamp and context for tracking
+      setEditStartTimes((prev) => ({
+        ...prev,
+        [cellKey]: new Date().toISOString(),
+      }));
+
+      // Capture edit context (adjacent cells, block type, etc.)
+      const blockType = getBlockTypeForCell(row, col);
+      setEditContextCache((prev) => ({
+        ...prev,
+        [cellKey]: {
+          block_type: blockType,
+          row,
+          col,
+          timestamp: new Date().toISOString(),
+        },
+      }));
     }
 
     if (editingCell && editingCell !== cellKey) {
@@ -2971,6 +3052,10 @@ export default function Redactor() {
                 }}
                 onClick={async (event) => {
                   if (!selectedCell) return;
+
+                  // Auto-retry logic: try up to 3 times
+                  const MAX_RETRIES = 3;
+
                   try {
                     const tema = currentLP.title;
                     // Obtener el título correcto según el contexto
@@ -3055,17 +3140,63 @@ export default function Redactor() {
                     button.innerHTML =
                       "<span>🔄</span><span>Generando...</span>";
                     button.disabled = true;
-                    const generatedContent = await callIAEndpoint({
-                      blockNumber: block.number,
-                      blockTitle: blockTitle,
-                      cellKey: selectedCell,
-                      tema: tema,
-                      faqQuestions: titleInfo.faqQuestions || [],
-                      favCityQuestions: titleInfo.favCityQuestions || [],
-                      carTypes: titleInfo.carTypes || [],
-                      blockType: block.type,
-                      templateInfo: currentTemplate,
-                    });
+
+                    let generatedContent = null;
+                    let lastError = null;
+
+                    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                      try {
+                        if (attempt > 1) {
+                          button.innerHTML = `<span>🔄</span><span>Reintentando... (${attempt}/${MAX_RETRIES})</span>`;
+                        }
+
+                        generatedContent = await callIAEndpoint({
+                          blockNumber: block.number,
+                          blockTitle: blockTitle,
+                          cellKey: selectedCell,
+                          tema: tema,
+                          faqQuestions: titleInfo.faqQuestions || [],
+                          favCityQuestions: titleInfo.favCityQuestions || [],
+                          carTypes: titleInfo.carTypes || [],
+                          blockType: block.type,
+                          templateInfo: currentTemplate,
+                        });
+
+                        // Check if generation produced valid content
+                        if (!generatedContent || !generatedContent.structured_content ||
+                            Object.keys(generatedContent.structured_content).length === 0) {
+                          throw new Error("La IA no generó contenido válido");
+                        }
+
+                        // Success! Break out of retry loop
+                        break;
+
+                      } catch (error) {
+                        lastError = error;
+                        console.error(`[Intento ${attempt}/${MAX_RETRIES}] Error generando contenido:`, error);
+
+                        // Log failure to backend for each attempt
+                        if (currentLP?.id && selectedCell) {
+                          apiService.post('/logs/generation-failure', {
+                            landing_page_id: currentLP.id,
+                            cell_position: selectedCell,
+                            failure_reason: `Intento ${attempt}/${MAX_RETRIES}: ${error.message || 'Unknown error'}`
+                          }).catch(err => {
+                            console.debug('[Generation Failure] Failed to log failure:', err);
+                          });
+                        }
+
+                        // If this wasn't the last attempt, wait before retrying
+                        if (attempt < MAX_RETRIES) {
+                          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+                        }
+                      }
+                    }
+
+                    // If all retries failed, throw the last error
+                    if (!generatedContent) {
+                      throw lastError || new Error("Falló después de todos los reintentos");
+                    }
 
                     // Obtener la celda donde debe ir la descripción
                     const descriptionCellKey = getDescriptionCellKey(block);
@@ -3204,11 +3335,11 @@ export default function Redactor() {
                     button.disabled = false;
                     button.style.cursor = "pointer";
                   } catch (error) {
-                    console.error("Error generando contenido IA:", error);
+                    console.error("Error final generando contenido IA después de reintentos:", error);
 
                     // Mostrar error al usuario
                     alert(
-                      "Error al generar contenido con IA: " + error.message
+                      `Error al generar contenido con IA después de ${MAX_RETRIES} intentos:\n\n${error.message}`
                     );
 
                     // Restaurar botón en caso de error

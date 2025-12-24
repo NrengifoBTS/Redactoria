@@ -9,6 +9,7 @@ import Home from "./Home";
 import { AppProvider } from "./context/AppContext";
 import BlogGeneracion from "./Blog_Generacion";
 import Dashboard_Blog from "./Dashboard_Blog";
+import Analytics from "./Analytics";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/protected" element={<ProtectedPage />} />
           <Route path="/redactor/:lpId" element={<Redactor />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/blog/edit/:blogId" element={<BlogGeneracion />} />
           <Route path="/dashboard_blog" element={<Dashboard_Blog />} />
         </Routes>

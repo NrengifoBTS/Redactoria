@@ -120,6 +120,37 @@ class ApiService {
     }
   }
 
+  // Métodos genéricos HTTP para uso directo
+  async get(url, options = {}) {
+    return this.makeRequest(url, {
+      method: "GET",
+      ...options,
+    });
+  }
+
+  async post(url, data, options = {}) {
+    return this.makeRequest(url, {
+      method: "POST",
+      body: JSON.stringify(data),
+      ...options,
+    });
+  }
+
+  async put(url, data, options = {}) {
+    return this.makeRequest(url, {
+      method: "PUT",
+      body: JSON.stringify(data),
+      ...options,
+    });
+  }
+
+  async delete(url, options = {}) {
+    return this.makeRequest(url, {
+      method: "DELETE",
+      ...options,
+    });
+  }
+
   // ENDPOINTS DE PROYECTOS
 
   // Crear nuevo proyecto

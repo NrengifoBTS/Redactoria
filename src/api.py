@@ -10,6 +10,7 @@ from src.anotaciones.controller import router as anotaciones_router
 from src.export_excel.controller import router as export_router
 from src.ia.controller import router as ia_router
 from src.blog.controller import router as blog_router
+from src.logging_service.controller import router as logging_router  # NEW
 
 
 from src.scraping.controllers import router as scraping_router_stream, router_ai
@@ -46,7 +47,8 @@ def register_routes(app: FastAPI):
     app.include_router(ia_router)
     app.include_router(export_router)
     app.include_router(blog_router)
-    
+    app.include_router(logging_router)  # NEW - Logging & Analytics
+
     # Rutas de Scraping y la Nueva Ruta de AI
     app.include_router(scraping_router_stream) # Incluye el router original /scraping/stream
     app.include_router(router_ai)             # Incluye el nuevo router /ai/generate_structure
