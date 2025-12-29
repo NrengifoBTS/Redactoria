@@ -6,6 +6,7 @@ export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [landingPages, setLandingPages] = useState([]);
   const [users, setUsers] = useState([]);
+  const [proyectos, setProyectos] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -37,8 +38,8 @@ export function AppProvider({ children }) {
             setCurrentUser(userData);
             setIsAuthenticated(true);
 
-            // Cargar usuarios y landing pages iniciales
-            await Promise.all([loadUsers(), loadLandingPages()]);
+            // Cargar usuarios, landing pages y proyectos iniciales
+            await Promise.all([loadUsers(), loadLandingPages(), loadProyectos()]);
           } else {
             // Token inválido, limpiar
             localStorage.removeItem("token");
@@ -86,6 +87,24 @@ export function AppProvider({ children }) {
       }
     } catch (error) {
       console.error("Error cargando landing pages:", error);
+    }
+    return [];
+  };
+
+  // Cargar proyectos desde la API
+  const loadProyectos = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/proyectos`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (response.ok) {
+        const proyectosData = await response.json();
+        setProyectos(proyectosData);
+        return proyectosData;
+      }
+    } catch (error) {
+      console.error("Error cargando proyectos:", error);
     }
     return [];
   };
@@ -388,7 +407,7 @@ export function AppProvider({ children }) {
           setIsAuthenticated(true);
 
           // Cargar datos iniciales
-          await Promise.all([loadUsers(), loadLandingPages()]);
+          await Promise.all([loadUsers(), loadLandingPages(), loadProyectos()]);
 
           return { success: true, user, token: access_token };
         } else {
@@ -411,12 +430,13 @@ export function AppProvider({ children }) {
     setIsAuthenticated(false);
     setUsers([]);
     setLandingPages([]);
+    setProyectos([]);
   };
 
   // Funciones de refrescado de datos
   const refreshData = async () => {
     try {
-      await Promise.all([loadUsers(), loadLandingPages()]);
+      await Promise.all([loadUsers(), loadLandingPages(), loadProyectos()]);
     } catch (error) {
       console.error("Error refrescando datos:", error);
     }
@@ -455,6 +475,7 @@ export function AppProvider({ children }) {
     currentUser,
     landingPages,
     users,
+    proyectos,
     isAuthenticated,
     loading,
 
@@ -482,6 +503,7 @@ export function AppProvider({ children }) {
     // Funciones de datos
     loadUsers,
     loadLandingPages,
+    loadProyectos,
     refreshData,
 
     // Utilidades

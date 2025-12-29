@@ -20,11 +20,11 @@ def create_template(db: DbSession, template: models.TemplateCreate, current_user
 
 @router.get("/", response_model=List[models.TemplateResponse])
 def get_templates(
-    db: DbSession, 
+    db: DbSession,
     current_user: CurrentUser,
-    is_active: Optional[bool] = Query(True)
+    is_active: Optional[bool] = Query(None)
 ):
-    """Obtener templates del usuario (por defecto solo activos)"""
+    """Obtener templates del usuario (por defecto todos, usa is_active=true/false para filtrar)"""
     return service.get_templates(current_user, db, is_active)
 
 @router.get("/{template_id}", response_model=models.TemplateResponse)
@@ -67,3 +67,13 @@ def duplicate_template(db: DbSession, template_id: UUID, current_user: CurrentUs
 def get_active_templates_public(db: DbSession):
     """Obtener templates activos (público - sin autenticación para selección inicial)"""
     return service.get_active_templates_public(db)
+
+@router.get("/public/all-for-analytics", response_model=List[models.TemplateResponse])
+def get_all_templates_for_analytics(db: DbSession, current_user: CurrentUser):
+    """Obtener TODOS los templates (de todos los usuarios, activos e inactivos) para Analytics"""
+    return service.get_all_templates_for_analytics(db)
+
+@router.get("/public/proyectos", response_model=List[str])
+def get_unique_proyectos(db: DbSession):
+    """Obtener lista única de proyectos (Viajemos, MCR, etc.)"""
+    return service.get_unique_proyectos(db)
