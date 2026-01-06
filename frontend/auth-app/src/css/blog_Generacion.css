@@ -1035,3 +1035,75 @@ select {
   border-color: #ddd;
   background-color: #ffffff;
 }
+
+/* Contenedor de cada fila de URL */
+.url-container {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.url-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Botón Eliminar Mejorado */
+.btn-remove-url {
+  background: #ffeded;
+  color: #ff4d4d;
+  border: 1px solid #ffcccc;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-remove-url:hover:not(:disabled) {
+  background: #ff4d4d;
+  color: white;
+  transform: rotate(90deg);
+}
+
+/* Etiquetas de estado */
+.url-status-label {
+  margin-top: 4px;
+  margin-left: 5px;
+  height: 16px; /* Evita saltos de layout */
+}
+
+.status-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-text.analyzing {
+  color: #f39c12;
+}
+.status-text.success {
+  color: #27ae60;
+}
+.status-text.error {
+  color: #e74c3c;
+}
+.status-text.pending {
+  color: #95a5a6;
+}
+
+/* Feedback visual en el input */
+.auto-expand.exito {
+  border-left: 4px solid #27ae60;
+}
+.auto-expand.analizando {
+  border-left: 4px solid #f39c12;
+}
+.auto-expand.error {
+  border-left: 4px solid #e74c3c;
+}

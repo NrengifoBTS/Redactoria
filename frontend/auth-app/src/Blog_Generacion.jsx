@@ -63,7 +63,9 @@ const GeneracionBlog = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [blogStatus, setBlogStatus] = useState("");
   const [blogPriority, setBlogPriority] = useState("");
-  const [tempContentUpdate, setTempContentUpdate] = useState(null);
+  const [setTempContentUpdate] = useState(null);
+  const [listaUrls, setListaUrls] = useState(["", "", ""]);
+  const [estadosUrls, setEstadosUrls] = useState({});
 
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
@@ -144,7 +146,7 @@ const GeneracionBlog = () => {
   const [cargandoScraping, setCargandoScraping] = useState(false);
   const [cargandoIA, setCargandoIA] = useState(false);
   const [error, setError] = useState(null);
-  const [usarIA, setUsarIA] = useState(true);
+  const [usarIA] = useState(true);
   const [cancelacionSolicitada, setCancelacionSolicitada] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -884,9 +886,25 @@ const GeneracionBlog = () => {
     markAsChanged();
   };
 
-  const urlsAlreadySaved = useMemo(() => {
-    return !!datosFinales?.urls && datosFinales.urls.trim().length > 0;
-  }, [datosFinales]);
+  // Función para actualizar una URL específica
+  const manejarCambioUrl = (index, valor) => {
+    const nuevasUrls = [...listaUrls];
+    nuevasUrls[index] = valor;
+    setListaUrls(nuevasUrls);
+  };
+
+  // Función para añadir un nuevo campo de input
+  const agregarCampoUrl = () => {
+    setListaUrls([...listaUrls, ""]);
+  };
+
+  // Función para eliminar un campo si es necesario
+  const eliminarCampoUrl = (index) => {
+    if (listaUrls.length > 3) {
+      // Mantener el mínimo de 3
+      setListaUrls(listaUrls.filter((_, i) => i !== index));
+    }
+  };
 
   // Funcion que Maneja la selección del título en el StructureRenderer
   const handleSectionSelect = (section, event) => {
@@ -1326,6 +1344,49 @@ const GeneracionBlog = () => {
     }
   };
 
+  const ClearAllContent = () => {
+    // 1. Confirmación de seguridad
+    if (
+      !window.confirm(
+        "¿Estás seguro de borrar TODO el contenido? Los títulos se mantendrán."
+      )
+    ) {
+      return;
+    }
+
+    // 2. Parsear la estructura actual (que es un string Markdown) a un Array de objetos
+    // Nota: Asegúrate de que parseMarkdownStructure esté disponible en tu scope
+    const structure = parseMarkdownStructure(tablaEstructuraFinal);
+
+    // 3. Recorrer y limpiar la propiedad 'content' de cada nodo
+    const cleanedStructure = structure.map((item) => {
+      // Limpiar contenido del nivel superior (H1 o H2)
+      const newItem = { ...item, content: "" };
+
+      // Limpiar contenido de los hijos (H3) si existen
+      if (newItem.children && newItem.children.length > 0) {
+        newItem.children = newItem.children.map((child) => ({
+          ...child,
+          content: "",
+        }));
+      }
+      return newItem;
+    }); // Cierre del map principal
+
+    // 4. Convertir el objeto limpio de nuevo a string Markdown
+    const newMarkdown = convertStructureToMarkdown(cleanedStructure);
+
+    // 5. Actualizar los estados del componente
+    setTablaEstructuraFinal(newMarkdown);
+
+    // Si usas el sistema de "cambios pendientes" de tu archivo:
+    if (typeof markAsChanged === "function") {
+      markAsChanged();
+    }
+
+    alert("Contenido borrado exitosamente.");
+  };
+
   const handleToggleView = () => {
     setIsEditingStructure((prev) => !prev);
   };
@@ -1343,6 +1404,7 @@ const GeneracionBlog = () => {
     setContenidoConsolidado(null);
     setSelectedSectionForRegen(null);
     setRegenTextareaValue("");
+    setEstadosUrls({}); // 🆕 Limpiamos los estados de las URLs anteriores
 
     console.clear();
     console.log("[SCRAPING] Iniciando nueva ejecución de scraping...");
@@ -1351,89 +1413,67 @@ const GeneracionBlog = () => {
     referenciaControladorAborto.current = controller;
     const signal = controller.signal;
 
-    // 2. Procesar input de URLs y Query
-    const rawInput = referenciaUrls.current?.value; // 🆕 Obtener el texto crudo completo
+    // 2. Procesar URLs desde el estado listaUrls
+    const urlsLimpias = listaUrls
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0);
 
-    const lineasConsulta = rawInput
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    const consulta = lineasConsulta[0];
-    const urls = lineasConsulta.slice(1); // URLs array para la API de scraping
-    const numResultados = urls.length > 0 ? urls.length : 3;
+    const urlsParaBackend = urlsLimpias.map((u) => ({ url: u }));
+    const rawInputParaDB = urlsLimpias.join("\n");
+    const numResultados = urlsLimpias.length;
 
-    if (!consulta || numResultados < 1) {
-      const msg =
-        "Por favor, ingresa la consulta en la primera línea y al menos 3 URLs en las siguientes.";
+    // Validación: Mínimo 3 URLs
+    if (numResultados < 3) {
+      const msg = "Por favor, ingresa al menos 3 URLs válidas.";
       setError(msg);
       setCargandoScraping(false);
       referenciaControladorAborto.current = null;
-      console.error("[SCRAPING] Error de validación: " + msg);
       return;
     }
 
-    // Extracción de initialParams
-    const title_base = datosFinales?.title || consulta;
+    // Extracción de parámetros
+    const title_base = datosFinales?.title || "Análisis de URLs";
     const categoria = datosFinales?.categoria || "";
     const idioma = datosFinales?.idioma || "";
     const tecnica = datosFinales?.tecnica || "";
     const acento = datosFinales?.acento || "";
     const tono = datosFinales?.tono || "";
 
-    // Definir URL de guardado
     const URL_API_SAVE = `${URL_API_BASE_BLOGS}${blogId}`;
 
     // =======================================================================
-    // 🆕 PASO 1: GUARDAR EL TEXTO RAW DEL INPUT (QUERY + URLs) EN LA DB
-    // (Ahora es un bloque await/try-catch para asegurar la persistencia)
+    // PASO 1: GUARDAR EL TEXTO RAW EN LA DB
     // =======================================================================
     try {
-      if (!rawInput) {
-        throw new Error("El campo de URLs/Consulta no puede estar vacío.");
-      }
-
-      // El payload envía el valor completo del textarea con la clave 'urls'
-      const savePayload = {
-        urls: rawInput, // <-- CLAVE: 'urls' (coincide con la BD)
-      };
-
       const responseSave = await fetch(URL_API_SAVE, {
-        // Usamos await para que sea sincrónico
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify(savePayload),
+        body: JSON.stringify({ urls: rawInputParaDB }),
         signal: signal,
       });
 
       if (!responseSave.ok) {
         const errorText = await responseSave.text();
-        throw new Error(
-          `Falló el guardado de URLs con estado ${responseSave.status}. Respuesta: ${errorText}`
-        );
+        throw new Error(`Falló el guardado de URLs: ${errorText}`);
       }
-
-      console.log(
-        "[SCRAPING] URLs y consulta guardadas en el blog exitosamente."
-      );
+      console.log("[SCRAPING] URLs guardadas en el blog exitosamente.");
     } catch (error) {
-      // Manejo de errores de guardado
       if (error.name !== "AbortError") {
         console.error("[SCRAPING] Error al guardar URLs:", error);
         setError(`Fallo al guardar las URLs: ${error.message}`);
-        // Usar showToast que está disponible en su código original
-        // Se asume que showToast está disponible en el scope
-        showToast("Error al guardar URLs. Proceso cancelado.", "error");
+        if (typeof showToast === "function")
+          showToast("Error al guardar URLs.", "error");
       }
       setCargandoScraping(false);
       referenciaControladorAborto.current = null;
-      return; // Detener si falla el guardado
+      return;
     }
 
     // =======================================================================
-    // 🆕 PASO 2: EJECUTAR LA LÓGICA DE SCRAPING EXISTENTE (Solo si el guardado fue exitoso)
+    // PASO 2: EJECUTAR SCRAPING CON MANEJO DE ESTADOS POR URL
     // =======================================================================
     try {
       const finalScrapingUrl = `${URL_API_SCRAPING}/${blogId}`;
@@ -1442,8 +1482,8 @@ const GeneracionBlog = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: consulta,
-          urls, // Aquí aún enviamos el array de URLs a la API de scraping, lo cual es correcto
+          query: "",
+          urls: urlsParaBackend,
           num_results: numResultados,
           use_ai: usarIA,
           run_intent_keywords: false,
@@ -1460,20 +1500,17 @@ const GeneracionBlog = () => {
 
       if (!response.ok) {
         throw new Error(
-          `Error HTTP: ${response.status} - Verifica la URL del backend.`
+          `Error HTTP: ${response.status} - Verifica el backend.`
         );
       }
 
-      // 4. Manejo del stream de logs y datos finales
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
       let currentEvent = null;
-      let finalDataReceived = false;
 
       while (true) {
         const { done, value } = await reader.read();
-
         if (done || signal.aborted) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -1489,15 +1526,48 @@ const GeneracionBlog = () => {
           } else if (line.startsWith("data:")) {
             const dataLine = line.replace("data:", "").trim();
 
+            // --- LÓGICA DE ACTUALIZACIÓN DE ESTADOS INDIVIDUALES ---
+            // 1. Detectar inicio de análisis por URL
+            if (dataLine.includes("Procesando URL")) {
+              const match = dataLine.match(/URL (\d+) de/);
+              if (match) {
+                const index = parseInt(match[1]) - 1;
+                setEstadosUrls((prev) => ({ ...prev, [index]: "analizando" }));
+              }
+            }
+
+            // 2. Detectar éxito de la URL
+            if (
+              dataLine.includes("✔️ URL") &&
+              dataLine.includes("completada")
+            ) {
+              const match = dataLine.match(/URL (\d+) completada/);
+              if (match) {
+                const index = parseInt(match[1]) - 1;
+                setEstadosUrls((prev) => ({ ...prev, [index]: "exito" }));
+              }
+            }
+
+            // 3. Detectar errores de contenido o extracción
+            if (
+              dataLine.includes("Contenido nulo") ||
+              dataLine.includes("Fallo estructural")
+            ) {
+              const match = dataLine.match(/URL (\d+)/);
+              if (match) {
+                const index = parseInt(match[1]) - 1;
+                setEstadosUrls((prev) => ({ ...prev, [index]: "error" }));
+              }
+            }
+
+            // --- MANEJO DE DATA FINAL ---
             if (currentEvent === "final_data") {
               try {
                 const parsed = JSON.parse(dataLine);
                 setDatosFinales((prevDatos) => ({ ...prevDatos, ...parsed }));
 
-                finalDataReceived = true;
                 const consolidatedContent = parsed.consolidated_content || null;
 
-                // 🆕 GUARDADO DEL CONTENIDO CONSOLIDADO (No bloqueante)
                 if (consolidatedContent) {
                   fetch(URL_API_SAVE, {
                     method: "PUT",
@@ -1508,33 +1578,12 @@ const GeneracionBlog = () => {
                     body: JSON.stringify({
                       consolidated_content: consolidatedContent,
                     }),
-                  })
-                    .then((res) => {
-                      if (!res.ok)
-                        console.warn(
-                          `[SCRAPING] Aviso: Falló el guardado de Contenido Consolidado con estado ${res.status}`
-                        );
-                      else
-                        showToast("Contenido consolidado guardado.", "success");
-                    })
-                    .catch((err) =>
-                      console.error(
-                        "[SCRAPING] Error al enviar Contenido:",
-                        err
-                      )
-                    );
+                  }).catch((err) =>
+                    console.error("Error guardando consolidado:", err)
+                  );
                 }
 
                 setContenidoConsolidado(consolidatedContent);
-
-                if (parsed.log && Array.isArray(parsed.log)) {
-                  console.log("[SCRAPING - LOGS DETALLADOS]");
-                  parsed.log.forEach((log) => console.log(` - ${log}`));
-                }
-                console.log(
-                  "[SCRAPING] FASE 3 COMPLETA. Contenido consolidado listo para Análisis IA manual."
-                );
-
                 reader.cancel();
                 setCargandoScraping(false);
                 return;
@@ -1542,24 +1591,15 @@ const GeneracionBlog = () => {
                 console.error("[SCRAPING] Error parsing final JSON:", e);
               }
             } else {
-              const timestamp = new Date().toLocaleTimeString();
-              const logEntry = `[${timestamp}] ${dataLine}`;
-              console.log(logEntry);
+              console.log(`[LOG] ${dataLine}`);
             }
           }
         }
       }
-
-      if (!finalDataReceived && !signal.aborted) {
-        const msg =
-          "El proceso de scraping finalizó sin entregar el resultado de la IA.";
-        setError(msg);
-        console.error("[SCRAPING] Error: " + msg);
-      }
     } catch (err) {
       if (err.name !== "AbortError") {
         console.error("[SCRAPING] Error crítico:", err);
-        setError(`Fallo la conexión con el backend: ${err.message}`);
+        setError(`Fallo la conexión: ${err.message}`);
       }
     } finally {
       setCargandoScraping(false);
@@ -2714,21 +2754,76 @@ const GeneracionBlog = () => {
           {/* FIN DEL NUEVO CONTENEDOR DE ENCABEZADO */}
           {/* ========================================================= */}
 
-          <input
-            ref={referenciaUrls}
-            className="auto-expand"
-            placeholder="&#10;https://example1.com&#10;https://example2.com&#10;https://example3.com"
-            rows={5}
+          {listaUrls.map((url, index) => (
+            <div key={index} className="url-container">
+              <div className="url-input-group">
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => manejarCambioUrl(index, e.target.value)}
+                  placeholder={`https://ejemplo${index + 1}.com`}
+                  className={`auto-expand ${estadosUrls[index]}`}
+                  disabled={cargandoScraping}
+                />
+
+                {/* Botón X Mejorado */}
+                <button
+                  type="button"
+                  className="btn-remove-url"
+                  onClick={() => eliminarCampoUrl(index)}
+                  disabled={cargandoScraping}
+                  title="Eliminar URL"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Etiqueta de Estado */}
+              <div className="url-status-label">
+                {estadosUrls[index] === "analizando" && (
+                  <span className="status-text analyzing">
+                    ⏳ Analizando contenido...
+                  </span>
+                )}
+                {estadosUrls[index] === "exito" && (
+                  <span className="status-text success">
+                    ✅ Contenido Analizado
+                  </span>
+                )}
+                {estadosUrls[index] === "error" && (
+                  <span className="status-text error">
+                    ⚠️ No se pudo analizar
+                  </span>
+                )}
+                {!estadosUrls[index] && url.trim() !== "" && (
+                  <span className="status-text pending">
+                    ⚪ Esperando análisis
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={agregarCampoUrl}
             disabled={cargandoScraping}
-          />
+            className="btn-add-h2"
+          >
+            + Añadir otra URL
+          </button>
 
           {/* Botón de Ejecución/Cancelación */}
           <button
             onClick={cargandoScraping ? cancelarScraping : ejecutarScraping}
             className={`btn-generate ${cargandoScraping ? "btn-cancel" : ""}`}
-            disabled={!referenciaUrls.current?.value && !cargandoScraping}
+            // El botón se deshabilita si:
+            // 1. No estamos cargando Y no hay al menos 3 URLs con texto.
+            disabled={
+              !cargandoScraping &&
+              listaUrls.filter((url) => url.trim() !== "").length < 3
+            }
           >
-            {cargandoScraping ? "Cancelar Analizador" : "Analizar Google "}
+            {cargandoScraping ? "Cancelar Analizador" : "Analizar Google"}
           </button>
         </section>
 
@@ -3148,7 +3243,7 @@ const GeneracionBlog = () => {
           {/*  COLUMNA DERECHA: PREVISUALIZACIÓN DE ESTRUCTURA FINAL */}
           {/* ========================================================= */}
           <div className="generadores-derecha">
-            {/* BOTÓN REGENERAR ESTRUCTURA */}
+            {/*BOTONES DE ACCIÓN PRINCIPALES*/}
             {(resultadosDisponibles || tablaEstructuraFinal) && (
               <div
                 style={{
@@ -3186,6 +3281,26 @@ const GeneracionBlog = () => {
                     </button>
                   </>
                 )}
+              </div>
+            )}
+            {(resultadosDisponibles || tablaEstructuraFinal) && (
+              <div
+                style={{
+                  marginBottom: "5px",
+                  display: "flex",
+                }}
+              >
+                <>
+                  {/* 3. Borrar Todo el Contenido */}
+                  <button
+                    onClick={ClearAllContent}
+                    className="btn-generate"
+                    title="Borrar contenido de todas las secciones"
+                  >
+                    <i className="uil uil-trash-alt"></i> Borrar Todo el
+                    Contenido
+                  </button>
+                </>
               </div>
             )}
             <section className="idea-generator">

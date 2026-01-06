@@ -14,7 +14,7 @@ class URLObject(BaseModel):
 
 class ScrapeRequest(BaseModel):
     """Modelo para la petición inicial de scraping."""
-    query: str
+    title_base: str
     urls: List[URLObject]
     num_results: int = 1
     use_ai: bool = True
@@ -40,7 +40,6 @@ class ScrapeResult(BaseModel):
 
 class ScrapeResponse(BaseModel):
     """Modelo para la respuesta completa de la API de scraping."""
-    query: str
     count: int
     results: List[ScrapeResult]
     final_structure: Optional[Dict[str, Any]] = None
