@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect  } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Search, Plus, Edit3, Eye, Trash2, CheckCircle2, Clock, AlertCircle, UserPlus,
   FileText,
@@ -9,6 +9,7 @@ import {
   Upload,
   TestTube,
   BarChart3,
+  Home,
 } from 'lucide-react';
 
 // Importar hooks personalizados
@@ -16,20 +17,100 @@ import { useProyectos, useCurrentUser, useUsers, useFilters, useSearch } from '.
 import apiService from './services/apiService.js';
 import { isAdminUser, isEditorUser, ADMIN_USER_IDS } from './utils/roles';
 
+// Configuración de temas por proyecto
+const PROJECT_THEMES = {
+  viajemos: {
+    name: 'Viajemos',
+    primary: '#0583FF',
+    primaryHover: '#0583FF',
+    primaryLight: '#dbeafe',
+    secondary: '#0583FF',
+    accent: '#60a5fa',
+  },
+  mcr: {
+    name: 'Miles Car Rental',
+    primary: '#E6484B',
+    primaryHover: '#E6484B',
+    primaryLight: '#fee2e2',
+    secondary: '#E6484B',
+    accent: '#f87171',
+  },
+  outlet: {
+    name: 'Outlet Rental Cars',
+    primary: '#f59e0b',
+    primaryHover: '#d97706',
+    primaryLight: '#fef3c7',
+    secondary: '#b45309',
+    accent: '#fbbf24',
+  },
+  guialegal: {
+    name: 'Guía Legal',
+    primary: '#8b5cf6',
+    primaryHover: '#7c3aed',
+    primaryLight: '#ede9fe',
+    secondary: '#6d28d9',
+    accent: '#a78bfa',
+  },
+  arriendo: {
+    name: 'Arriendo',
+    primary: '#ef4444',
+    primaryHover: '#dc2626',
+    primaryLight: '#fee2e2',
+    secondary: '#b91c1c',
+    accent: '#f87171',
+  },
+  default: {
+    name: 'Todos los Proyectos',
+    primary: '#3b82f6',
+    primaryHover: '#2563eb',
+    primaryLight: '#dbeafe',
+    secondary: '#1e40af',
+    accent: '#60a5fa',
+  }
+};
+
 function Dashboard() {
   const navigate = useNavigate();
+  const { proyecto } = useParams(); // Obtener proyecto de la URL
+
+  // Determinar el tema basado en el proyecto
+  const currentTheme = PROJECT_THEMES[proyecto] || PROJECT_THEMES.default;
+  const isFilteredByProject = !!proyecto;
 
   // Estados usando hooks personalizados
   const { user: currentUser, loading: loadingUser } = useCurrentUser();
   const { users } = useUsers(true);
-  const { 
-    proyectos, 
-    loading: loadingProyectos, 
-    createProyecto, 
-    updateProyecto, 
-    deleteProyecto, 
+  const {
+    proyectos,
+    loading: loadingProyectos,
+    createProyecto,
+    updateProyecto,
+    deleteProyecto,
     assignProyecto,
   } = useProyectos();
+
+  // Cargar templates para poder filtrar por proyecto
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        setLoadingTemplates(true);
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://192.168.1.36:8000'}/templates/public/active`);
+        if (response.ok) {
+          const templatesData = await response.json();
+          setTemplates(templatesData);
+        }
+      } catch (error) {
+        console.error('Error cargando templates:', error);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+
+    loadTemplates();
+  }, []);
 
   // Estados locales para modales
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -74,7 +155,29 @@ function Dashboard() {
     return users || [];
   };
 
+  // Filtrar proyectos por el parámetro de URL si existe
+  const proyectosFiltrados = useMemo(() => {
+    if (!isFilteredByProject) {
+      return proyectos;
+    }
 
+    if (loadingTemplates) {
+      return [];
+    }
+
+    const filtered = proyectos.filter(p => {
+      // Buscar el template asociado al proyecto
+      const template = templates.find(t => t.id === p.templateId);
+
+      if (!template) {
+        return false;
+      }
+
+      return template.proyecto === proyecto;
+    });
+
+    return filtered;
+  }, [proyectos, proyecto, isFilteredByProject, templates, loadingTemplates]);
 
   // Filtros y búsqueda
   const filterFunctions = {
@@ -106,7 +209,7 @@ function Dashboard() {
   };
 
 
-  const { filters, filteredData: filteredByFilters, updateFilter } = useFilters(proyectos, filterFunctions);
+  const { filters, filteredData: filteredByFilters, updateFilter } = useFilters(proyectosFiltrados, filterFunctions);
   const { searchTerm, setSearchTerm, searchResults } = useSearch(filteredByFilters, ['name', 'description']);
 
   // Proyectos visibles según permisos del usuario
@@ -259,26 +362,28 @@ function Dashboard() {
     }
   };
 
-  if (loadingUser || loadingProyectos) {
+  if (loadingUser || loadingProyectos || loadingTemplates) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#f8fafc'
       }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            width: '40px', 
-            height: '40px', 
+          <div style={{
+            width: '40px',
+            height: '40px',
             border: '4px solid #e2e8f0',
-            borderTop: '4px solid #3b82f6',
+            borderTop: `4px solid ${currentTheme.primary}`,
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
             margin: '0 auto 1rem'
           }}></div>
-          <p style={{ color: '#64748b' }}>Cargando proyectos...</p>
+          <p style={{ color: '#64748b' }}>
+            {loadingTemplates ? 'Cargando templates...' : 'Cargando proyectos...'}
+          </p>
         </div>
       </div>
     );
@@ -305,45 +410,70 @@ function Dashboard() {
               margin: 0,
               fontSize: '1.875rem',
               fontWeight: '700',
-              color: '#1e293b'
+              color: currentTheme.primary
             }}>
-              Dashboard Redactoria
+              {isFilteredByProject ? `Dashboard ${currentTheme.name}` : 'Dashboard Redactoria'}
             </h1>
             <p style={{
               margin: '0.25rem 0 0 0',
               color: '#64748b',
               fontSize: '0.875rem'
             }}>
-              Gestiona y supervisa todos los proyectos
+              {isFilteredByProject
+                ? `Gestiona proyectos de Landing Pages de ${currentTheme.name}`
+                : 'Gestiona y supervisa todos los proyectos'}
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Home Button */}
+            <button
+              onClick={() => navigate('/')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#f1f5f9',
+                color: '#64748b',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+            >
+              <Home size={18} />
+              Home
+            </button>
+
             {/* Analytics Button - Only for Admin/Editor */}
             {currentUser && (isAdminUser(currentUser.id) || isEditorUser(currentUser.id)) && (
-              <Link
-                to="/analytics"
+              <button
+                onClick={() => navigate('/analytics')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.5rem 1rem',
-                  backgroundColor: '#3b82f6',
+                  backgroundColor: currentTheme.primary,
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.5rem',
                   cursor: 'pointer',
                   fontSize: '0.875rem',
                   fontWeight: '500',
-                  textDecoration: 'none',
                   transition: 'background-color 0.2s',
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = currentTheme.primaryHover}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = currentTheme.primary}
               >
                 <BarChart3 size={18} />
                 Analytics
-              </Link>
+              </button>
             )}
 
             {currentUser && (
@@ -358,7 +488,7 @@ function Dashboard() {
                 <div style={{
                 width: '2rem',
                 height: '2rem',
-                backgroundColor: '#3b82f6',
+                backgroundColor: currentTheme.primary,
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
@@ -406,19 +536,19 @@ function Dashboard() {
             width: '100%'
           }}
         >
-          <StatCard 
+          <StatCard
             icon={<Edit3 size={20} />}
             value={stats.total}
             label="Proyectos Totales"
-            color="#3b82f6"
-            bgColor="#dbeafe"
+            color={currentTheme.primary}
+            bgColor={currentTheme.primaryLight}
           />
-          <StatCard 
+          <StatCard
             icon={<CheckCircle2 size={20} />}
             value={stats.completed}
             label="Publicados"
-            color="#10b981"
-            bgColor="#dcfce7"
+            color={currentTheme.secondary}
+            bgColor={currentTheme.primaryLight}
           />
           <StatCard 
             icon={<Clock size={20} />}
@@ -437,7 +567,7 @@ function Dashboard() {
         </div>
 
         {/* Filtros y búsqueda */}
-        <FilterPanel 
+        <FilterPanel
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           filters={filters}
@@ -447,6 +577,8 @@ function Dashboard() {
           onCreateProject={() => setShowCreateModal(true)}
           canCreateProjects={canCreateProjects}
           isAdminUser={isAdminUser}
+          hideDomainFilter={isFilteredByProject}
+          theme={currentTheme}
         />
 
         {/* Tabla de Proyectos */}
@@ -571,7 +703,7 @@ function StatCard({ icon, value, label, color, bgColor }) {
 }
 
 // Componente del panel de filtros
-function FilterPanel({ searchTerm, onSearchChange, filters, onFilterChange, users, currentUser, onCreateProject, canCreateProjects,isAdminUser}) {
+function FilterPanel({ searchTerm, onSearchChange, filters, onFilterChange, users, currentUser, onCreateProject, canCreateProjects, isAdminUser, hideDomainFilter = false, theme = { primary: '#3b82f6', primaryHover: '#2563eb' } }) {
   return (
     <div style={{
       backgroundColor: 'white',
@@ -619,26 +751,29 @@ function FilterPanel({ searchTerm, onSearchChange, filters, onFilterChange, user
           />
         </div>
 
-        {/* Filtros de dominio */}
-        <select
-          value={filters.domain || 'all'}
-          onChange={(e) => onFilterChange('domain', e.target.value)}
-          style={{
-            padding: '0.5rem 0.75rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '0.375rem',
-            fontSize: '0.875rem',
-            outline: 'none',
-            height: '2.25rem',
-            minWidth: '0'
-          }}
-        >
-          <option value="all">Viajemos</option>
-          <option value="ejemplo.com">Miles Car Rental</option>
-          <option value="miempresa.com">Blog Viajemos</option>
-          <option value="otrodominio.com">Arriendo</option>
-          <option value="otrodominio.com">Hoteles Viajemos</option>
-        </select>
+        {/* Filtros de dominio - Solo mostrar si no está filtrado por proyecto */}
+        {!hideDomainFilter && (
+          <select
+            value={filters.domain || 'all'}
+            onChange={(e) => onFilterChange('domain', e.target.value)}
+            style={{
+              padding: '0.5rem 0.75rem',
+              border: '1px solid #d1d5db',
+              borderRadius: '0.375rem',
+              fontSize: '0.875rem',
+              outline: 'none',
+              height: '2.25rem',
+              minWidth: '0'
+            }}
+          >
+            <option value="all">Todos los proyectos</option>
+            <option value="viajemos">Viajemos</option>
+            <option value="mcr">Miles Car Rental</option>
+            <option value="outlet">Outlet Rental Cars</option>
+            <option value="guialegal">Guía Legal</option>
+            <option value="arriendo">Arriendo</option>
+          </select>
+        )}
 
         {/* Filtros de estado */}
         <select
@@ -741,15 +876,18 @@ function FilterPanel({ searchTerm, onSearchChange, filters, onFilterChange, user
               alignItems: 'center',
               gap: '0.5rem',
               padding: '0.5rem 1rem',
-              backgroundColor: '#3b82f6',
+              backgroundColor: theme.primary,
               color: 'white',
               border: 'none',
               borderRadius: '0.375rem',
               fontSize: '0.875rem',
               fontWeight: '500',
               cursor: 'pointer',
-              height: '2.25rem'
+              height: '2.25rem',
+              transition: 'background-color 0.2s'
             }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = theme.primaryHover}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = theme.primary}
           >
             <Plus size={16} />
             Nuevo Proyecto

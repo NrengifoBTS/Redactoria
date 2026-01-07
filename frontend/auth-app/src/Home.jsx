@@ -50,12 +50,12 @@ const Home = () => {
       links: [
         {
           nombre: "Dashboard Landings Pages",
-          url: "/dashboard",
-          descripcion: "Accede al panel de control principal de landings pages"
+          url: "/dashboard/mcr",
+          descripcion: "Accede al panel de control de landings pages de MCR"
         },
         {
           nombre: "Dashboard Blogs",
-          url: "/dashboard/editor",
+          url: "/dashboard_blog",
           descripcion: "Accede al panel de control principal de blogs"
         }
       ],
@@ -70,12 +70,12 @@ const Home = () => {
       links: [
         {
           nombre: "Dashboard Landings Pages",
-          url: "/dashboard",
-          descripcion: "Accede al panel de control principal de landings pages"
+          url: "/dashboard/viajemos",
+          descripcion: "Accede al panel de control de landings pages de Viajemos"
         },
         {
           nombre: "Dashboard Blogs",
-          url: "/dashboard/editor",
+          url: "/dashboard_blog",
           descripcion: "Accede al panel de control principal de blogs"
         }
       ],
@@ -90,12 +90,12 @@ const Home = () => {
       links: [
         {
           nombre: "Dashboard Landings Pages",
-          url: "/dashboard",
-          descripcion: "Accede al panel de control principal de landings pages"
+          url: "/dashboard/outlet",
+          descripcion: "Accede al panel de control de landings pages de Outlet"
         },
         {
           nombre: "Dashboard Blogs",
-          url: "/dashboard/editor",
+          url: "/dashboard_blog",
           descripcion: "Accede al panel de control principal de blogs"
         }
       ],
@@ -110,12 +110,12 @@ const Home = () => {
       links: [
         {
           nombre: "Dashboard Landings Pages",
-          url: "/dashboard",
-          descripcion: "Accede al panel de control principal de landings pages"
+          url: "/dashboard/guialegal",
+          descripcion: "Accede al panel de control de landings pages de Guía Legal"
         },
         {
           nombre: "Dashboard Blogs",
-          url: "/dashboard/editor",
+          url: "/dashboard_blog",
           descripcion: "Accede al panel de control principal de blogs"
         }
       ],
@@ -130,12 +130,12 @@ const Home = () => {
       links: [
         {
           nombre: "Dashboard Landings Pages",
-          url: "/dashboard",
-          descripcion: "Accede al panel de control principal de landings pages"
+          url: "/dashboard/arriendo",
+          descripcion: "Accede al panel de control de landings pages de Arriendo"
         },
         {
           nombre: "Dashboard Blogs",
-          url: "/dashboard/editor",
+          url: "/dashboard_blog",
           descripcion: "Accede al panel de control principal de blogs"
         }
       ],
