@@ -404,54 +404,46 @@ class AIService:
 
     # --- ANALISIS DE BLOQUES CON IA ---
     def analizar_bloque_contenido(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str, contexto_previo: str = "") -> str:
-        """
-        Versión Optimizada: Extrae el 100% de la información pero en formato de 
-        puntos de datos densos para evitar el colapso de tokens.
-        Maneja memoria de subtemas para evitar duplicidad entre diferentes URLs.
-        """
         MAX_CHARS_PER_LLM_CALL = 6000
         media_text = self._build_media_text(media_info)
 
-        # EXTRAER MEMORIA DE SUBTEMAS: 
-        # Buscamos los nombres de los subtemas ya procesados para que la IA no los repita
-        # pero pueda expandirlos si hay datos nuevos.
+        # 1. OPTIMIZACIÓN DE MEMORIA: Solo extraemos nombres de entidades/lugares específicos ya mencionados
+        # para que la IA no repita el MISMO restaurante, pero sí analice la fuente.
         subtemas_previos = re.findall(r"- Subtema: (.*)", contexto_previo)
-        # Tomamos los últimos 15-20 para no saturar el prompt pero dar contexto suficiente
-        lista_temas_evitar = ", ".join(set(subtemas_previos[-20:])) 
+        lista_temas_evitar = ", ".join(set(subtemas_previos[-30:])) 
         
         memoria_ia = ""
         if lista_temas_evitar:
-            memoria_ia = f"\nSUBTEMAS YA CUBIERTOS (Evita redundancia, solo añade datos nuevos): {lista_temas_evitar}\n"
+            # Cambiamos el enfoque: No le decimos que evite el tema, sino que evite REPETIR estas entidades exactas
+            memoria_ia = f"\nENTIDADES YA REGISTRADAS (No repetir si son exactamente las mismas): {lista_temas_evitar}\n"
 
         def _generate_prompt(sub_chunk: str) -> str:
-            return f"""Analiza este contenido para un artículo SEO sobre '{query}':
+            return f"""Analiza este contenido para un artículo sobre '{query}':
             ---
             {sub_chunk}
             {media_text}
             ---
             {memoria_ia}
 
-            INSTRUCCIONES DE EXTRACCIÓN (MÁXIMA DENSIDAD):
-            1. Misión: Extraer CUALQUIER dato relevante, cifra, precio, nombre o hecho técnico/específico.
-            2. NO RESUMAS: Si hay 10 datos, extrae los 10. Pero usa un lenguaje directo y sin rellenos.
-            3. Si la información es idéntica en sustancia a lo ya indicado en 'SUBTEMAS YA CUBIERTOS', ignórala. Si aporta un detalle extra (ej. un precio que no estaba), inclúyela.
-            4. FORMATO: Devuelve la información organizada por 'Subtema' y 'Hecho'.
-            5. PROHIBIDO: No uses comillas, negritas, viñetas, numeraciones ni listas.
+            INSTRUCCIONES DE EXTRACCIÓN:
+            1. Misión: Extraer TODOS los datos, nombres propios, precios, ubicaciones y descripciones técnicas.
+            2. CRITERIO DE NO REPETICIÓN: Solo ignora un dato si es EXACTAMENTE el mismo nombre y detalle que ya aparece en 'ENTIDADES YA REGISTRADAS'. 
+            3. Si la fuente menciona un lugar nuevo o un detalle diferente de un tema ya cubierto, DEBES INCLUIRLO.
+            4. FORMATO: Devuelve la información organizada por 'Subtema' (el nombre del lugar o concepto) y 'Hecho' (los datos).
+            5. PROHIBIDO: No uses comillas, negritas, ni introducciones. Empieza directo con '- Subtema:'.
 
-            FORMATO DE SALIDA (ESTRICTO):
-            - Subtema: (Nombre del concepto o categoría)
-            - Hecho: (Párrafo denso con los datos extraídos)
+            FORMATO DE SALIDA:
+            - Subtema: (Nombre)
+            - Hecho: (Datos densos)
             """
 
-        system_msg = "Eres un Documentalista de Datos SEO. Tu objetivo es la precisión, la densidad informativa y la eliminación de redundancias."
+        system_msg = "Eres un Documentalista de Datos. Tu objetivo es extraer el 100% de la información única de la fuente, evitando solo la duplicidad exacta de registros anteriores."
         
-        # Dividimos por párrafos para procesar en bloques controlados
         paragraphs = chunk.split('\n\n')
         current_sub = ""
         bloques_respuesta = []
 
         for p in paragraphs:
-            # Verificamos si añadir el siguiente párrafo excede el límite de seguridad del LLM
             if len(current_sub) + len(p) > MAX_CHARS_PER_LLM_CALL:
                 if current_sub.strip():
                     res = self._llm_generate(_generate_prompt(current_sub), system_msg, 0.2)
@@ -461,22 +453,21 @@ class AIService:
             else:
                 current_sub += p + "\n\n"
         
-        # Procesar el remanente
         if current_sub.strip():
             res = self._llm_generate(_generate_prompt(current_sub), system_msg, 0.2)
             if res and '[FALLO' not in res: 
                 bloques_respuesta.append(res)
 
-        # Procesamiento final de limpieza de strings
+        # 2. PROCESAMIENTO FINAL: Más flexible
         final_output = []
         for bloque in bloques_respuesta:
-            # Eliminamos líneas vacías, ruidos del LLM y capturamos solo el formato - Subtema / - Hecho
-            lines = [l.strip() for l in bloque.split('\n') if len(l.strip()) > 5 and l.strip().startswith('- ')]
+            # Capturamos líneas que empiecen con "- " pero somos menos estrictos con la longitud
+            # para no perder datos cortos pero valiosos.
+            lines = [l.strip() for l in bloque.split('\n') if l.strip().startswith('- ')]
             final_output.extend(lines)
 
         return "\n".join(final_output).strip()
-
-    
+        
     def generar_estructura_seo_final(self, query: str, title_base: str, categoria: str, idioma: str, tecnica: str, acento: str, tono: str, 
                                  consolidated_text: str, estimated_word_count: int) -> Dict[str, Any]:
         """
@@ -497,37 +488,39 @@ class AIService:
         
         puntos_clave_extraidos = []
         print(f"Analizando {len(text_chunks)} bloques de investigación para la estructura...")
+        
 
         for idx, chunk in enumerate(text_chunks):
             # Prompt de extracción intermedio (no es el final, solo para recolectar datos)
             prompt_extraccion = f"""
-            Analiza este fragmento de investigación ({idx+1}/{len(text_chunks)}) sobre '{title_base}':
+            Analiza este fragmento ({idx+1}/{len(text_chunks)}) sobre '{title_base}':
             ---
             {chunk}
             ---
-            TAREA: 
-                1.Identifica y extrae Entidades keywords principales directamente vinculadas a '{title_base}'.
-                2.Extrae Datos Técnicos, Cifras, Precios, Nombres y Hechos Relevantes.
-                3.Extrae Subtemas Potenciales que puedan formar H2 o H3 en la estructura.
+            TAREA: Extrae la información de forma ultra-comprimida siguiendo estrictamente este formato:
+            - ENTIDADES: [Solo nombres propios y keywords clave separados por comas]
+            - DATOS_TECNICOS: [Cifras, precios, horarios o hechos breves]
+            - H2 Y H3 SUGERIDOS: [Solo títulos de secciones sugeridas para la estructura, sin descripciones]
+            
+            REGLA: No uses tablas, no saludes, no repitas información que ya sea obvia. Solo datos crudos.
             """
             res = self._llm_generate(prompt_extraccion, "Eres un analista de datos SEO.", temperature=0.2)
             puntos_clave_extraidos.append(res)
 
         # Unimos todos los puntos extraídos (esto ya es mucho más ligero que el texto bruto)
         contexto_completo_para_ia = "\n".join(puntos_clave_extraidos)
+        print("Extracción de puntos clave completada." + contexto_completo_para_ia)
     
         # --- PASO 2: PERFIL EDITORIAL ACTIVO ---
         EDITORIAL_PROFILES = {
             "viajemos": """
                 PERFIL: VIAJEMOS (Arquitectura de Experiencias y Viajes)
-                    - Foco: Intención de búsqueda inspiracional y experiencial.
-                    - Mandato de Utilidad: Si la investigación contiene datos comparativos (precios, horarios, ubicaciones), la estructura debe priorizar una síntesis visual inmediata antes del desarrollo narrativo.
-                    - Prioridad: Facilitar la toma de decisiones del viajero mediante la agrupación lógica de opciones.
-                    - Densidad de Entidades: Cada H2 debe agrupar al menos 3 lugares o marcas relacionadas; PROHIBIDO crear H2 para un solo lugar si existen otros del mismo tipo.
-                    - Enfoque Resolutivo: Los encabezados deben responder comparativamente (Ej: "¿Cuál es mejor para lujo?" o "¿Dónde comprar más barato?").
-                    - Progresión Lógica: Lleva al lector desde la inspiración hasta la acción (Inspiración > Planificación > Experiencia > Consejos).
-                    - Reducción Técnica: Minimiza jerga técnica. Enfócate en la experiencia del usuario y consejos prácticos.
-                    - Tono: Voz de guía experto, entusiasta y sofisticado. Títulos limpios, sin signos de puntuación innecesarios.
+                    - PROHIBIDO crear H2 para un solo lugar si existen otros del mismo tipo.
+                    - Reducción Técnica: Minimiza el uso de jerga técnica. Enfócate en la experiencia del usuario y en consejos prácticos.
+                    - Soluciona la intención de búsqueda con H2 claros y específicos sin extenderse a otros temas no relacionados, solamente respondemos la intencion de busqueda.
+                    - La voz del articulo no puede guiarse de a donde va o a donde viene el usuario , evita mensionar otros paises o ciudades que no esten en la intencion de busqueda
+                    - En caso de ser itinerarios, cada H2 debe ser un día del itinerario y los H3 actividades dentro de ese día.
+                    TONO Y ESTILO: Voz de guía experto, entusiasta y sofisticado. Títulos limpios, directos, con verbos de acción y sin signos de puntuación innecesarios.
             """,
 
             "arriendo": """
@@ -554,8 +547,8 @@ class AIService:
 
         # -- SYSTEM MESSAGE: contexto base del modelo --
         system_message = f"""
-            "Eres un Arquitecto de Contenidos SEO Senior. Tu prioridad es la Relevancia Semántica y la Estructura Lógica. No rellenes con contenido genérico. Si la investigación es insuficiente para un estimated_word_count alto, prioriza la calidad sobre la longitud. Tu salida debe seguir estrictamente la jerarquía de encabezados HTML y principios de 'Siloing' (agrupación temática)."    
-        
+            "Eres un Arquitecto de estructuras para articulos. 
+
             APLICARÁS ESTE PERFIL EDITORIAL DE FORMA OBLIGATORIA:
             {perfil_activo}
 
@@ -566,10 +559,9 @@ class AIService:
         # -- PROMPT PRINCIPAL: instrucciones completas --
         prompt = f"""
         --- OBJETIVO ---
-        Eres un Arquitecto de Contenidos SEO Senior.
-        Diseña una estructura clara y jerárquica para: '{title_base}'.
-        Prioriza siempre intención de búsqueda, claridad semántica y arquitectura SEO
-        por encima del atractivo editorial.
+        Diseña una estructura clara y jerárquica para enfocada en resonder la intencion de busqueda : '{title_base}'.
+        La estructura debe estar optimizada y alineada con la intención de búsqueda.   
+
 
         --- INVESTIGACIÓN ---
         {contexto_completo_para_ia}
@@ -583,34 +575,40 @@ class AIService:
         2. ALCANCE:
 
             -Se debe resolver la intención de búsqueda específica: '{title_base}'.
-            -Prohibición de Alucinación: No inventes amplitud temática, eventos temporales o categorías que no estén explícitamente en los datos.
-            -Cada encabezado debe derivar directamente de la investigación proporcionada.
+            -Prohibición de Alucinación: No inventes amplitud temática, eventos temporales o categorías que no resuelvan la intención de búsqueda.
+            -Los encabezados deben ser relevantes y directamente vinculados a la intención de búsqueda.
 
-        3. MÁXIMA CATEGORIZACIÓN Y DENSIDAD (H2):
-            - AGRUPACIÓN POR AFINIDAD: Une todos los conceptos que compartan naturaleza en un solo H2 de alta densidad. 
-            - PROHIBIDO fragmentar una categoría en múltiples H2 basados en variaciones menores (ej. no separes por 'barato', 'lejos', 'cerca'); usa H3 para esas distinciones internas.
-            - TÍTULOS DE VALOR: Refleja el beneficio o la solución del grupo, evitando nombres genéricos.
-            - SECUENCIA: Ordena de mayor a menor importancia según la intención de búsqueda.
+        3. MÁXIMA CATEGORIZACIÓN Y EXCLUSIVIDAD (H2):
             
-        4. DESARROLLO SEMÁNTICO Y JERARQUÍA (H3):
-            - Los H3 deben utilizarse exclusivamente para detallar entidades individuales o subcategorías que pertenecen orgánicamente al H2 superior.
-            - Evita encabezados que no contengan datos específicos de la investigación.
-            - Si el H2 padre ya resolvió la información mediante una (TABLA) o (LISTA), no generes H3 subordinados para evitar la redundancia estructural.
+            - Cada H2 debe representar una categoría o subtema distinto solucionando la intención de búsqueda.
+            - Prohibición de Redundancia: No repitas temas o subtemas en múltiples H2.
+            - Secuencia Lógica: Los H2 deben seguir un orden lógico que guíe al lector a través del tema.   
+            - REGLA ANTI-APÉNDICE: Prohibido crear secciones H2 o H3 para "Mapas", "Herramientas digitales", "Apps" o "Recursos". Estos elementos no son temas de lectura, son herramientas de apoyo.** 
+        
+        4. DESARROLLO SEMÁNTICO Y AGRUPACIÓN (H3):
+            - Cada H3 debe expandir o detallar el H2 bajo el cual se encuentra.
+            - Evita H3 que no aporten valor o que sean demasiado generales.
+            - Si el titulo H2 contiene (LISTA) o (TABLA), no añadas H3 bajo ese H2.
+             
         5. PROFUNDIDAD:
             - Prioriza la calidad y relevancia sobre la cantidad.
+            - Si la intención de búsqueda se puede resolver en un número menor de H2/H3, hazlo.
 
         6. MULTIMEDIA (SUBORDINADA) (MAPAS, IMAGENES,  VIDEOS)
             - Tras cada H2 y H3:
             [MULTIMEDIA: TIPO | Descripción SEO]
             - Incluye multimedia SOLO cuando aporte al posicionamiento SEO o mejore la comprensión los titulos .
             - La multimedia refuerza la intención, nunca la define ni la amplía.
+            - La descripción SEO debe ser breve y directa, enfocada en la función del multimedia en el contexto del encabezado.
 
 
         7. FORMATO DE SALIDA (OBLIGATORIO)
             - Formato: [H{{N}} - X.Y] Título del Encabezado
             - No uses Markdown.
-            - No uses puntos finales.
+            - No uses comillas, negritas, ni ningún otro formato a menos que sea en formato HTML.
             - No incluyas secciones de “Conclusión”, “FAQ” ni cierres editoriales.
+            - Antes de entregar, revisa que la estructura cumple todas las reglas SEO para un posicionamiento óptimo, de lo contrario reestructura.
+
         --- FORMATO FINAL EXCLUSIVO ---
             Devuelve únicamente el objeto JSON:
             {{
@@ -975,12 +973,23 @@ class AIService:
             target_avg_words = int(estimated_word_count / num_sections)
             instruccion_longitud = f"Referencia orientativa: **{target_avg_words} palabras**. Desarrolla con profundidad técnica/vivida."
 
-        # 4. Extracción de Cabeceras para JSON
+       # 4. Extracción de Cabeceras para JSON
         headers_for_json = [section_title] 
+        # Regex optimizada para capturar solo los títulos reales
         sub_headers_pattern = r'(\[H[0-9] - [0-9.]+\].*\s*(.+)$)|(^[#]{3,}\s*(.+)$)'
         sub_headers_raw = re.findall(sub_headers_pattern, section_to_generate_markdown, re.MULTILINE)
-        sub_headers = [h for match in sub_headers_raw for h in (match[1] or match[3]).strip().split('\n') if h.strip() and h.strip() != section_title]
+        
+        sub_headers = []
+        for match in sub_headers_raw:
+            h_text = (match[1] or match[3]).strip()
+            # Filtramos para que no entren etiquetas multimedia ni líneas vacías
+            if h_text and "MULTIMEDIA" not in h_text.upper() and h_text != section_title:
+                sub_headers.append(h_text)
+        
         headers_for_json.extend(h for h in sub_headers if h not in headers_for_json)
+        
+        # Eliminamos posibles nulos o vacíos que rompen el prompt
+        headers_for_json = [h for h in headers_for_json if h.strip()]
         
         json_schema_example = {header: f"[CONTENIDO PARA {header}]" for header in headers_for_json}
         json_schema_example_str = json.dumps(json_schema_example, indent=2, ensure_ascii=False)
@@ -1075,9 +1084,10 @@ class AIService:
             ### ALGORITMO DE ASIGNACIÓN Y CIERRE SEMÁNTICO (VERSIÓN SUPREMA)
 
             1. NIVEL H1 [Título 0] - ACTIVADOR DE INTENCIÓN:
+            - Se debe incluir la intencion de busqueda principal del usuario.
             - Misión: Validar la intención de búsqueda (Search Intent).
             - Regla: PROHIBIDO usar datos técnicos, listas o precios del Consolidated Content. 
-            - SEO: No resumas el blog aquí. Genera la necesidad de leer los detalles que vendrán después.
+            - Esta parte es la introduccion de el articulo y debe ser narrativa y atractiva, preparando al lector para el desarrollo posterior.
 
             2. NIVEL H2 [Títulos 1, 2, 3...] - ORGANIZADOR TEMÁTICO:
             - Misión: Agrupar conceptos y establecer el contexto.
@@ -1096,69 +1106,83 @@ class AIService:
         """
         
 
-        # 6. Prompt: Instrucciones de segmentación para que no "vuelque" todo el scraping
+        # 6. Orquestación Inteligente por Lotes (Evita Saturación de Contexto)
         secciones_posteriores = full_structure_markdown.split(section_title)[-1][:500] if section_title in full_structure_markdown else ""
-
-        prompt = f"""
-
-        PERFIL EDITORIAL ACTIVO
-        {editorial_profile}
-
-        ### CONTEXTO DE REDACCIÓN
-        - **Sección ACTUAL:** {section_title}
-        - **Secciones SIGUIENTES (Prohibido mencionar):** {secciones_posteriores}
-        - **Historial:** {history_text}
-
-        ### FUENTE DE DATOS (CONSOLIDATED CONTENT)
-        {req.consolidated_content}
-
-        ### TAREA: PROTOCOLO DE ASIGNACIÓN SEMÁNTICA (OBLIGATORIO)
-        1. **Si esta sección es un H1 o Introducción:** Prohibido usar datos específicos, precios, listas o detalles del análisis. Usa el análisis solo para entender el tema y generar un gancho narrativo que prepare al lector. Tu objetivo es la expectativa, no la información.
-        2. **Si esta sección es un H2 o H3:** Extrae únicamente los datos técnicos y experiencias del análisis que correspondan específicamente a este título. 
-
-        ### REGLA DE EXCLUSIVIDAD (ANTI-REDUNDANCIA)
-        - No repitas información que ya aparezca en el 'Historial'.
-        - Si un dato (ej. porcentajes, temporadas, precios generales) ya se mencionó, queda inhabilitado para el resto del artículo.
-        - Si el análisis no tiene datos nuevos para este punto, mantén la profundidad solicitada en el perfil editorial usando la técnica de redacción, pero sin reciclar información de otras secciones.
-
-        ### FORMATO DE SALIDA (JSON)
-        Claves: {', '.join(headers_for_json)}
-        ```json
-        {json_schema_example_str}
-        ```
-        **Instrucción Final:** Genera el JSON que contiene el contenido asociado a CADA título/subtítulo.
-        """
-
-        try:
-            generated_response = self._llm_generate( 
-                prompt=prompt,
-                system_message=system_message,
-                temperature=0.7, 
-                max_tokens=10000 
-            )
-            
-            # Limpieza de json 
-            response_corrected = re.sub(
-                r'(?<!\\)\\(?![ntrbvf/\\]|u[0-9a-fA-F]{4}|\"|\')', 
-                r'\\\\', 
-                generated_response
-            )
-            
-            structured_content = self.limpieza_extraccion_json(response_corrected)
-
-            print(structured_content)
-            
-        except HTTPException as http_e:
-            raise http_e
-        except Exception as llm_e:
-            raise HTTPException(status_code=503, detail=f"Fallo en la comunicación/parseo con el modelo LLM. El modelo devolvió contenido no JSON o no se pudo corregir el error de escape: {str(llm_e)}")
-
         
-        # 6. Respuesta Final devuelve el JSON serializado al frontend
+        # --- LÓGICA DE SEGMENTACIÓN ---
+        MAX_HEADERS_PER_CALL = 2  # Bajamos a 2 para máxima estabilidad en servidor local
+        header_chunks = [headers_for_json[i:i + MAX_HEADERS_PER_CALL] for i in range(0, len(headers_for_json), MAX_HEADERS_PER_CALL)]
+        
+        structured_content = {}
+        contexto_acumulado = history_text 
+
+        for index, chunk in enumerate(header_chunks):
+            # FILTRADO DINÁMICO DEL CONSOLIDATED CONTENT
+            # Solo pasamos las líneas del análisis que mencionen palabras clave de los títulos actuales
+            lineas_analisis = req.consolidated_content.split('\n')
+            analisis_relevante = []
+            keywords = [word.lower() for h in chunk for word in h.split() if len(word) > 3]
+            
+            for linea in lineas_analisis:
+                if any(key in linea.lower() for key in keywords):
+                    analisis_relevante.append(linea)
+            
+            # Si el filtro es muy estricto, enviamos un fragmento base para no perder contexto
+            fuente_datos_optimizada = "\n".join(analisis_relevante) if analisis_relevante else req.consolidated_content[:4000]
+
+            chunk_schema = {header: f"[CONTENIDO PARA {header}]" for header in chunk}
+            chunk_schema_str = json.dumps(chunk_schema, indent=2, ensure_ascii=False)
+
+            prompt_lote = f"""
+            ### PERFIL EDITORIAL: {project_key.upper()}
+            {editorial_profile}
+
+            ### CONTEXTO (Lote {index+1}/{len(header_chunks)})
+            - **Sección:** {section_title}
+            - **Títulos a redactar ahora:** {', '.join(chunk)}
+            - **Historial:** {contexto_acumulado}
+
+            ### DATOS ESPECÍFICOS DEL ANÁLISIS
+            {fuente_datos_optimizada}
+
+            ### TAREA
+            Redacta el contenido para: {', '.join(chunk)}. 
+            Usa los datos técnicos de la fuente de arriba. No inventes precios ni nombres.
+
+            ### FORMATO JSON OBLIGATORIO
+            ```json
+            {chunk_schema_str}
+            ```
+            """
+
+            try:
+                # Bajamos max_tokens de salida para evitar que el servidor local se cuelgue procesando
+                generated_response = self._llm_generate( 
+                    prompt=prompt_lote,
+                    system_message=system_message,
+                    temperature=0.7, 
+                    max_tokens=2500 
+                )
+                
+                response_corrected = re.sub(r'(?<!\\)\\(?![ntrbvf/\\]|u[0-9a-fA-F]{4}|\"|\')', r'\\\\', generated_response)
+                chunk_data = self.limpieza_extraccion_json(response_corrected)
+                
+                if isinstance(chunk_data, dict):
+                    structured_content.update(chunk_data)
+                    # Actualizamos historial para coherencia narrativa
+                    ultimo_valor = list(chunk_data.values())[-1]
+                    contexto_acumulado = f"Anteriormente escrito: {str(ultimo_valor)[-600:]}"
+                
+            except Exception as llm_e:
+                print(f"Error lote {index+1}: {str(llm_e)}")
+                # Si falla un lote, intentamos continuar con el siguiente en lugar de matar todo el proceso
+                continue 
+
+        # 6. Respuesta Final serializada
         return {
             "generated_content": json.dumps(structured_content), 
             "success": "True",
-            "log": f"Contenido estructurado generado para la sección: {section_title} (Nivel {section_level})."
+            "log": f"Generación finalizada. Se procesaron {len(structured_content)} de {len(headers_for_json)} secciones."
         }
 
 
@@ -1884,72 +1908,72 @@ class AnalysisOrchestrator:
 
     def execute_scraping(self, req: models.ScrapeRequest) -> Generator[str, None, None]:
         """
-        Ejecuta el flujo completo de scraping y análisis acumulativo.
-        Mantiene el consolidated_content creciendo URL tras URL sin recortes.
+        Ejecuta el flujo completo de scraping y envía eventos de progreso al frontend.
         """
-        query = req.query
-        urls = [u.strip() for u in query.split(",") if u.strip()][:req.num_results]
+        # 1. Extraer URLs
+        urls = [u.url.strip() for u in req.urls if u.url.strip()][:req.num_results]
+        analisis_contexto = req.title_base if req.title_base else "Contenido relevante"
 
         all_results = []
-        consolidated_text = "" # <--- MEMORIA GLOBAL ACUMULATIVA
+        consolidated_text = "" 
         log = [f"Iniciando scraping de URLs a las {datetime.now().strftime('%H:%M:%S')}"]
         
-        MIN_BLOCKS = 1 
-        MIN_CONTENT_CHARS = 300
-
         print(f"Iniciando scraping de {len(urls)} URLs")
 
         for i, url in enumerate(urls, 1):
-            print(f"Procesando URL {i} de {len(urls)}: {url}")
+            # 📢 ENVIAR AL FRONTEND: "Empezando URL X"
+            msg_inicio = f"Procesando URL {i} de {len(urls)}: {url}"
+            print(msg_inicio)
+            yield f"data: {msg_inicio}\n\n"
 
             # 1. Scraping y Limpieza
             title, full_text, soup = self.extractor.fetch_webpage(url) 
             if not full_text:
-                msg = f"Contenido nulo en {url}, se descarta."
-                print(msg); log.append(msg); continue
-            print(f"✅ Conexión exitosa: '{title[:50]}...' detectado.")
-            
+                msg = f"Contenido nulo en URL {i}, se descarta."
+                print(msg)
+                yield f"data: {msg}\n\n" # Notificamos el fallo
+                log.append(msg)
+                continue
+                
             # 2. Extracción Estructurada
             structured_chunks = self.extractor._scrape_with_fallback(soup)
             if not structured_chunks:
-                print("Fallo estructural, aplicando Plan C (Aggressive Fallback)...")
+                print(f"Fallo estructural en URL {i}, aplicando Plan C...")
+                yield f"data: Fallo estructural en URL {i}...\n\n"
                 structured_chunks = self._aggressive_text_fallback(soup, title)
 
             if not structured_chunks:
-                log.append(f"Contenido insuficiente en {url}"); continue
-            print(f"✅ Extracción completada: {len(structured_chunks)} bloques de contenido obtenidos.")
+                log.append(f"Contenido insuficiente en {url}")
+                continue
 
-            # Consolidamos el contenido bruto de esta URL para la IA
+            # Consolidamos el contenido bruto
             url_consolidated_raw = "\n\n".join([
                 f"--- SECCIÓN: {chunk_data['heading']} ---\n{chunk_data['content']}" 
                 for chunk_data in structured_chunks
             ])
             
-            # Preparamos el bloque multimedia
             all_media = [media for b in structured_chunks for media in b.get('media_elements', [])]
             
-            # 3. FASE 3: Análisis de IA con CONTINUIDAD
+            # 3. FASE 3: Análisis de IA
             summary = ""
             if url_consolidated_raw:
                 if req.use_ai:
-                    print(f"Análisis IA URL {i} integrando con memoria previa...")
-                    # PASAMOS EL consolidated_text QUE LLEVAMOS HASTA EL MOMENTO
+                    # 📢 ENVIAR AL FRONTEND: "Analizando con IA..."
+                    yield f"data: Analizando con IA URL {i}...\n\n"
+                    
                     summary = self.ai_service.analizar_bloque_contenido(
                         url_consolidated_raw, 
                         all_media, 
-                        query, 
+                        analisis_contexto, 
                         title,
                         contexto_previo=consolidated_text 
                     )
-                    # ACTUALIZAMOS EL CONSOLIDADO GLOBAL
                     consolidated_text += f"\n\n--- ANÁLISIS FUENTE: {url} ---\n{summary}"
-                    print(f"✅ Análisis IA finalizado para URL {i}.")
                 else:
                     summary = url_consolidated_raw
                     consolidated_text += f"\n\n{summary}"
 
-            # Guardamos el resultado individual para esta URL
-            # Nota: article_blocks contendrá el resumen generado para esta URL
+            # Guardamos el resultado individual
             chunk_for_result = {
                 'heading': title,
                 'content': url_consolidated_raw,
@@ -1962,7 +1986,7 @@ class AnalysisOrchestrator:
                 title=title,
                 ai_titles=[],
                 subtitles=[],
-                text_content=summary, # Guardamos el resumen de esta URL
+                text_content=summary,
                 headers={"main_heading": [title], "count": [str(len(structured_chunks))]},
                 ai_analysis=summary,
                 title_suggestions=[], 
@@ -1971,41 +1995,43 @@ class AnalysisOrchestrator:
                 status='OK' 
             )
             all_results.append(result)
-            print(f"✔️ URL {i} completada exitosamente.")
+            
+            # 📢 ENVIAR AL FRONTEND: "URL X completada exitosamente"
+            # Esto disparará el check verde en el frontend
+            msg_exito = f"✔️ URL {i} completada exitosamente."
+            print(msg_exito)
+            yield f"data: {msg_exito}\n\n"
 
-        # 4. FASE 4: Persistencia (YA TENEMOS EL consolidated_text COMPLETO)
+        # 4. FASE 4: Persistencia (Igual que tu código)
         valid_results = [r for r in all_results if r.status == 'OK'] 
         
         if valid_results and consolidated_text:
-            print(f"Scraping finalizado. Contenido consolidado: {len(consolidated_text)} caracteres.")
-            
-            if self.db and self.blog_id:
-                try:
-                    estimated_word_count_calculated = len(consolidated_text.split())
-                    all_article_blocks_combined = [b for res in all_results for b in (res.article_blocks or [])]
-                    
-                    datos_a_guardar_scraping = {
-                        "consolidated_content": consolidated_text, 
-                        'scrape_blocks_json': all_article_blocks_combined 
-                    }
+            try:
+                # Tu lógica de guardado en DB...
+                estimated_word_count_calculated = len(consolidated_text.split())
+                all_article_blocks_combined = [b for res in all_results for b in (res.article_blocks or [])]
+                
+                datos_a_guardar_scraping = {
+                    "consolidated_content": consolidated_text, 
+                    'scrape_blocks_json': all_article_blocks_combined 
+                }
 
-                    actualizar_o_crear_resultado_scraping(self.db, self.blog_id, datos_a_guardar_scraping) 
-                    
-                    blog_entity = self.db.query(Blog).filter(Blog.id == self.blog_id).first()
-                    estructura_actual = blog_entity.estructura_blog_json if blog_entity else {}
-                    
-                    actualizar_estructura_blog(
-                        self.db, self.blog_id, 
-                        estructura_data=estructura_actual, 
-                        estimated_word_count=estimated_word_count_calculated
-                    )
-                    print(f"Persistencia exitosa en Blog ID: {self.blog_id}")
-                except Exception as e:
-                    print(f"ERROR DB: {str(e)}"); log.append(f"ERROR DB: {str(e)}")
+                actualizar_o_crear_resultado_scraping(self.db, self.blog_id, datos_a_guardar_scraping) 
+                
+                blog_entity = self.db.query(Blog).filter(Blog.id == self.blog_id).first()
+                estructura_actual = blog_entity.estructura_blog_json if blog_entity else {}
+                
+                actualizar_estructura_blog(
+                    self.db, self.blog_id, 
+                    estructura_data=estructura_actual, 
+                    estimated_word_count=estimated_word_count_calculated
+                )
+            except Exception as e:
+                print(f"ERROR DB: {str(e)} ")
 
         # 5. FASE 5: RESPUESTA FINAL
         final_response = models.ScrapeResponse(
-            query=query,
+            query=req.title_base if req.title_base else "",
             count=len(valid_results),
             results=all_results,
             log=log,
@@ -2014,6 +2040,7 @@ class AnalysisOrchestrator:
 
         yield "event: final_data\n"
         yield f"data: {final_response.model_dump_json()}\n\n"
+
 
 def execute_scraping(db: Session, blog_id: UUID, req: models.ScrapeRequest) -> Generator[str, None, None]:
     """

@@ -488,24 +488,28 @@ class AIService:
         
         puntos_clave_extraidos = []
         print(f"Analizando {len(text_chunks)} bloques de investigación para la estructura...")
+        
 
         for idx, chunk in enumerate(text_chunks):
             # Prompt de extracción intermedio (no es el final, solo para recolectar datos)
             prompt_extraccion = f"""
-            Analiza este fragmento de investigación ({idx+1}/{len(text_chunks)}) sobre '{title_base}':
+            Analiza este fragmento ({idx+1}/{len(text_chunks)}) sobre '{title_base}':
             ---
             {chunk}
             ---
-            TAREA: 
-                1.Identifica y extrae Entidades keywords principales directamente vinculadas a '{title_base}'.
-                2.Extrae Datos Técnicos, Cifras, Precios, Nombres y Hechos Relevantes.
-                3.Extrae Subtemas Potenciales que puedan formar H2 o H3 en la estructura.
+            TAREA: Extrae la información de forma ultra-comprimida siguiendo estrictamente este formato:
+            - ENTIDADES: [Solo nombres propios y keywords clave separados por comas]
+            - DATOS_TECNICOS: [Cifras, precios, horarios o hechos breves]
+            - H2 Y H3 SUGERIDOS: [Solo títulos de secciones sugeridas para la estructura, sin descripciones]
+            
+            REGLA: No uses tablas, no saludes, no repitas información que ya sea obvia. Solo datos crudos.
             """
             res = self._llm_generate(prompt_extraccion, "Eres un analista de datos SEO.", temperature=0.2)
             puntos_clave_extraidos.append(res)
 
         # Unimos todos los puntos extraídos (esto ya es mucho más ligero que el texto bruto)
         contexto_completo_para_ia = "\n".join(puntos_clave_extraidos)
+        print("Extracción de puntos clave completada." + contexto_completo_para_ia)
     
         # --- PASO 2: PERFIL EDITORIAL ACTIVO ---
         EDITORIAL_PROFILES = {
@@ -514,6 +518,7 @@ class AIService:
                     - PROHIBIDO crear H2 para un solo lugar si existen otros del mismo tipo.
                     - Reducción Técnica: Minimiza el uso de jerga técnica. Enfócate en la experiencia del usuario y en consejos prácticos.
                     - Soluciona la intención de búsqueda con H2 claros y específicos sin extenderse a otros temas no relacionados, solamente respondemos la intencion de busqueda.
+                    - La voz del articulo no puede guiarse de a donde va o a donde viene el usuario , evita mensionar otros paises o ciudades que no esten en la intencion de busqueda
                     - En caso de ser itinerarios, cada H2 debe ser un día del itinerario y los H3 actividades dentro de ese día.
                     TONO Y ESTILO: Voz de guía experto, entusiasta y sofisticado. Títulos limpios, directos, con verbos de acción y sin signos de puntuación innecesarios.
             """,
@@ -594,6 +599,7 @@ class AIService:
             [MULTIMEDIA: TIPO | Descripción SEO]
             - Incluye multimedia SOLO cuando aporte al posicionamiento SEO o mejore la comprensión los titulos .
             - La multimedia refuerza la intención, nunca la define ni la amplía.
+            - La descripción SEO debe ser breve y directa, enfocada en la función del multimedia en el contexto del encabezado.
 
 
         7. FORMATO DE SALIDA (OBLIGATORIO)
@@ -967,67 +973,84 @@ class AIService:
             target_avg_words = int(estimated_word_count / num_sections)
             instruccion_longitud = f"Referencia orientativa: **{target_avg_words} palabras**. Desarrolla con profundidad técnica/vivida."
 
-        # 4. Extracción de Cabeceras para JSON
-        headers_for_json = [section_title] 
-        sub_headers_pattern = r'(\[H[0-9] - [0-9.]+\].*\s*(.+)$)|(^[#]{3,}\s*(.+)$)'
-        sub_headers_raw = re.findall(sub_headers_pattern, section_to_generate_markdown, re.MULTILINE)
-        sub_headers = [h for match in sub_headers_raw for h in (match[1] or match[3]).strip().split('\n') if h.strip() and h.strip() != section_title]
-        headers_for_json.extend(h for h in sub_headers if h not in headers_for_json)
+        # 4. **SOLUCIÓN SIMPLE: Usar los headers como vienen del frontend**
+        # Extraer los títulos de section_to_generate_markdown tal cual vienen
+        headers_for_json = []
         
-        json_schema_example = {header: f"[CONTENIDO PARA {header}]" for header in headers_for_json}
-        json_schema_example_str = json.dumps(json_schema_example, indent=2, ensure_ascii=False)
+        # Buscar todas las líneas que sean títulos (con # o [HX - X])
+        lines = section_to_generate_markdown.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line:
+                # Si es formato markdown con #
+                if line.startswith('#'):
+                    # Quitar los # y espacios iniciales
+                    title = re.sub(r'^#+\s*', '', line)
+                    headers_for_json.append(title)
+                # Si es formato [HX - X.X] Título
+                elif line.startswith('[') and ']' in line:
+                    # Extraer solo el texto después del ]
+                    parts = line.split(']', 1)
+                    if len(parts) > 1 and parts[1].strip():
+                        headers_for_json.append(parts[1].strip())
+        
+        # Si no encontramos headers en el markdown, usar section_title
+        if not headers_for_json:
+            headers_for_json = [section_title]
+        
+        print(f"Headers extraídos: {headers_for_json}")
+        print(f"Nivel de sección: {section_level}")
+
         EDITORIAL_PROFILES = {
-        "viajemos": """
-            PROYECTO: VIAJEMOS (Voz de Experto que Acompaña)
+            "viajemos": """
+                PROYECTO: VIAJEMOS (Voz de Experto que Acompaña)
 
-            Voz Editorial:
-            - No eres un folleto: Eres un viajero experimentado. Evita el tono institucional. Habla desde la recomendación real ("Te sugiero", "Lo mejor es").
-            
-            Enfoque de Datos SEO:
-            - El valor está en el detalle: Si el Consolidated Content dice que algo cuesta 10 USD, no digas que es "barato", di que cuesta <strong>10 USD</strong>. La precisión es lo que genera confianza (E-E-A-T).
-            
-            Reglas de Oro del Tono:
-            - Cero Relleno: Si vas a describir un lugar, usa detalles sensoriales (olores, colores, clima) mezclados con los datos técnicos.
-            - Persuasión Útil: Cada párrafo debe ayudar al lector a tomar una decisión o imaginar el lugar.
-            - Prohibido el lenguaje robótico: Sustituye "Miami ofrece diversas opciones" por "En Miami te vas a encontrar con...".
-        """,
-
-        "arriendo": """
-            PROYECTO: ARRIENDO (Voz Educativa y Práctica)
-
-            Voz Editorial:
-            - Eres un asesor experto, neutral y didáctico. Tu objetivo es dar seguridad y claridad ante procesos legales o comerciales.
-
-            Enfoque Narrativo:
-            - Directo al grano: el lector busca soluciones, riesgos y consecuencias reales.
-            - Define los escenarios de forma explicativa para que un ciudadano común los entienda sin esfuerzo.
-
-            Reglas de Estilo:
-            - Estilo limpio y profesional, sin storytelling emocional.
-            - Prioriza la jerarquía de obligaciones, derechos y recomendaciones preventivas.
-            - Transmite autoridad a través de la precisión y la sencillez.
+                Voz Editorial:
+                - No eres un folleto: Eres un viajero experimentado. Evita el tono institucional. Habla desde la recomendación real ("Te sugiero", "Lo mejor es").
+                
+                Enfoque de Datos SEO:
+                - El valor está en el detalle: Si el Consolidated Content dice que algo cuesta 10 USD, no digas que es "barato", di que cuesta <strong>10 USD</strong>. La precisión es lo que genera confianza (E-E-A-T).
+                
+                Reglas de Oro del Tono:
+                - Cero Relleno: Si vas a describir un lugar, usa detalles sensoriales (olores, colores, clima) mezclados con los datos técnicos.
+                - Persuasión Útil: Cada párrafo debe ayudar al lector a tomar una decisión o imaginar el lugar.
+                - Prohibido el lenguaje robótico: Sustituye "Miami ofrece diversas opciones" por "En Miami te vas a encontrar con...".
             """,
 
-        "guia_legal": """
-            PROYECTO: GUÍA LEGAL (Voz de Autoridad y Confianza)
+            "arriendo": """
+                PROYECTO: ARRIENDO (Voz Educativa y Práctica)
 
-            Voz Editorial:
-            - Eres un profesional del derecho que comunica con rigor pero con un lenguaje accesible para no-abogados. Transmites calma y respaldo experto.
+                Voz Editorial:
+                - Eres un asesor experto, neutral y didáctico. Tu objetivo es dar seguridad y claridad ante procesos legales o comerciales.
 
-            Enfoque Narrativo:
-            - Informativo-legal puro. El texto debe responder con autoridad: qué es, cuándo aplica y qué acción debe tomar el lector.
+                Enfoque Narrativo:
+                - Directo al grano: el lector busca soluciones, riesgos y consecuencias reales.
+                - Define los escenarios de forma explicativa para que un ciudadano común los entienda sin esfuerzo.
 
-            Reglas de Estilo:
-            - Formal y profesional. Queda estrictamente prohibido el lenguaje promocional o emocional.
-            - El valor reside en la exactitud de la norma y la claridad del procedimiento.
-            - Cada párrafo debe reforzar la sensación de que el lector está en manos expertas.
-        """
+                Reglas de Estilo:
+                - Estilo limpio y profesional, sin storytelling emocional.
+                - Prioriza la jerarquía de obligaciones, derechos y recomendaciones preventivas.
+                - Transmite autoridad a través de la precisión y la sencillez.
+                """,
+
+            "guia_legal": """
+                PROYECTO: GUÍA LEGAL (Voz de Autoridad y Confianza)
+
+                Voz Editorial:
+                - Eres un profesional del derecho que comunica con rigor pero con un lenguaje accesible para no-abogados. Transmites calma y respaldo experto.
+
+                Enfoque Narrativo:
+                - Informativo-legal puro. El texto debe responder con autoridad: qué es, cuándo aplica y qué acción debe tomar el lector.
+
+                Reglas de Estilo:
+                - Formal y profesional. Queda estrictamente prohibido el lenguaje promocional o emocional.
+                - El valor reside en la exactitud de la norma y la claridad del procedimiento.
+                - Cada párrafo debe reforzar la sensación de que el lector está en manos expertas.
+            """
         }
 
         project_key = getattr(req, "project", "viajemos").lower()
         editorial_profile = EDITORIAL_PROFILES.get(project_key, EDITORIAL_PROFILES["viajemos"])
-
-
 
         # 5. Construcción del Prompt (El corazón de la simplificación) 
         system_message = f"""
@@ -1063,22 +1086,6 @@ class AIService:
             - Usa doble barra invertida (\\\\) para representar una barra literal (\).
 
             ---
-
-            ### ALGORITMO DE ASIGNACIÓN Y CIERRE SEMÁNTICO (VERSIÓN SUPREMA)
-
-            1. NIVEL H1 [Título 0] - ACTIVADOR DE INTENCIÓN:
-            - Misión: Validar la intención de búsqueda (Search Intent).
-            - Regla: PROHIBIDO usar datos técnicos, listas o precios del Consolidated Content. 
-            - SEO: No resumas el blog aquí. Genera la necesidad de leer los detalles que vendrán después.
-
-            2. NIVEL H2 [Títulos 1, 2, 3...] - ORGANIZADOR TEMÁTICO:
-            - Misión: Agrupar conceptos y establecer el contexto.
-            - Regla: Detente antes de tocar el contenido detallado de los sub-bloques (H3).
-
-            3. NIVEL H3 [Títulos 1.1, 2.1.1...] - UNIDAD DE VALOR Y EJECUCIÓN:
-            - Misión: Entrega total de sustancia (E-E-A-T).
-            - Obligación: Extraer CADA nombre propio, marca, precio o tecnicismo del 'Consolidated Content'. Si el dato existe, debe aparecer.
-
             ### PROTOCOLO DE CALIDAD Y RITMO EDITORIAL (ANTI-IA)
 
             - Variedad de Párrafos: Alterna párrafos de impacto con párrafos de desarrollo.
@@ -1086,73 +1093,102 @@ class AIService:
             - Naturalidad Narrativa: Evita muletillas de IA ("En este recorrido", "Prepárate para"). Usa afirmaciones directas de experto.
             - Cero Redundancia: Si un dato ya aparece en el 'Historial', queda estrictamente prohibido repetirlo. Pasa al siguiente detalle técnico.
         """
-        
 
-        # 6. Prompt: Instrucciones de segmentación para que no "vuelque" todo el scraping
+        # 6. Orquestación Inteligente por Lotes (Evita Saturación de Contexto)
         secciones_posteriores = full_structure_markdown.split(section_title)[-1][:500] if section_title in full_structure_markdown else ""
-
-        prompt = f"""
-
-        PERFIL EDITORIAL ACTIVO
-        {editorial_profile}
-
-        ### CONTEXTO DE REDACCIÓN
-        - **Sección ACTUAL:** {section_title}
-        - **Secciones SIGUIENTES (Prohibido mencionar):** {secciones_posteriores}
-        - **Historial:** {history_text}
-
-        ### FUENTE DE DATOS (CONSOLIDATED CONTENT)
-        {req.consolidated_content}
-
-        ### TAREA: PROTOCOLO DE ASIGNACIÓN SEMÁNTICA (OBLIGATORIO)
-        1. **Si esta sección es un H1 o Introducción:** Prohibido usar datos específicos, precios, listas o detalles del análisis. Usa el análisis solo para entender el tema y generar un gancho narrativo que prepare al lector. Tu objetivo es la expectativa, no la información.
-        2. **Si esta sección es un H2 o H3:** Extrae únicamente los datos técnicos y experiencias del análisis que correspondan específicamente a este título. 
-
-        ### REGLA DE EXCLUSIVIDAD (ANTI-REDUNDANCIA)
-        - No repitas información que ya aparezca en el 'Historial'.
-        - Si un dato (ej. porcentajes, temporadas, precios generales) ya se mencionó, queda inhabilitado para el resto del artículo.
-        - Si el análisis no tiene datos nuevos para este punto, mantén la profundidad solicitada en el perfil editorial usando la técnica de redacción, pero sin reciclar información de otras secciones.
-
-        ### FORMATO DE SALIDA (JSON)
-        Claves: {', '.join(headers_for_json)}
-        ```json
-        {json_schema_example_str}
-        ```
-        **Instrucción Final:** Genera el JSON que contiene el contenido asociado a CADA título/subtítulo.
-        """
-
-        try:
-            generated_response = self._llm_generate( 
-                prompt=prompt,
-                system_message=system_message,
-                temperature=0.7, 
-                max_tokens=10000 
-            )
-            
-            # Limpieza de json 
-            response_corrected = re.sub(
-                r'(?<!\\)\\(?![ntrbvf/\\]|u[0-9a-fA-F]{4}|\"|\')', 
-                r'\\\\', 
-                generated_response
-            )
-            
-            structured_content = self.limpieza_extraccion_json(response_corrected)
-
-            print(structured_content)
-            
-        except HTTPException as http_e:
-            raise http_e
-        except Exception as llm_e:
-            raise HTTPException(status_code=503, detail=f"Fallo en la comunicación/parseo con el modelo LLM. El modelo devolvió contenido no JSON o no se pudo corregir el error de escape: {str(llm_e)}")
-
         
-        # 6. Respuesta Final devuelve el JSON serializado al frontend
+        # --- LÓGICA DE SEGMENTACIÓN ---
+        MAX_HEADERS_PER_CALL = 2  # Bajamos a 2 para máxima estabilidad en servidor local
+        header_chunks = [headers_for_json[i:i + MAX_HEADERS_PER_CALL] for i in range(0, len(headers_for_json), MAX_HEADERS_PER_CALL)]
+        
+        structured_content = {}
+        contexto_acumulado = history_text 
+
+        for index, chunk in enumerate(header_chunks):
+            # FILTRADO DINÁMICO DEL CONSOLIDATED CONTENT
+            # Solo pasamos las líneas del análisis que mencionen palabras clave de los títulos actuales
+            lineas_analisis = req.consolidated_content.split('\n')
+            analisis_relevante = []
+            keywords = [word.lower() for h in chunk for word in h.split() if len(word) > 3]
+            
+            for linea in lineas_analisis:
+                if any(key in linea.lower() for key in keywords):
+                    analisis_relevante.append(linea)
+            
+            # Si el filtro es muy estricto, enviamos un fragmento base para no perder contexto
+            fuente_datos_optimizada = "\n".join(analisis_relevante) if analisis_relevante else req.consolidated_content[:4000]
+
+            chunk_schema = {header: f"[CONTENIDO PARA {header}]" for header in chunk}
+            chunk_schema_str = json.dumps(chunk_schema, indent=2, ensure_ascii=False)
+
+            # **SOLUCIÓN MÍNIMA: Agregar instrucción específica al prompt según el nivel**
+            instruccion_nivel = ""
+            if section_level == "h1_block" or (section_title and "0." in section_title):
+                instruccion_nivel ="Estás generando el H1 (Título 0 - Introducción principal del artículo). Esto NO es una sección normal, es SOLO la introducción narrativa inicial. PROHIBIDO incluir cualquier detalle técnico, lista o precio del analisis."
+            elif section_level == "h2_block":
+                instruccion_nivel = "Esto es un H2 (bloque principal). Solo introduce el tema general, NO desarrolles detalles técnicos específicos. Los detalles corresponden a los H3."
+            elif section_level == "h3_block":
+                instruccion_nivel = "Esto son H3 (subsecciones). Aquí SÍ debes incluir TODOS los datos técnicos específicos del Consolidated Content: precios, nombres, fechas, cifras concretas."
+
+            prompt_lote = f"""
+            ### PERFIL EDITORIAL: {project_key.upper()}
+            {editorial_profile}
+
+            {instruccion_nivel}
+
+            ### CONTEXTO (Lote {index+1}/{len(header_chunks)})
+            - **Nivel actual:** {section_level}
+            - **Sección:** {section_title}
+            - **Títulos a redactar ahora:** {', '.join(chunk)}
+            - **Historial:** {contexto_acumulado}
+
+            ### DATOS ESPECÍFICOS DEL ANÁLISIS
+            {fuente_datos_optimizada}
+
+            ### TAREA
+            Redacta el contenido para: {', '.join(chunk)}. 
+            Usa los datos técnicos de la fuente de arriba. No inventes precios ni nombres.
+
+            ### FORMATO JSON OBLIGATORIO
+            ```json
+            {chunk_schema_str}
+            ```
+            """
+
+            try:
+                # Ajustar tokens según nivel (opcional pero recomendado)
+                if section_level == "h1_block" or (section_title and "0." in section_title):
+                    max_tokens_actual = 1500  # Menos para H1 (solo introducción)
+                else:
+                    max_tokens_actual = 2500  # Normal para otros niveles
+                
+                generated_response = self._llm_generate( 
+                    prompt=prompt_lote,
+                    system_message=system_message,
+                    temperature=0.7, 
+                    max_tokens=max_tokens_actual 
+                )
+                
+                response_corrected = re.sub(r'(?<!\\)\\(?![ntrbvf/\\]|u[0-9a-fA-F]{4}|\"|\')', r'\\\\', generated_response)
+                chunk_data = self.limpieza_extraccion_json(response_corrected)
+                
+                if isinstance(chunk_data, dict):
+                    structured_content.update(chunk_data)
+                    # Actualizamos historial para coherencia narrativa
+                    ultimo_valor = list(chunk_data.values())[-1]
+                    contexto_acumulado = f"Anteriormente escrito: {str(ultimo_valor)[-600:]}"
+                
+            except Exception as llm_e:
+                print(f"Error lote {index+1}: {str(llm_e)}")
+                # Si falla un lote, intentamos continuar con el siguiente en lugar de matar todo el proceso
+                continue 
+
+        # 7. Respuesta Final serializada
         return {
             "generated_content": json.dumps(structured_content), 
             "success": "True",
-            "log": f"Contenido estructurado generado para la sección: {section_title} (Nivel {section_level})."
+            "log": f"Generación finalizada. Se procesaron {len(structured_content)} de {len(headers_for_json)} secciones (Nivel: {section_level})."
         }
-
 
 
     # --- AQUI ESTA LA LOGICA DE REGENERACION Y LIMPIEZA DEL JSON QUE DEVUELVE LA IA 
@@ -1478,76 +1514,136 @@ class ContentExtractor:
     @staticmethod
     def _get_content_area(soup: BeautifulSoup, mode: str) -> Union[Tag, BeautifulSoup]:
         """
-        Identifica el área principal del contenido y limpia el ruido interno por densidad.
+        Identifica el área principal del contenido usando selectores simples (Plan A) 
+        y luego heurística de densidad (Plan B/Modo Robusto). 
+        Aplica limpieza fina interna para eliminar ruido anidado.
         """
         temp_content_area = None
         
-        # A. DETECCIÓN SIMPLE
+        # ----------------------------------------------------------------------
+        # A. DETECCIÓN SIMPLE (Plan A: Primer intento rápido y eficiente)
+        # ----------------------------------------------------------------------
         if mode == 'simple':
+            # Selectores de muy alta confianza
             simple_selectors = ['div[itemprop*="articleBody"]', '.entry-content', 'article.post-content', 'article', 'main']
+            
             for selector in simple_selectors:
                 area = soup.select_one(selector)
-                if area and len(area.get_text(strip=True)) > 500:
+                # Debe tener suficiente texto para ser un artículo real
+                if area and len(area.get_text(strip=True)) > 500: #<-- En caso de necesitar menos palabras para el scrapping reducirlo
                     temp_content_area = area
                     break
 
-        # B. DETECCIÓN ROBUSTA (Fallback)
+        # ----------------------------------------------------------------------
+        # B. DETECCIÓN ROBUSTA (Plan B: Heurística de Densidad y Selectores Agresivos)
+        # Se ejecuta si el modo es 'robust' O si el Plan A falló.
+        # ----------------------------------------------------------------------
+        
         if mode == 'robust' or (mode == 'simple' and not temp_content_area):
+            
+            # Selectores de contenedores de artículo 
             article_container_selectors = [
                 'div[itemprop*="articleBody"]', '.entry-content', '.post-content', 
                 '.article-body', '.post-body', '.article-main-content', '.td-post-content', 
                 '.post-inner', '.content-wrap', '.single-post-content', 
+                
+                # Selectores Agresivos
                 '[class*="content"]', '[class*="single"]', '.post', '.article',
                 '.main-content', '#main-content-area', '.main-area',
+                
                 'article', 'main', '#content', '#primary', '#main-content', 
             ]
+            
             best_area = temp_content_area
             max_p_count = 0
+            
+            # Si venimos de un fallo en el modo simple, reiniciamos max_p_count
+            if not best_area:
+                 max_p_count = 0
+
+            # Iteramos sobre todos los candidatos para encontrar el mejor por DENSIDAD
             for selector in article_container_selectors:
                 for area in soup.select(selector): 
+                    # Contamos párrafos (el marcador clave de contenido principal)
                     p_count = len(area.find_all('p', limit=10)) 
                     text_len = len(area.get_text(strip=True))
+                    
+                    # Criterio de Selección: Debe ser grande, tener al menos 3 párrafos y más que el candidato actual.
                     if text_len > 300 and p_count >= 3:
                          if p_count > max_p_count:
                             max_p_count = p_count
                             best_area = area
+            
             temp_content_area = best_area
         
-        # C. LÓGICA DE LIMPIEZA INTERNA
+        # ----------------------------------------------------------------------
+        # C. LÓGICA DE LIMPIEZA INTERNA (LISTA BLANCA + EXCLUSIÓN DE RUIDO)
+        # ----------------------------------------------------------------------
+
         if temp_content_area:
+            # Lista de etiquetas esenciales que SI deben sobrevivir 
             essential_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'li', 'a', 'strong', 'em', 'blockquote', 'img', 'figure', 'ul', 'ol', 'video', 'table', 'span', 'br', 'iframe']
             
             for element in temp_content_area.find_all(True):
                 is_noise = False
-                element_text = element.get_text(strip=True)
                 
+                # Criterio C.1: Eliminación por Lista Blanca y Vacío (Protege el contenido esencial)
                 if element.name not in essential_tags:
+                    # Busca si el elemento tiene un hijo multimedia 
                     has_media_child = element.find(['img', 'figure', 'iframe', 'video', 'picture'], recursive=False)
-                    if len(element_text) < 50 and not has_media_child: 
+                    # Si no es un tag esencial y NO tiene texto significativo
+                    if len(element.get_text(strip=True)) < 50 and not has_media_child: 
                         is_noise = True
 
-                # --- FILTRO CRÍTICO DE DENSIDAD ---
-                if element.name in ['div', 'section', 'aside', 'ul']:
+                # Criterio C.2: Heurística de Contenedor de Ruido (Clases y Densidad de Enlaces)
+                if element.name in ['div', 'section', 'aside']:
+                    # 1. Clases de ruido conocidas (Filtro AMPLIO)
+                    if any(c in element.get('class', []) for c in [
+                        'widget', 'promo-box', 'related-posts', 'guide-links', 
+                        'reviews-section', 'author-box', 'social-media', 'share-bar', 
+                        'elementor-widget', 'ad-container', 'post-nav', 'links-list', 
+                        'more-stories', 'paywall-block', 'sub-header', 'footer-content', 'byline-item'
+                    ]):
+                         is_noise = True
+                         
+                    # 2. Heurísticas de densidad de enlaces (Detecta listados de links/publicidad)
+                    num_p = len(element.find_all('p', recursive=False))
                     num_a = len(element.find_all('a'))
-                    num_words = len(element_text.split())
-                    # Si más del 40% de las palabras son enlaces, es ruido (lista de navegación)
-                    if num_words > 0 and (num_a / num_words) > 0.4 and len(element_text) < 600:
+                    text_len = len(element.get_text(strip=True))
+
+                    # Regla: Si tiene muy pocos párrafos, muchos enlaces y poco texto total.
+                    if num_p < 3 and num_a > 3 and num_a / (len(element.find_all(True)) or 1) > 0.3 and text_len < 500:
                         is_noise = True
+                        
+                # Criterio C.3: HEURÍSTICA DE CÓDIGO JS Y BOTONES DE ACCIÓN
+                element_text = element.get_text(strip=True)
                 
-                # C.3 HEURÍSTICA DE ACCIONES
-                if element.name in ['input', 'textarea', 'select', 'form'] or '{{' in element_text: 
+                # Detecta tags de form, input o placeholders de JS/React
+                if element.name in ['input', 'textarea', 'select', 'form'] or '{{' in element_text or '}}' in element_text: 
                      is_noise = True
-                elif element.name in ['button', 'a'] and any(kw in element_text for kw in ['Borrar', 'Selecciona', 'Reservar', 'Comprar', 'Buscar', 'Newsletter']):
+                
+                # Detecta botones o links de acción
+                elif element.name in ['button', 'a'] and any(keyword in element_text for keyword in ['Borrar', 'Selecciona', 'Reservar', 'Comprar', 'Agregar', 'Idioma', 'Moneda', 'Opciones', 'Destino', 'Ver más', 'Buscar', 'Suscribir', 'Newsletter', 'Publicidad']):
                     is_noise = True
                 
                 if is_noise:
-                    element.decompose() 
+                    element.decompose() # Elimina el elemento
+            
+            # 4. Heurística Final para eliminar bloques de Related Posts/Links al final
+            for last_tag in temp_content_area.find_all(recursive=False)[-3:]:
+                if last_tag.name in ['div', 'section'] and (
+                    len(last_tag.get_text(strip=True)) < 500 and len(last_tag.find_all('a')) > 5
+                ):
+                    last_tag.decompose()
 
+        # ----------------------------------------------------------------------
+        # D. FALLBACK FINAL
+        # ----------------------------------------------------------------------
         return temp_content_area or soup.find('body') or soup
-    
 
     @staticmethod
     def group_content_by_headings(soup: BeautifulSoup, mode: str) -> List[Dict[str, Any]]: 
+        """Procesa el HTML de la página, agrupando texto y elementos multimedia bajo los encabezados (H2/H3) detectados para crear bloques estructurados de contenido."""
         blocks = []
         current_heading: Optional[str] = None 
         current_content: List[str] = []
@@ -1556,6 +1652,7 @@ class ContentExtractor:
         content_area = ContentExtractor._get_content_area(soup, mode)
         article_title = ContentExtractor.get_article_main_heading(soup)
 
+        # Función auxiliar interna para guardar el bloque actual
         def save_current_block():
             heading_to_save = current_heading if current_heading is not None else "Introducción/Pre-H2"
             if current_content or current_media:
@@ -1569,52 +1666,90 @@ class ContentExtractor:
                         "media_elements": list(deduplicated_media.values())
                     })
         
+        # Tags a buscar para la división y el contenido
         elements_to_find = ['h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'blockquote', 'div', 'section', 'img', 'figure', 'iframe', 'video', 'picture', 'span']
         elements = content_area.find_all(elements_to_find, recursive=True)
         
         HEADING_CLASSES = re.compile(r'title|subtitle|headline|subhead|h-?[234]|h[234]-?style', re.I)
-        LOW_CONFIDENCE_CLASSES = re.compile(r'caption|credit|footer|ad|widget|photo|image|social-share', re.I)
+        LOW_CONFIDENCE_CLASSES = re.compile(r'caption|credit|footer|ad|widget|photo|image|media-title|social-share|figure-title|byline|author|metadata', re.I)
         
         for tag in elements:
+            # Lógica para identificar si el elemento es un divisor de encabezado (H2/H3/Div con clase de título)
             tag_name = tag.name.lower()
             text_content = tag.get_text(strip=True, separator=' ')
             
-            if tag.get('aria-hidden') == 'true' or (not text_content and tag_name not in ['img', 'figure', 'iframe']):
+            if tag.get('aria-hidden') == 'true' or tag.get('role') == 'presentation' or (not text_content and tag_name not in ['img', 'figure', 'picture', 'iframe']):
                 continue
 
-            # Detección de divisores
             is_heading_divisor = False
-            if tag_name in ['h1', 'h2', 'h3', 'h4']: 
+            
+            # 1. Identificación del Divisor (H1, H2, H3/H4 bajo ciertas condiciones, y divs/spans con clases de encabezado)
+            if tag_name in ['img', 'figure', 'picture', 'iframe', 'video']: is_heading_divisor = False
+            elif tag_name in ['h1', 'h2']: is_heading_divisor = True
+            elif tag_name in ['h3', 'h4']:
                 is_heading_divisor = True
-            elif tag_name in ['div', 'span'] and tag.has_attr('class'):
-                class_str = " ".join(tag.get('class', []))
-                if HEADING_CLASSES.search(class_str) and not LOW_CONFIDENCE_CLASSES.search(class_str):
-                    if len(text_content) > 10 and len(text_content) < 200: is_heading_divisor = True
+            elif tag_name in ['div', 'span', 'section']:
+                if tag.get('role') == 'heading' and tag.get('aria-level') in ['1', '2', '3', '4']: is_heading_divisor = True
+                elif tag.has_attr('class'):
+                    class_str = " ".join(tag.get('class', []))
+                    class_match = HEADING_CLASSES.search(class_str)
+                    if class_match and len(text_content) > 10:
+                        low_conf_match = LOW_CONFIDENCE_CLASSES.search(class_str)
+                        if not low_conf_match:
+                            has_media_child = tag.find(['img', 'figure', 'video', 'iframe'])
+                            if not has_media_child or len(tag.contents) > 2: is_heading_divisor = True
             
+            # 2. Manejo de Encabezado: Guarda el bloque anterior e inicia uno nuevo
             if is_heading_divisor:
-                if len(text_content) < 5: continue
                 
-                # Filtros de bloque anterior
-                if current_heading is not None and current_content:
-                    texto_consolidado = " ".join(current_content)
-                    # Si el bloque es pura lista de links, lo saltamos
-                    if texto_consolidado.count('http') > 5:
-                        current_content = []; current_media = []; current_heading = text_content; continue
+                # FILTRO : Títulos muy cortos o conocidos como ruido visual
+                if len(text_content) < 5 or any(exc in text_content.lower() for exc in ['pie de foto', 'foto:', 'imagen de', 'ver galeria', 'crédito']): continue
+                
 
-                save_current_block()
-                current_heading = text_content; current_content = []; current_media = []
-            
-            # Media
+                # INICIO DE FILTRO UNIVERSAL CONTRA EL RUIDO DE LAS PAGINAS
+                # 1. Chequeo de calidad del bloque ANTERIOR antes de guardarlo.
+                if current_heading is not None and current_content:
+                    
+                    texto_consolidado = " ".join(current_content)
+                    len_texto = len(texto_consolidado)
+                    heading_strip = current_heading.strip()
+                    
+                    # FILTRO 1: DUPLICACIÓN HEADER-CONTENIDO EXTENDIDA 
+                    if len_texto < 1500 and texto_consolidado.startswith(heading_strip): 
+                        current_heading = text_content
+                        current_content = []
+                        current_media = []
+                        continue 
+
+                    # FILTRO 2: DENSIDAD DE ENLACES ADAPTATIVA MÁS AGRESIVA 
+                    link_count = texto_consolidado.lower().count('http') + texto_consolidado.lower().count('www.')
+                    
+                    # Si el bloque es PEQUEÑO (< 500 chars) Y DENSO EN ENLACES (>= 3), es ruido.
+                    if len_texto < 500 and link_count >= 3: 
+                        current_heading = text_content
+                        current_content = []
+                        current_media = []
+                        continue 
+                        
+                # FIN DE FILTROS UNIVERSALES CONTRA EL RUIDO EN LAS PAGINAS
+
+                if current_heading is None or text_content.strip() != current_heading.strip():
+                    save_current_block()
+                    current_heading = text_content; current_content = []; current_media = []
+                
+            # 3. Manejo de Contenido Multimedia
             media_info = ContentExtractor._get_media_info(tag) 
             if media_info: current_media.append(media_info) 
                 
-            # --- FILTRO DE CONTENIDO SUSTANCIAL (Evita basura tipo TripAdvisor) ---
+            # 4. Manejo de Contenido Textual
             is_content_tag = tag_name in ['p', 'ul', 'ol', 'blockquote']
-            if tag_name in ['div', 'section', 'span'] and not is_heading_divisor and len(text_content) > 50:
-                # REGLA DE ORO: Si tiene mucho texto pero NO hay puntos (.), es una lista de navegación/basura
-                if len(text_content) > 100 and '.' not in text_content and ',' not in text_content:
-                    continue 
+            
+            # INCULYE LOS DIVS Y SECTION EN EL CONTENIDO DE LAS PAGINAS 
+            # Si no es un encabezado y tiene texto sustancial, es contenido.
+            if tag_name in ['div', 'section'] and not is_heading_divisor and len(text_content) > 50:
                 is_content_tag = True
+                
+            if tag_name == 'span' and not is_heading_divisor and len(text_content) > 100: is_content_tag = True
             
             if is_content_tag and text_content and len(text_content) > 10: 
                 if not is_heading_divisor: current_content.append(text_content)
@@ -1623,27 +1758,44 @@ class ContentExtractor:
         
         if blocks and blocks[0]['heading'] == "Introducción/Pre-H2":
             blocks[0]['heading'] = article_title 
-            
-        return [b for b in blocks if len(b['content']) >= 50 or b['media_elements']]
+        
+        final_blocks = []
+        
+        MIN_TEXT_LENGTH_CHARS = 50 
+        
+        for block in blocks:
+            heading_lower = block['heading'].lower().strip()
+            is_irrelevant_heading = any(exc in heading_lower for exc in ContentExtractor.EXCLUDED_HEADINGS)
+            if is_irrelevant_heading: continue
+            content_len = len(block['content']); has_media = bool(block['media_elements'])
+            is_substantial = (content_len >= MIN_TEXT_LENGTH_CHARS) or (content_len > 0 and has_media) 
+            if is_substantial: final_blocks.append(block)
+                
+        return final_blocks
+
 
     def fetch_webpage(self, url: str) -> tuple[str, str, BeautifulSoup]:
         """
-        Descarga la página web usando cloudscraper y aplica limpieza inicial.
+        Descarga la página web usando cloudscraper.
         """
         try:
+            # Desactivamos los warnings molestos de SSL en la consola
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            
             headers = {'User-Agent': self.ua.random}
             
+            # EL CAMBIO CLAVE:
+            # Usamos el scraper pero SIN el parámetro verify=False dentro del .get()
+            # Cloudscraper ya se encarga de negociar el SSL correctamente.
             response = self.scraper.get(url, headers=headers, timeout=15)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, "html.parser")
             
-            # Limpieza de etiquetas técnicas
-            for tag in soup(["script", "style", "form", "noscript", "svg", "button"]): 
+            # --- Tu lógica de limpieza original (Mantenida intacta) ---
+            for tag in soup(["script", "style", "form"]): 
                 tag.decompose()
 
-            # Selectores de ruido genéricos (Ampliados para evitar basura de navegación)
             irrelevant_selectors = [ 
                 'header', 'footer', 'nav', 'aside', '[role*="complementary"]', 
                 '#sidebar', '#footer', '#header', '#top-menu', '[data-testid*="footer"]', 
@@ -1659,7 +1811,7 @@ class ContentExtractor:
                 '.article-comments', '.SocialShare', '.reviews-section', 
                 '.guide-links', '.related-cities', '.language-selector', 
                 '.currency-selector', '[class*="selector"]', '[class*="options"]',
-                '.ui_column', '.nav-links', '.footer-links', '[class*="breadcrumb"]'
+                'input', 'form', 'button'
             ]
             
             for selector in irrelevant_selectors:
@@ -1667,7 +1819,7 @@ class ContentExtractor:
                     try: element.decompose()
                     except: pass 
             
-            # Extraemos texto limpio con trafilatura como Plan A
+            # Extraemos texto limpio
             text = trafilatura.extract(response.text)
             if not text:
                 text = re.sub(r"\s+", " ", soup.get_text()).strip()
@@ -1679,8 +1831,8 @@ class ContentExtractor:
 
         except Exception as e:
             logging.error(f"Error en fetch_webpage para {url}: {e}")
-            return "Error de Scrapeo", "", BeautifulSoup("", "html.parser")  
-
+            return "Error de Scrapeo", "", BeautifulSoup("", "html.parser")
+        
 
     def _scrape_with_fallback(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
         """

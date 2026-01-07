@@ -105,9 +105,35 @@ const GeneracionBlog = () => {
           if (data.prioridad) {
             setBlogPriority(data.prioridad);
           }
-          if (data.urls && referenciaUrls.current) {
-            referenciaUrls.current.value = data.urls;
+
+          // ============================================================
+          // MODIFICACIÓN PARA RENDERIZAR URLS EN INPUTS INDIVIDUALES
+          // ============================================================
+          if (data.urls) {
+            // Si aún usas la referencia para algo, la mantenemos
+            if (referenciaUrls.current) {
+              referenciaUrls.current.value = data.urls;
+            }
+
+            // Convertimos el string de la BD en un array para los inputs
+            const urlsArray = data.urls
+              .split("\n")
+              .map((u) => u.trim())
+              .filter((u) => u !== "");
+
+            if (urlsArray.length > 0) {
+              setListaUrls(urlsArray);
+
+              // Marcamos como 'exito' (check verde) porque ya existen en la BD
+              const estadosIniciales = {};
+              urlsArray.forEach((_, index) => {
+                estadosIniciales[index] = "exito";
+              });
+              setEstadosUrls(estadosIniciales);
+            }
           }
+          // ============================================================
+
           setLocalBlogId(data.id);
         } else {
           setFetchError("No se pudieron cargar los datos del blog.");
@@ -123,7 +149,6 @@ const GeneracionBlog = () => {
 
     loadBlogData();
   }, [blogId, navigate]);
-
   // =======================================================================
   // // 3. CONSTANTES Y DATOS INICIALES
   // // =======================================================================
@@ -1404,7 +1429,7 @@ const GeneracionBlog = () => {
     setContenidoConsolidado(null);
     setSelectedSectionForRegen(null);
     setRegenTextareaValue("");
-    setEstadosUrls({}); // 🆕 Limpiamos los estados de las URLs anteriores
+    setEstadosUrls({}); // Limpiamos los estados de las URLs anteriores
 
     console.clear();
     console.log("[SCRAPING] Iniciando nueva ejecución de scraping...");
@@ -1413,13 +1438,14 @@ const GeneracionBlog = () => {
     referenciaControladorAborto.current = controller;
     const signal = controller.signal;
 
-    // 2. Procesar URLs desde el estado listaUrls
+    // 2. Procesar URLs desde el estado listaUrls (los inputs individuales)
     const urlsLimpias = listaUrls
       .map((url) => url.trim())
       .filter((url) => url.length > 0);
 
+    // Preparamos los datos para el envío y guardado
     const urlsParaBackend = urlsLimpias.map((u) => ({ url: u }));
-    const rawInputParaDB = urlsLimpias.join("\n");
+    const rawInputParaDB = urlsLimpias.join("\n"); // Se guarda como string separado por saltos de línea
     const numResultados = urlsLimpias.length;
 
     // Validación: Mínimo 3 URLs
@@ -1431,7 +1457,7 @@ const GeneracionBlog = () => {
       return;
     }
 
-    // Extracción de parámetros
+    // Extracción de parámetros de datosFinales (del useEffect o previos)
     const title_base = datosFinales?.title || "Análisis de URLs";
     const categoria = datosFinales?.categoria || "";
     const idioma = datosFinales?.idioma || "";
@@ -1442,7 +1468,7 @@ const GeneracionBlog = () => {
     const URL_API_SAVE = `${URL_API_BASE_BLOGS}${blogId}`;
 
     // =======================================================================
-    // PASO 1: GUARDAR EL TEXTO RAW EN LA DB
+    // PASO 1: GUARDAR EL TEXTO RAW EN LA DB (Sincroniza los inputs con la BD)
     // =======================================================================
     try {
       const responseSave = await fetch(URL_API_SAVE, {
@@ -1451,7 +1477,7 @@ const GeneracionBlog = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ urls: rawInputParaDB }),
+        body: JSON.stringify({ urls: rawInputParaDB }), // Guardamos el string unido por \n
         signal: signal,
       });
 
@@ -1483,7 +1509,7 @@ const GeneracionBlog = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: "",
-          urls: urlsParaBackend,
+          urls: urlsParaBackend, // Enviamos el array de objetos {url: '...'}
           num_results: numResultados,
           use_ai: usarIA,
           run_intent_keywords: false,
@@ -1526,7 +1552,6 @@ const GeneracionBlog = () => {
           } else if (line.startsWith("data:")) {
             const dataLine = line.replace("data:", "").trim();
 
-            // --- LÓGICA DE ACTUALIZACIÓN DE ESTADOS INDIVIDUALES ---
             // 1. Detectar inicio de análisis por URL
             if (dataLine.includes("Procesando URL")) {
               const match = dataLine.match(/URL (\d+) de/);
@@ -1548,7 +1573,7 @@ const GeneracionBlog = () => {
               }
             }
 
-            // 3. Detectar errores de contenido o extracción
+            // 3. Detectar errores
             if (
               dataLine.includes("Contenido nulo") ||
               dataLine.includes("Fallo estructural")
@@ -1568,6 +1593,7 @@ const GeneracionBlog = () => {
 
                 const consolidatedContent = parsed.consolidated_content || null;
 
+                // Si el backend generó una estructura, la guardamos también
                 if (consolidatedContent) {
                   fetch(URL_API_SAVE, {
                     method: "PUT",
@@ -1590,8 +1616,6 @@ const GeneracionBlog = () => {
               } catch (e) {
                 console.error("[SCRAPING] Error parsing final JSON:", e);
               }
-            } else {
-              console.log(`[LOG] ${dataLine}`);
             }
           }
         }
