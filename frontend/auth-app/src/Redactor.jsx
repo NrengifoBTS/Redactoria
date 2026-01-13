@@ -589,6 +589,7 @@ export default function Redactor() {
     loadLandingPageAnnotations,
     saveAnnotationToDB,
     deleteAnnotationFromDB,
+    deleteAllAnnotationsFromCell,
     saveRedactorProgress,
     currentUser,
     loading: appLoading,
@@ -1823,15 +1824,25 @@ export default function Redactor() {
   );
 
   const deleteAllAnnotations = useCallback(
-    (cellKey) => {
-      setAnnotations((prev) => {
-        const newAnnotations = { ...prev };
-        delete newAnnotations[cellKey];
-        return newAnnotations;
-      });
-      closeAnnotationPanel();
+    async (cellKey) => {
+      try {
+        // Eliminar de BD
+        await deleteAllAnnotationsFromCell(currentLP.id, cellKey);
+
+        // Actualizar estado local
+        setAnnotations((prev) => {
+          const newAnnotations = { ...prev };
+          delete newAnnotations[cellKey];
+          return newAnnotations;
+        });
+
+        closeAnnotationPanel();
+      } catch (error) {
+        console.error("Error al eliminar todas las anotaciones:", error);
+        alert("Error al eliminar todas las anotaciones: " + error.message);
+      }
     },
-    [closeAnnotationPanel]
+    [currentLP, deleteAllAnnotationsFromCell, closeAnnotationPanel]
   );
 
   const showAnnotation = (cellKey, event) => {

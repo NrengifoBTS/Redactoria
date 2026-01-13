@@ -371,6 +371,29 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Eliminar todas las anotaciones de una celda
+  const deleteAllAnnotationsFromCell = async (landingPageId, cellPosition) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/anotaciones/landing-page/${landingPageId}/cell/${cellPosition}`,
+        {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (response.ok) {
+        return true;
+      } else {
+        const error = await response.text();
+        throw new Error(`Error ${response.status}: ${error}`);
+      }
+    } catch (error) {
+      console.error("Error eliminando anotaciones de la celda:", error);
+      throw error;
+    }
+  };
+
   // Funciones de autenticación
   const login = async (credentials) => {
     try {
@@ -495,6 +518,7 @@ export function AppProvider({ children }) {
     loadLandingPageAnnotations,
     saveAnnotationToDB,
     deleteAnnotationFromDB,
+    deleteAllAnnotationsFromCell,
 
     // Funciones Auth
     login,

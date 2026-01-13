@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from fastapi import BackgroundTasks
 from . import models
 from src.auth.models import TokenData
 from src.entities.proyecto import Proyecto
@@ -86,24 +87,47 @@ def get_proyecto_by_id(current_user: TokenData, db: Session, proyecto_id: UUID) 
     logging.info(f"Retrieved proyecto {proyecto_id} for user {current_user.get_uuid()}")
     return proyecto
 
-def update_proyecto(current_user: TokenData, db: Session, proyecto_id: UUID, 
-                   proyecto_update: models.ProyectoUpdate) -> Proyecto:
+def update_proyecto(
+    current_user: TokenData,
+    db: Session,
+    proyecto_id: UUID,
+    proyecto_update: models.ProyectoUpdate,
+    background_tasks: BackgroundTasks
+) -> Proyecto:
     proyecto = get_proyecto_by_id(current_user, db, proyecto_id)
-    
+
+    # Capturar estado anterior antes de actualizar
+    old_status = proyecto.estado
+    status_changed = False
+
     # Actualizar campos si se proporcionan
     update_data = proyecto_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if field in ['estado', 'prioridad'] and hasattr(value, 'value'):
+            if field == 'estado' and value.value != old_status:
+                status_changed = True
             setattr(proyecto, field, value.value)
         else:
             setattr(proyecto, field, value)
-    
+
     proyecto.updated_at = datetime.now(timezone.utc)
     proyecto.last_modified = datetime.now(timezone.utc)
-    
+
     db.commit()
     db.refresh(proyecto)
     logging.info(f"Successfully updated proyecto {proyecto_id} for user {current_user.get_uuid()}")
+
+    # Si cambió el estado, enviar notificación
+    if status_changed:
+        logging.info(f"Proyecto {proyecto_id} estado changed to {proyecto.estado} by user {current_user.get_uuid()}")
+        background_tasks.add_task(
+            _send_status_change_notification,
+            proyecto_id=proyecto_id,
+            old_status=old_status,
+            new_status=proyecto.estado,
+            changed_by_user_id=current_user.get_uuid()
+        )
+
     return proyecto
 
 def delete_proyecto(current_user: TokenData, db: Session, proyecto_id: UUID) -> None:
@@ -145,17 +169,36 @@ def assign_proyecto(current_user: TokenData, db: Session, proyecto_id: UUID, ass
     logging.info(f"Proyecto {proyecto_id} assigned to {assigned_to} by user {current_user.get_uuid()}")
     return proyecto
 
-def update_estado_proyecto(current_user: TokenData, db: Session, proyecto_id: UUID, 
-                          nuevo_estado: models.EstadoProyecto) -> Proyecto:
+def update_estado_proyecto(
+    current_user: TokenData,
+    db: Session,
+    proyecto_id: UUID,
+    nuevo_estado: models.EstadoProyecto,
+    background_tasks: BackgroundTasks
+) -> Proyecto:
     proyecto = get_proyecto_by_id(current_user, db, proyecto_id)
-    
+
+    # Capturar estado anterior
+    old_status = proyecto.estado
+
+    # Actualizar estado
     proyecto.estado = nuevo_estado.value
     proyecto.updated_at = datetime.now(timezone.utc)
     proyecto.last_modified = datetime.now(timezone.utc)
-    
+
     db.commit()
     db.refresh(proyecto)
     logging.info(f"Proyecto {proyecto_id} estado changed to {nuevo_estado.value} by user {current_user.get_uuid()}")
+
+    # Encolar notificación en background (NO BLOQUEA)
+    background_tasks.add_task(
+        _send_status_change_notification,
+        proyecto_id=proyecto_id,
+        old_status=old_status,
+        new_status=nuevo_estado.value,
+        changed_by_user_id=current_user.get_uuid()
+    )
+
     return proyecto
 
 def get_proyectos_by_user(current_user: TokenData, db: Session, user_id: UUID) -> List[Proyecto]:
@@ -175,3 +218,68 @@ def get_proyectos_assigned_to_user(current_user: TokenData, db: Session) -> List
     proyectos = db.query(Proyecto).filter(Proyecto.assigned_to == current_user.get_uuid()).all()
     logging.info(f"Retrieved {len(proyectos)} assigned proyectos for user {current_user.get_uuid()}")
     return proyectos
+
+
+# ===== Background Task Functions =====
+
+def _send_status_change_notification(
+    proyecto_id: UUID,
+    old_status: str,
+    new_status: str,
+    changed_by_user_id: UUID
+):
+    """
+    Background task para enviar notificaciones de Teams cuando cambia el estado de un proyecto.
+    Crea su propia sesión de base de datos para evitar problemas de sesión cerrada.
+    """
+    from src.database.core import get_db
+
+    # Crear nueva sesión de BD para el background task
+    db = next(get_db())
+
+    try:
+        import os
+        from src.notifications.notification_service import NotificationService
+        from src.auth.models import TokenData
+        from src.entities.user import User
+
+        # Obtener webhook URL de env
+        webhook_url = os.getenv("TEAMS_WEBHOOK_URL")
+        if not webhook_url:
+            logging.warning("TEAMS_WEBHOOK_URL no configurado, saltando notificación")
+            return
+
+        # Reconstruir objetos necesarios
+        proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+        if not proyecto:
+            logging.error(f"Proyecto {proyecto_id} no encontrado para notificación")
+            return
+
+        # Verificar que el usuario existe
+        user = db.query(User).filter(User.id == changed_by_user_id).first()
+        if not user:
+            logging.error(f"User {changed_by_user_id} not found for notification")
+            return
+
+        # Crear TokenData minimal para changed_by_user
+        changed_by_user = TokenData(user_id=str(changed_by_user_id))
+
+        # Construir URL del proyecto
+        frontend_url = os.getenv("FRONTEND_URL", "http://192.168.1.36:3000/")
+        project_url = f"{frontend_url}/redactor/{proyecto_id}"
+
+        # Enviar notificaciones
+        notification_service = NotificationService(webhook_url)
+        notification_service.notify_status_change(
+            db=db,
+            proyecto=proyecto,
+            old_status=old_status,
+            new_status=new_status,
+            changed_by_user=changed_by_user,
+            project_url=project_url
+        )
+
+    except Exception as e:
+        logging.error(f"✗ Error en notificación background: {e}", exc_info=True)
+    finally:
+        db.close()

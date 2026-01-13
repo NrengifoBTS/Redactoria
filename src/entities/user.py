@@ -3,7 +3,7 @@ from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
-from ..database.core import Base 
+from ..database.core import Base
 
 class User(Base):
     __tablename__ = 'users'
@@ -13,6 +13,10 @@ class User(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
+
+    # Microsoft Teams integration fields
+    teams_user_id = Column(String(255), nullable=True, index=True)
+    teams_email = Column(String(255), nullable=True)
 
     # ESTOS RELATIONSHIPS DEBEN ESTAR:
     created_projects = relationship("Proyecto", foreign_keys="Proyecto.created_by", back_populates="creator")
