@@ -67,11 +67,8 @@ class BlogUpdate(BaseModel):
     estado: Optional[EstadoBlog] = None
     prioridad: Optional[PrioridadBlog] = None
     urls: Optional[str]= None
-    
-    # Permite actualizar la estructura y el contenido
-    estructura_blog_json: Optional[str] = None 
-    
-    
+    estimated_word_count: Optional[int] = None 
+    estructura_blog_json: Optional[Any] = None 
     assigned_to: Optional[UUID] = None
 
 class AssignBlogRequest(BaseModel):
@@ -90,3 +87,4 @@ class BlogResponse(BlogBase, InitialParams):
     last_modified: datetime
 
     model_config = ConfigDict(from_attributes=True) # Habilitar compatibilidad con el ORM de SQLAlchemy
+

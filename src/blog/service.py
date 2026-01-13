@@ -118,6 +118,8 @@ def update_blog(current_user: CurrentUser, db: Session, blog_id: UUID, blog_upda
                 # Asignar el diccionario JSON directamente.
                 setattr(blog, key, value) 
             # ==========================================================
+            elif key == 'estimated_word_count': 
+                setattr(blog, key, value)
             elif key in ('estado', 'prioridad'):
                 # Lógica existente para Enums
                 setattr(blog, key, value)

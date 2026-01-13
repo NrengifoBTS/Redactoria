@@ -316,11 +316,7 @@ const TableRow = ({ blog, onDelete, onEditClick, assignedUsers, onAssign }) => {
       <td className={`priority-${blog.prioridad}`}>
         {getPriorityText(blog.prioridad)}
       </td>
-      <td className={`longitude-${blog.estimated_word_count}`}>
-        {blog.estimated_word_count
-          ? blog.estimated_word_count.toLocaleString()
-          : "N/A"}
-      </td>
+
       <td>{formatDateTime(blog.last_modified)}</td>
 
       {/* CELDA DE OPCIONES (Lleva la lógica del dropdown) */}
@@ -667,7 +663,6 @@ const BlogsTable = ({
           <th>Asignado a</th>
           <th>Estado</th>
           <th>Prioridad</th>
-          <th>Longitud</th>
           <th>Última modificación</th>
           <th>Opciones</th>
         </tr>

@@ -22,9 +22,11 @@ import cloudscraper
 from fake_useragent import UserAgent
 import trafilatura
 
-from docx import Document
-from docx.shared import Inches
 from io import BytesIO
+
+from docx import Document
+from docx.shared import Pt, RGBColor, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 
 # Importación necesaria para la persistencia
 from src.entities.scraping import Scraping
@@ -36,96 +38,615 @@ from src.entities.blog import Blog
 
 class DocumentService:
     """
-    Servicio para generar documentos Word (.docx) a partir de la estructura del blog.
+    Servicio que procesa Markdown con HTML embebido desde la BD.
+    Formato: [H2 - 1] <p>Texto con <span style="color:red">estilos</span></p>
     """
-
-    # Atributo de clase. Se accede vía self.MAPEO_NIVELES o DocumentService.MAPEO_NIVELES
-    MAPEO_NIVELES = {
-        'h1': 1, # Nivel 1 en Word (equivale al estilo 'Heading 1', el Título 1)
-        'h2': 2, # Nivel 2 en Word (equivale al estilo 'Heading 2', el Título 2)
-        'h3': 3,
-        'h4': 4,
-        'h5': 5,
-        'h6': 6,
-    }
-
-    def procesar_seccion_recursivamente(
-        self,
-        item_seccion: Dict[str, Any], 
-        documento_word: Document
-    ):
+    
+    def __init__(self):
+        pass
+    
+    def _parse_markdown_with_html(self, markdown_text: str) -> List[Dict[str, Any]]:
         """
-        Función recursiva: Procesa un elemento (título y contenido) y luego sus hijos.
+        Parsea el formato híbrido: Markdown con HTML.
+        Ejemplo: [H2 - 1] <p><strong>Título</strong></p>
         """
+        if not markdown_text:
+            return []
         
-        nivel_str = item_seccion.get('level', 'h2').lower()
-        titulo_seccion = item_seccion.get('text') 
+        sections = []
+        current_section = None
+        lines = markdown_text.split('\n')
         
-        # Conversión del nivel (accediendo al mapa)
-        # 💡 Si el nivel no existe ('h7', etc.), se asigna un nivel por defecto (ej. 2 para H2).
-        nivel_encabezado = self.MAPEO_NIVELES.get(nivel_str, 2) 
-
-        # 1. Añadir título
-        if titulo_seccion:
-            # Ahora, h1 usará level=1 (Heading 1) y h2 usará level=2 (Heading 2)
-            documento_word.add_heading(titulo_seccion, level=nivel_encabezado)
-        
-        # 2. Añadir contenido (el cuerpo del texto)
-        contenido_cuerpo = item_seccion.get('content')
-        if contenido_cuerpo and contenido_cuerpo.strip(): 
-            documento_word.add_paragraph(contenido_cuerpo)
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
             
-        # 3. Procesar hijos (recursividad)
-        if item_seccion.get('children'):
-            for hijo in item_seccion['children']:
-                # Llamada recursiva
-                self.procesar_seccion_recursivamente(hijo, documento_word)
+            # Detectar encabezados: [H1 - 0], [H2 - 1], [H3 - 1.1]
+            header_match = re.match(r'^\[(H\d+)\s*-\s*([\d.]+)\]\s*(.+)$', line)
+            if header_match:
+                # Guardar sección anterior
+                if current_section:
+                    sections.append(current_section)
+                
+                # Nueva sección
+                level = header_match.group(1).lower()  # h1, h2, h3
+                enumeration = header_match.group(2)
+                text_html = header_match.group(3).strip()
+                
+                current_section = {
+                    'level': level,
+                    'enumeration': enumeration,
+                    'text': text_html,
+                    'content': '',
+                    'children': []
+                }
+                continue
+            
+            # Detectar multimedia
+            media_match = re.match(r'^\[MULTIMEDIA:\s*([^|]+)\s*\|\s*(.+)\]$', line)
+            if media_match and current_section:
+                current_section['multimedia'] = media_match.group(1).strip()
+                current_section['multimediaDescription'] = media_match.group(2).strip()
+                continue
+            
+            # Detectar inicio de contenido
+            if line == '[CONTENIDO]' and current_section:
+                # El contenido comienza en la siguiente línea
+                continue
+            
+            # Si hay una sección actual y no es un marcador especial, es contenido
+            if current_section and line != '[CONTENIDO]':
+                current_section['content'] += line + '\n'
+        
+        # Añadir la última sección
+        if current_section:
+            sections.append(current_section)
+        
+        return sections
+    
+    def _process_html_to_word(self, html_content: str, paragraph, is_heading: bool = False):
+        """Convierte HTML con estilos inline a Word, incluyendo Quill."""
+        if not html_content or not html_content.strip():
+            return
+        
+        try:
+            # Parsear HTML
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            def process_node(node, current_paragraph, inherited_styles=None):
+                if inherited_styles is None:
+                    inherited_styles = {}
+                
+                # Texto plano
+                if isinstance(node, str):
+                    text = str(node).strip()
+                    if text:
+                        text = text.replace('&nbsp;', ' ').replace('\u202f', ' ')
+                        if text:
+                            run = current_paragraph.add_run(text + " ")
+                            
+                            # Combinar estilos heredados con estilos de Quill
+                            all_styles = inherited_styles.copy()
+                            
+                            # Extraer estilos de clases Quill del nodo padre
+                            if hasattr(node, 'parent') and node.parent:
+                                parent_classes = node.parent.get('class', [])
+                                if parent_classes:
+                                    quill_styles = self._extract_quill_styles_from_classes(parent_classes)
+                                    all_styles.update(quill_styles)
+                            
+                            self._apply_css_styles(run, all_styles)
+                    return
+                
+                # Elemento HTML
+                tag_name = getattr(node, 'name', None)
+                if not tag_name:
+                    return
+                
+                # Copiar estilos heredados
+                current_styles = inherited_styles.copy()
+                
+                # Extraer estilos inline
+                style_attr = node.get('style', '')
+                if style_attr:
+                    for style in style_attr.split(';'):
+                        if ':' in style:
+                            key, value = map(str.strip, style.split(':', 1))
+                            current_styles[key.lower()] = value
+                
+                # Extraer estilos de clases Quill
+                classes = node.get('class', [])
+                if classes:
+                    quill_styles = self._extract_quill_styles_from_classes(classes)
+                    current_styles.update(quill_styles)
+                
+                # Procesar etiquetas de formato
+                if tag_name in ['strong', 'b']:
+                    current_styles['font-weight'] = 'bold'
+                elif tag_name in ['em', 'i']:
+                    current_styles['font-style'] = 'italic'
+                elif tag_name == 'u':
+                    current_styles['text-decoration'] = 'underline'
+                elif tag_name in ['s', 'strike', 'del']:
+                    current_styles['text-decoration'] = 'line-through'
+                
+                # Procesar hijos
+                for child in node.children:
+                    process_node(child, current_paragraph, current_styles)
+            
+            # Procesar todo
+            for child in soup.children:
+                process_node(child, paragraph)
+            
+        except Exception as e:
+            logging.error(f"Error procesando HTML: {e}")
+            plain_text = re.sub(r'<[^>]*>', '', html_content)
+            plain_text = plain_text.replace('&nbsp;', ' ').replace('\u202f', ' ')
+            if plain_text.strip():
+                paragraph.add_run(plain_text)
 
+    def _extract_quill_styles_from_classes(self, classes):
+        """Extrae estilos de clases CSS de Quill."""
+        styles = {}
+        
+        for cls in classes:
+            if cls == 'ql-font-serif':
+                styles['font-family'] = 'serif'
+            elif cls == 'ql-font-monospace':
+                styles['font-family'] = 'monospace'
+            elif cls.startswith('ql-font-'):
+                font_name = cls.replace('ql-font-', '')
+                styles['font-family'] = font_name
+            
+            elif cls == 'ql-size-small':
+                styles['font-size'] = '12px'
+            elif cls == 'ql-size-large':
+                styles['font-size'] = '18px'
+            elif cls == 'ql-size-huge':
+                styles['font-size'] = '24px'
+            elif cls.startswith('ql-size-'):
+                size_name = cls.replace('ql-size-', '')
+                styles['font-size'] = f'{size_name}px'
+        
+        return styles
+
+
+    def _apply_css_styles(self, run, styles: Dict[str, str]):
+        """Aplica estilos CSS a un run de Word."""
+        if not styles:
+            return
+        
+        # DEBUG: Mostrar estilos que se están aplicando
+        if 'background-color' in styles:
+            logging.info(f"Aplicando background-color: {styles['background-color']}")
+        
+        # Fuente
+        if 'font-family' in styles:
+            font_family = styles['font-family'].lower()
+            if 'georgia' in font_family:
+                run.font.name = 'Georgia'
+            elif 'times' in font_family or 'serif' in font_family:
+                run.font.name = 'Times New Roman'
+            elif 'courier' in font_family or 'monospace' in font_family:
+                run.font.name = 'Courier New'
+            elif 'arial' in font_family or 'helvetica' in font_family or 'sans-serif' in font_family:
+                run.font.name = 'Arial'
+            elif 'verdana' in font_family:
+                run.font.name = 'Verdana'
+            elif 'tahoma' in font_family:
+                run.font.name = 'Tahoma'
+            elif 'calibri' in font_family:
+                run.font.name = 'Calibri'
+            elif 'cambria' in font_family:
+                run.font.name = 'Cambria'
+        
+        # Color de texto
+        if 'color' in styles:
+            color = styles['color']
+            self._apply_color(run, color)
+        
+        # Tamaño de fuente
+        if 'font-size' in styles:
+            self._apply_font_size(run, styles['font-size'])
+        
+        # Peso de fuente (negrita)
+        if 'font-weight' in styles:
+            weight = styles['font-weight'].lower()
+            if weight in ['bold', '700', '800', '900', 'bolder']:
+                run.bold = True
+            elif weight in ['normal', '400', 'lighter']:
+                run.bold = False
+        
+        # Estilo (cursiva)
+        if 'font-style' in styles:
+            style = styles['font-style'].lower()
+            if style == 'italic':
+                run.italic = True
+            elif style == 'normal':
+                run.italic = False
+        
+        # Subrayado
+        if 'text-decoration' in styles:
+            decoration = styles['text-decoration'].lower()
+            if 'underline' in decoration:
+                run.underline = True
+            elif 'line-through' in decoration or 'strikethrough' in decoration:
+                run.font.strike = True
+            elif 'none' in decoration:
+                run.underline = False
+                run.font.strike = False
+        
+        # Color de fondo (BACKGROUND-COLOR) - ¡ESTO ES LO IMPORTANTE!
+        if 'background-color' in styles:
+            bg_color = styles['background-color']
+            self._apply_background_color(run, bg_color)
+        
+        # También manejar 'background' (propiedad abreviada)
+        elif 'background' in styles:
+            # Intentar extraer color de background shorthand
+            bg_value = styles['background'].lower()
+            # Buscar colores en la propiedad background
+            color_keywords = ['red', 'blue', 'green', 'yellow', 'orange', 
+                            'purple', 'pink', 'black', 'white', 'gray']
+            
+            for keyword in color_keywords:
+                if keyword in bg_value:
+                    self._apply_background_color(run, keyword)
+                    break
+            
+            # Buscar color hex o rgb
+            hex_match = re.search(r'#([0-9a-f]{3,6})', bg_value, re.IGNORECASE)
+            if hex_match:
+                self._apply_background_color(run, f'#{hex_match.group(1)}')
+            
+            rgb_match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)\)', bg_value)
+            if rgb_match:
+                self._apply_background_color(run, f'rgb({rgb_match.group(1)},{rgb_match.group(2)},{rgb_match.group(3)})')
+
+
+
+
+    def _apply_color(self, run, color_str: str):
+        """Aplica color de texto."""
+        try:
+            if color_str.startswith('#'):
+                hex_color = color_str.lstrip('#')
+                if len(hex_color) == 3:
+                    hex_color = ''.join([c*2 for c in hex_color])
+                rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+                run.font.color.rgb = RGBColor(*rgb)
+            elif color_str.startswith('rgb'):
+                match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)\)', color_str)
+                if match:
+                    r, g, b = map(int, match.groups())
+                    run.font.color.rgb = RGBColor(r, g, b)
+        except:
+            pass
+    
+    def _apply_font_size(self, run, size_str: str):
+        """Aplica tamaño de fuente."""
+        try:
+            # Extraer número
+            match = re.search(r'(\d+(\.\d+)?)', size_str)
+            if match:
+                size = float(match.group(1))
+                
+                # Convertir unidades
+                if 'px' in size_str:
+                    size = size * 0.75  # px a pt
+                elif 'em' in size_str or 'rem' in size_str:
+                    size = size * 12  # em/rem a pt
+                
+                # Limitar tamaño razonable
+                size = max(8, min(size, 72))
+                run.font.size = Pt(size)
+        except:
+            pass
+    
+    def _apply_background_color(self, run, color_str: str):
+        """Aplica color de fondo como highlight en Word."""
+        try:
+            # Limpiar el color string
+            color_str = color_str.strip().lower()
+            
+            # Mapeo de colores HEX comunes a colores de highlight de Word
+            # Word tiene estos colores disponibles: BLACK, BLUE, CYAN, DARK_BLUE, 
+            # DARK_GREEN, DARK_MAGENTA, DARK_RED, DARK_YELLOW, DARK_GRAY, GREEN, 
+            # LIGHT_GRAY, MAGENTA, RED, WHITE, YELLOW
+            
+            color_map = {
+                # Amarillos/Naranjas
+                '#ffff00': 'YELLOW',          # Amarillo puro
+                '#ffeb3b': 'YELLOW',          # Amarillo claro
+                '#ffc107': 'DARK_YELLOW',     # Ámbar
+                '#ff9800': 'DARK_YELLOW',     # Naranja
+                '#ff5722': 'RED',             # Naranja rojizo
+                
+                # Rojos
+                '#f44336': 'RED',             # Rojo
+                '#e91e63': 'MAGENTA',         # Rosa
+                '#d32f2f': 'DARK_RED',        # Rojo oscuro
+                
+                # Azules
+                '#2196f3': 'BLUE',            # Azul
+                '#03a9f4': 'CYAN',            # Azul claro
+                '#1976d2': 'DARK_BLUE',       # Azul oscuro
+                '#3f51b5': 'DARK_BLUE',       # Azul índigo
+                '#0066cc': 'DARK_BLUE',       # Azul (de tu ejemplo)
+                
+                # Verdes
+                '#4caf50': 'GREEN',           # Verde
+                '#8bc34a': 'GREEN',           # Verde claro
+                '#388e3c': 'DARK_GREEN',      # Verde oscuro
+                '#008a00': 'DARK_GREEN',      # Verde (de tu ejemplo)
+                
+                # Púrpuras
+                '#9c27b0': 'MAGENTA',         # Púrpura
+                '#673ab7': 'DARK_MAGENTA',    # Púrpura oscuro
+                '#9933ff': 'DARK_MAGENTA',    # Violeta (de tu ejemplo)
+                
+                # Grises
+                '#9e9e9e': 'LIGHT_GRAY',      # Gris medio
+                '#607d8b': 'DARK_GRAY',       # Gris azulado
+                '#455a64': 'DARK_GRAY',       # Gris oscuro
+                
+                # Colores básicos de Quill
+                '#000000': 'BLACK',           # Negro
+                '#ffffff': 'WHITE',           # Blanco (poco útil como highlight)
+                '#e60000': 'RED',             # Rojo (de tu ejemplo)
+                '#ff9900': 'DARK_YELLOW',     # Naranja (de tu ejemplo)
+            }
+            
+            # Si es color rgb(), convertirlo a hex
+            if color_str.startswith('rgb'):
+                rgb_match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)\)', color_str)
+                if rgb_match:
+                    r, g, b = map(int, rgb_match.groups())
+                    # Convertir a hex
+                    color_str = f'#{r:02x}{g:02x}{b:02x}'
+            
+            # Buscar coincidencia exacta
+            if color_str in color_map:
+                highlight_color = color_map[color_str]
+                try:
+                    # Asignar el color de highlight
+                    run.font.highlight_color = getattr(run.font, highlight_color)
+                    return
+                except AttributeError:
+                    pass
+            
+            # Si no hay coincidencia exacta, buscar el color más cercano
+            if color_str.startswith('#'):
+                # Extraer componentes RGB
+                hex_color = color_str.lstrip('#')
+                if len(hex_color) == 3:
+                    hex_color = ''.join([c*2 for c in hex_color])
+                
+                try:
+                    r = int(hex_color[0:2], 16)
+                    g = int(hex_color[2:4], 16)
+                    b = int(hex_color[4:6], 16)
+                    
+                    # Determinar color más cercano por distancia euclidiana
+                    closest_color = self._find_closest_highlight_color(r, g, b)
+                    if closest_color:
+                        run.font.highlight_color = getattr(run.font, closest_color)
+                except:
+                    pass
+        
+        except Exception as e:
+            logging.warning(f"No se pudo aplicar background-color {color_str}: {e}")
+
+    def _find_closest_highlight_color(self, r: int, g: int, b: int) -> Optional[str]:
+        """Encuentra el color de highlight más cercano al RGB dado."""
+        # Colores disponibles en Word con sus valores RGB aproximados
+        highlight_colors = {
+            'YELLOW': (255, 255, 0),      # Amarillo
+            'DARK_YELLOW': (255, 200, 0), # Naranja/Amarillo oscuro
+            'RED': (255, 0, 0),           # Rojo
+            'DARK_RED': (200, 0, 0),      # Rojo oscuro
+            'BLUE': (0, 0, 255),          # Azul
+            'DARK_BLUE': (0, 0, 200),     # Azul oscuro
+            'GREEN': (0, 255, 0),         # Verde
+            'DARK_GREEN': (0, 200, 0),    # Verde oscuro
+            'CYAN': (0, 255, 255),        # Cian
+            'MAGENTA': (255, 0, 255),     # Magenta
+            'DARK_MAGENTA': (200, 0, 200),# Magenta oscuro
+            'BLACK': (0, 0, 0),           # Negro
+            'WHITE': (255, 255, 255),     # Blanco
+            'LIGHT_GRAY': (192, 192, 192),# Gris claro
+            'DARK_GRAY': (128, 128, 128), # Gris oscuro
+        }
+        
+        closest = None
+        min_distance = float('inf')
+        
+        for color_name, (cr, cg, cb) in highlight_colors.items():
+            # Calcular distancia euclidiana
+            distance = ((r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2) ** 0.5
+            
+            if distance < min_distance:
+                min_distance = distance
+                closest = color_name
+        
+        return closest
+
+   
+    def _process_section(self, section: Dict[str, Any], document: Document):
+        """Procesa una sección completa con HTML en títulos y contenido."""
+        try:
+            level = section.get('level', 'h2')
+            title_html = section.get('text', '')
+            content_html = section.get('content', '')
+            
+            # DEBUG: Ver qué hay en el título
+            logging.info(f"Procesando {level}: Título HTML: {title_html[:100]}...")
+            
+            # 1. Procesar título CON HTML
+            if title_html and title_html.strip():
+                # Limpiar caracteres HTML
+                clean_title_html = title_html.replace('&nbsp;', ' ').replace('\u202f', ' ')
+                
+                # Crear heading vacío
+                level_num = 2  # Default h2
+                level_map = {'h1': 1, 'h2': 2, 'h3': 3, 'h4': 4, 'h5': 5, 'h6': 6}
+                level_num = level_map.get(level, 2)
+                
+                heading = document.add_heading(level=level_num)
+                
+                # Procesar HTML del título
+                self._process_html_to_word(clean_title_html, heading, is_heading=True)
+                
+                # Asegurar estilos mínimos en heading
+                for run in heading.runs:
+                    # Si no tiene tamaño definido, aplicar por nivel
+                    if run.font.size is None or run.font.size.pt == 11:
+                        self._apply_heading_defaults(run, level)
+                    
+                    # Headings siempre en negrita (a menos que HTML lo especifique)
+                    if not run.bold:
+                        run.bold = True
+            
+            # 2. Procesar contenido
+            if content_html and content_html.strip():
+                clean_content = content_html.replace('&nbsp;', ' ').replace('\u202f', ' ')
+                paragraph = document.add_paragraph()
+                self._process_html_to_word(clean_content, paragraph, is_heading=False)
+            
+            # 3. Espacio entre secciones
+            document.add_paragraph()
+            
+            # 4. Procesar hijos (H3s dentro de H2s)
+            children = section.get('children', [])
+            for child in children:
+                self._process_section(child, document)
+                
+        except Exception as e:
+            logging.error(f"Error procesando sección {section.get('level')}: {e}")
+            # Continuar con siguiente sección
+
+
+    def _apply_heading_defaults(self, run, level: str):
+        """Aplica estilos por defecto a headings según nivel."""
+        if level == 'h1':
+            if run.font.size is None or run.font.size.pt <= 11:
+                run.font.size = Pt(24)
+            run.bold = True
+        elif level == 'h2':
+            if run.font.size is None or run.font.size.pt <= 11:
+                run.font.size = Pt(20)
+            run.bold = True
+        elif level == 'h3':
+            if run.font.size is None or run.font.size.pt <= 11:
+                run.font.size = Pt(16)
+            run.bold = True
+        elif level == 'h4':
+            if run.font.size is None or run.font.size.pt <= 11:
+                run.font.size = Pt(14)
+            run.bold = True
+        elif level == 'h5':
+            if run.font.size is None or run.font.size.pt <= 11:
+                run.font.size = Pt(12)
+            run.bold = True
+        elif level == 'h6':
+            if run.font.size is None or run.font.size.pt <= 11:
+                run.font.size = Pt(11)
+            run.bold = True
 
     def generar_documento_word(
         self,
-        blog_id: UUID, 
-        datos_estructura: List[Any], 
-        db: Session,
+        blog_id: UUID,
+        db: Session
     ) -> StreamingResponse:
-        
-        # 1. Verificar existencia
-        blog = db.query(Blog).filter(Blog.id == blog_id).first()
-        if not blog:
-            raise HTTPException(status_code=404, detail="Blog no encontrado.")
+        """
+        Genera Word desde el Markdown con HTML de la BD.
+        """
+        try:
+            from src.entities.blog import Blog
             
-        # 2. Creación del Documento Word
-        documento = Document()
-        
-        # 3. Mapeo de la estructura: Procesar la lista completa enviada
-        for item_principal in datos_estructura:
-            try:
-                # Conversión de Pydantic a diccionario
-                # Si item_principal es BlogSectionData, .model_dump() es correcto.
-                item_principal_dict = item_principal.model_dump() 
-                
-                # LA CLAVE: Aquí se llama a la función recursiva, 
-                # la cual utiliza el MAPEO_NIVELES corregido.
-                self.procesar_seccion_recursivamente(item_principal_dict, documento)
-                
-            except Exception as e:
-                # Usar logging.error o simplemente raise el error si es crítico.
-                logging.error(f"Error al procesar item de estructura: {e}. Item: {item_principal}")
-                continue
-
-        # 4. Guardar y Retornar
-        flujo_archivo = BytesIO()
-        documento.save(flujo_archivo)
-        flujo_archivo.seek(0)
-
-        # -----------------------------------------------------------------
-        
-        return StreamingResponse(
-            flujo_archivo,
-            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            headers={} 
-        )
-
+            # 1. Obtener blog
+            blog = db.query(Blog).filter(Blog.id == blog_id).first()
+            if not blog:
+                raise HTTPException(404, "Blog no encontrado")
+            
+            # 2. Obtener estructura (string Markdown con HTML)
+            estructura_markdown = blog.estructura_blog_json
+            
+            if not estructura_markdown:
+                raise HTTPException(400, "El blog no tiene estructura generada")
+            
+            logging.info(f"Tipo de estructura: {type(estructura_markdown)}")
+            logging.info(f"Primeros 500 chars: {str(estructura_markdown)[:500]}")
+            
+            # 3. Parsear Markdown con HTML
+            sections = []
+            if isinstance(estructura_markdown, str):
+                sections = self._parse_markdown_with_html(estructura_markdown)
+            else:
+                # Intentar convertir a string
+                estructura_str = str(estructura_markdown)
+                sections = self._parse_markdown_with_html(estructura_str)
+            
+            logging.info(f"Secciones parseadas: {len(sections)}")
+            
+            if not sections:
+                raise HTTPException(400, "No se pudo parsear la estructura del blog")
+            
+            # 4. Organizar secciones en jerarquía (H2s con H3s como hijos)
+            organized_sections = []
+            current_h2 = None
+            
+            for section in sections:
+                if section['level'] == 'h1':
+                    organized_sections.append(section)
+                    current_h2 = None
+                elif section['level'] == 'h2':
+                    # Nueva sección H2
+                    organized_sections.append(section)
+                    current_h2 = section
+                elif section['level'] == 'h3' and current_h2:
+                    # H3 como hijo del H2 actual
+                    if 'children' not in current_h2:
+                        current_h2['children'] = []
+                    current_h2['children'].append(section)
+                else:
+                    # Sección por defecto
+                    organized_sections.append(section)
+            
+            # 5. Crear documento
+            doc = Document()
+            
+            # Estilo por defecto
+            style = doc.styles['Normal']
+            style.font.name = 'Calibri'
+            style.font.size = Pt(11)
+            
+            # 6. Procesar cada sección
+            for section in organized_sections:
+                self._process_section(section, doc)
+            
+            # 7. Guardar
+            buffer = BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            
+            # 8. Nombre de archivo
+            safe_title = re.sub(r'[^\w\s-]', '', blog.title or 'blog')
+            safe_title = re.sub(r'[-\s]+', '_', safe_title)
+            filename = f"{safe_title}.docx"
+            
+            return StreamingResponse(
+                buffer,
+                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logging.error(f"Error generando Word: {e}", exc_info=True)
+            raise HTTPException(500, f"Error al generar documento: {str(e)}")
 
 
 # =======================================================================
@@ -179,18 +700,17 @@ def actualizar_estructura_blog(
     db: Session, 
     blog_id: UUID, 
     estructura_data: Dict[str, Any],
-    estimated_word_count: Optional[int] = None # <-- NUEVO PARÁMETRO
+    estimated_word_count: Optional[int] = None 
 ) -> Blog:
     
     blog = db.query(Blog).filter(Blog.id == blog_id).first()
-    # ... (lógica de manejo de error) 
 
     # 1. Actualizar estructura (lógica existente)
     blog.estructura_blog_json = estructura_data
     
     # 2. LÓGICA CRÍTICA: Guardar el conteo en la tabla Blog
     if estimated_word_count is not None:
-        # El nombre del campo en la entidad Blog ahora debe ser 'estimated_word_count'
+        
         blog.estimated_word_count = estimated_word_count 
     
     db.commit()
@@ -339,68 +859,7 @@ class AIService:
         media_text = "\n".join(media_list)
         return f"\n--- REFERENCIA DE CONTENIDO MULTIMEDIA (USAR SOLO COMO CONTEXTO) ---\n{media_text}\n---\n"
 
-    def estimar_longitud(self, db: Session, blog_id: UUID, query: str) -> tuple[int, str]:
-        """
-        Orquesta la recuperación de longitudes de la competencia y llama a la IA 
-        para juzgar la longitud óptima del artículo.
-        Retorna: (longitud_estimada_int, longitudes_competencia_str)
-        """
-        # Se necesita la entidad ScrapeResult para obtener los conteos de palabras por URL
-        from src.entities.scraping import ScrapeResult 
-        
-        longitudes_competencia_str = 'N/A'
-        judged_word_count = 1500 # Valor de fallback seguro
-        
-        try:
-            # 1. Recuperar longitudes de la competencia (asumiendo que ScrapeResult guarda el conteo)
-            scrape_results_list = db.query(ScrapeResult).filter(ScrapeResult.blog_id == blog_id).all()
-            
-            if scrape_results_list:
-                longitudes = [
-                    str(result.word_count) 
-                    for result in scrape_results_list 
-                    if result.word_count is not None and result.word_count > 0
-                ]
-                if longitudes:
-                    longitudes_competencia_str = ", ".join(longitudes)
-
-            # 2. Juicio de la IA solo si hay datos válidos de competencia
-            if longitudes_competencia_str != 'N/A':
-                
-                system_msg_juicio = "Eres un Analista SEO experto. Tu única tarea es generar una estimación de la longitud de un artículo para posicionamiento en Google."
-                
-                prompt_juicio = f"""
-                    Como analista experto, tu tarea es determinar la longitud de palabras óptima para un nuevo 
-                    artículo SEO sobre el tema: '{query}'.
-
-                    Las longitudes de los artículos de la competencia (incluyendo contenido sucio) son: {longitudes_competencia_str}.
-
-                    Usando tu juicio para descartar posibles outliers o contenido irrelevante, determina una 
-                    longitud estimada óptima.
-
-                    **CRÍTICO: Devuelve ÚNICAMENTE el número entero de palabras, sin comas, puntos, ni texto adicional. 
-                    Ejemplo de salida correcta: 1850**
-                """
-                
-                result_str = self._llm_generate(
-                    prompt_juicio, 
-                    system_msg_juicio, 
-                    temperature=0.1, 
-                    max_tokens=10 
-                )
-
-                # 3. Limpieza robusta del resultado
-                cleaned_number_str = re.sub(r'[^\d]', '', result_str).strip()
-                
-                if cleaned_number_str:
-                    judged_word_count = int(cleaned_number_str)
-
-        except Exception as e:
-            print(f"ERROR en estimar_longitud para blog {blog_id}: {e}") 
-
-        print(f"Longitud estimada (Juicio de IA): {judged_word_count}. Longitudes de competencia: {longitudes_competencia_str}")
-        return judged_word_count, longitudes_competencia_str
-
+    
 
     # --- ANALISIS DE BLOQUES CON IA ---
     def analizar_bloque_contenido(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str, contexto_previo: str = "") -> str:
@@ -469,7 +928,7 @@ class AIService:
         return "\n".join(final_output).strip()
         
     def generar_estructura_seo_final(self, query: str, title_base: str, categoria: str, idioma: str, tecnica: str, acento: str, tono: str, 
-                                 consolidated_text: str, estimated_word_count: int) -> Dict[str, Any]:
+                                 consolidated_text: str) -> Dict[str, Any]:
         """
         Genera la estructura SEO final procesando el 100% del contenido consolidado 
         en fragmentos para evitar errores de contexto (Error 400).
@@ -612,8 +1071,8 @@ class AIService:
         --- FORMATO FINAL EXCLUSIVO ---
             Devuelve únicamente el objeto JSON:
             {{
-                "structure_markdown": "Estructura optimizada siguiendo el formato [H{{N}} - X.Y] Título.\\n[MULTIMEDIA: TIPO | Descripción SEO]",
-                "estimated_word_count": {estimated_word_count}
+                "structure_markdown": "Estructura optimizada siguiendo el formato [H{{N}} - X.Y] Título.\\n[MULTIMEDIA: TIPO | Descripción SEO]"
+                
             }}            
         """
         
@@ -633,8 +1092,7 @@ class AIService:
             return self.limpieza_extraccion_json(response_json_str)
         except Exception as e:
             return {
-                "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e} - Respuesta IA: {response_json_str[:200]}...]",
-                "estimated_word_count": 0
+                "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e} - Respuesta IA: {response_json_str[:200]}...]"
             }
         
 
@@ -669,7 +1127,6 @@ class AIService:
         1. **Formato OBLIGATORIO:** Debes devolver **SOLAMENTE** un array JSON de Python. Nada más.
         2. **Cantidad Estricta:** Genera **EXACTAMENTE 3 nuevas y mejoradas versiones** para el título/subtítulo: '{section_to_regenerate}'.
         3. **Contenido:** No incluyas el nivel jerárquico ([H2 - X.Y]) ni texto adicional. Solo las 3 frases.
-        4. **PROHIBIDO:** No uses la clave "structure_markdown" o "estimated_word_count" en tu respuesta.
         
         EJEMPLO OBLIGATORIO DE SALIDA: ["Nueva Opción A", "Nueva Opción B", "Nueva Opción C"]
         
@@ -1119,7 +1576,7 @@ class AIService:
             fuente_datos_optimizada = "\n".join(analisis_relevante) if analisis_relevante else req.consolidated_content[:4000]
 
             chunk_schema = {header: f"[CONTENIDO PARA {header}]" for header in chunk}
-            chunk_schema_str = json.dumps(chunk_schema, indent=2, ensure_ascii=False)
+            chunk_schema_str =  json.dumps(chunk_schema, indent=2, ensure_ascii=False)
 
             # **SOLUCIÓN MÍNIMA: Agregar instrucción específica al prompt según el nivel**
             instruccion_nivel = ""
@@ -1190,8 +1647,7 @@ class AIService:
             "log": f"Generación finalizada. Se procesaron {len(structured_content)} de {len(headers_for_json)} secciones (Nivel: {section_level})."
         }
 
-
-    # --- AQUI ESTA LA LOGICA DE REGENERACION Y LIMPIEZA DEL JSON QUE DEVUELVE LA IA 
+# --- AQUI ESTA LA LOGICA DE REGENERACION Y LIMPIEZA DEL JSON QUE DEVUELVE LA IA 
     def analisis_final_ia(
         self, 
         db: Session, 
@@ -1206,44 +1662,22 @@ class AIService:
         consolidated_text: Optional[str] = None, 
     ) -> Dict[str, Any]:
         
-        # 1. OBTENER CONSOLIDATED CONTENT (Si aplica)
+        # 1. OBTENER CONSOLIDATED CONTENT
         if blog_id and not consolidated_text:
-            # Se asume que 'Scraping' está importado
             scraping_result = db.query(Scraping).filter(Scraping.blog_id == blog_id).first()
             if scraping_result and scraping_result.consolidated_content:
                 consolidated_text = scraping_result.consolidated_content
             
         if not consolidated_text:
             return {
-                "structure_markdown": "[ERROR: No se pudo obtener el texto consolidado para la generación de la estructura.]",
-                "estimated_word_count": 0
+                "structure_markdown": "[ERROR: No se pudo obtener el texto consolidado para la generación de la estructura.]"
             }
 
-        # ----------------------------------------------------------------------
-        # 💥 CORRECCIÓN CRÍTICA: 2. OBTENER estimated_word_count DE LA TABLA BLOG
-        # ----------------------------------------------------------------------
         if not blog_id:
-            # Bloqueo si no hay ID para buscar la longitud
-            raise HTTPException(status_code=400, detail="Blog ID es requerido para buscar 'estimated_word_count' en la DB.")
+            raise HTTPException(status_code=400, detail="Blog ID es requerido para la generación de la estructura.")
 
-        # Se asume que 'Blog' está importado
-        blog_entity = db.query(Blog).filter(Blog.id == blog_id).first()
-
-        if not blog_entity:
-            raise HTTPException(status_code=404, detail=f"No se encontró el Blog con ID: {blog_id}.")
-
-        # Obtener el campo (MANDATO CUMPLIDO)
-        estimated_word_count_from_db = getattr(blog_entity, 'estimated_word_count', None)
-        
-        # 3. VALIDACIÓN ESTRICTA (Según su mandato de que el dato siempre está lleno)
-        if not estimated_word_count_from_db or not isinstance(estimated_word_count_from_db, int) or estimated_word_count_from_db <= 0:
-            raise HTTPException(status_code=500, detail=f"El campo 'estimated_word_count' en el Blog ID {blog_id} es nulo o inválido.")
-        
-        # ----------------------------------------------------------------------
-        # 4. LLAMADA A LA GENERACIÓN DE LA IA (Inyección del argumento)
-        # ----------------------------------------------------------------------
-        # NOTA: La función self.generar_estructura_seo_final DEBE haber sido actualizada
-        # para aceptar 'estimated_word_count' como un argumento posicional/clave.
+        # 2. LLAMADA A LA GENERACIÓN DE LA IA
+        # Se eliminó el argumento estimated_word_count
         analysis_result = self.generar_estructura_seo_final( 
             query=query,
             title_base=title_base,
@@ -1252,14 +1686,10 @@ class AIService:
             tecnica=tecnica,
             acento=acento,
             tono=tono,
-            consolidated_text=consolidated_text,
-            # ✅ ARGUMENTO REQUERIDO INYECTADO:
-            estimated_word_count=estimated_word_count_from_db 
+            consolidated_text=consolidated_text
         )
 
-        # ----------------------------------------------------------------------
-        # 5. LIMPIEZA Y NORMALIZACIÓN DE LA ESTRUCTURA COMPLETA
-        # ----------------------------------------------------------------------
+        # 3. LIMPIEZA Y NORMALIZACIÓN DEL MARKDOWN
         MARKDOWN_KEY = 'structure_markdown' 
         if MARKDOWN_KEY in analysis_result and isinstance(analysis_result[MARKDOWN_KEY], str):
             markdown_to_clean = analysis_result[MARKDOWN_KEY]
@@ -1269,36 +1699,17 @@ class AIService:
             markdown_to_clean = markdown_to_clean.strip()
             analysis_result[MARKDOWN_KEY] = markdown_to_clean
                 
-        # ----------------------------------------------------------------------
-        # 6. PERSISTENCIA DE DATOS
-        # ----------------------------------------------------------------------
+        # 4. PERSISTENCIA DE LA ESTRUCTURA
         if blog_id:
-            # Persistencia de la Estructura en la tabla BLOGS
             try:
+                # Solo guardamos la estructura generada. 
+                # El conteo de palabras queda intacto hasta que el front lo actualice.
                 actualizar_estructura_blog(db, blog_id, analysis_result) 
             except Exception as e:
-                print(f"ERROR DE PERSISTENCIA: Fallo al guardar la estructura en la tabla 'blogs': {e}")
-                
-            # Persistencia del Conteo de Palabras en la tabla SCRAPING
-            if 'estimated_word_count' in analysis_result:
-                try:
-                    word_count_str = analysis_result['estimated_word_count']
-                    word_count_int = int(word_count_str) if str(word_count_str).isdigit() else None
-                    
-                    if word_count_int is not None:
-                        datos_para_scraping = {
-                            "estimated_word_count_ai": word_count_int 
-                        }
-                        actualizar_o_crear_resultado_scraping(db, blog_id, datos_para_scraping)
-                        print(f"estimated_word_count_ai persistido con éxito en Scraping para Blog ID: {blog_id}")
-                except Exception as e:
-                    print(f"ERROR DE PERSISTENCIA: Fallo al guardar estimated_word_count en la tabla 'scraping': {e}")
+                print(f"ERROR DE PERSISTENCIA: Fallo al guardar la estructura: {e}")
                         
-        # ----------------------------------------------------------------------
-        # 7. DEVOLVER LA RESPUESTA
-        # ----------------------------------------------------------------------
+        # 5. DEVOLVER LA RESPUESTA
         return analysis_result
-
 
 
 # --- 2. CLASE ContentExtractor: Lógica de Scraping y Fallback ---
@@ -1858,8 +2269,6 @@ class ContentExtractor:
         return blocks_robust
     
     
-
-
 # --- 3. CLASE AnalysisOrchestrator: Coordinación del Flujo ---
 
 class AnalysisOrchestrator:
@@ -2012,7 +2421,6 @@ class AnalysisOrchestrator:
         if valid_results and consolidated_text:
             try:
                 # Tu lógica de guardado en DB...
-                estimated_word_count_calculated = len(consolidated_text.split())
                 all_article_blocks_combined = [b for res in all_results for b in (res.article_blocks or [])]
                 
                 datos_a_guardar_scraping = {
@@ -2028,7 +2436,6 @@ class AnalysisOrchestrator:
                 actualizar_estructura_blog(
                     self.db, self.blog_id, 
                     estructura_data=estructura_actual, 
-                    estimated_word_count=estimated_word_count_calculated
                 )
             except Exception as e:
                 print(f"ERROR DB: {str(e)} ")

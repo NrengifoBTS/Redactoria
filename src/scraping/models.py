@@ -153,5 +153,7 @@ class DownloadRequest(BaseModel):
     """Modelo que FastAPI usará para recibir el body del POST."""
     # La clave debe ser 'structure_data' para coincidir con el front-end
     structure_data: List[BlogSectionData] = Field(..., description="Lista de secciones principales del blog.")
+{
 
-
+    
+}

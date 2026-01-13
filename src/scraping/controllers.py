@@ -13,6 +13,7 @@ from src.scraping.service import DocumentService
 
 
 
+
 # =======================================================================
 # 1. ROUTER DE SCRAPING
 # =======================================================================
@@ -173,26 +174,26 @@ def update_title_and_persist(req: models.TitleUpdateRequest):
         raise HTTPException(status_code=500, detail=f"Fallo al actualizar el título: {str(e)}")
     
 
-
 @router_ai.post("/download_blog_doc/{blog_id}", response_class=StreamingResponse)
 def download_blog_document(
-    blog_id: UUID, 
-    request_data: DownloadRequest, # request_data ahora tiene el campo 'title'
+    blog_id: UUID,
     db: DbSession 
 ):
     """
-    Endpoint para descargar la estructura final del blog en formato Word (.docx).
+    Endpoint SIMPLIFICADO: Solo necesita el blog_id.
     """
     try:
-        document_service = DocumentService()
+        document_service = service.DocumentService()
         
-        # 2. Llamar al método de instancia refactorizado
+        # El servicio ahora obtiene todo de la BD
         return document_service.generar_documento_word(
-            blog_id=blog_id, 
-            datos_estructura=request_data.structure_data, 
+            blog_id=blog_id,
             db=db
         )
+        
     except HTTPException as http_e:
         raise http_e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fallo al generar el documento de Word: {str(e)}")
+        import logging
+        logging.error(f"Error en download_blog_document: {str(e)}", exc_info=True)
+        raise HTTPException(500, f"Error al generar documento: {str(e)}")
