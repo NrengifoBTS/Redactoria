@@ -1107,3 +1107,24 @@ select {
 .auto-expand.error {
   border-left: 4px solid #e74c3c;
 }
+
+/* Estado Base / Deshabilitado (Gris) */
+.btn-disabled {
+  background-color: #ccc; /* Gris claro */
+  color: #666; /* Texto gris oscuro */
+  cursor: not-allowed;
+  border: 1px solid #bbb;
+}
+
+/* Estado Activo (Verde) */
+.btn-active-save {
+  background-color: #28a745 !important; /* Verde éxito */
+  color: white !important;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
+}
+
+.btn-active-save:hover {
+  background-color: #218838 !important;
+}
