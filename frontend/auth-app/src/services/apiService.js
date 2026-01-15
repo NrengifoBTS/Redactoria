@@ -779,7 +779,6 @@ class ApiService {
 
   // Ejecutar scraping
   async runScraping(blogId, query, numResults = 3, useAi = true) {
-    // CRÍTICO: Añadir blogId
     try {
       const payload = {
         query,
@@ -953,6 +952,85 @@ class ApiService {
         return null;
       }
       throw error;
+    }
+  }
+
+  /**
+   * Registra cambios estructurales o de contenido en el log de entrenamiento IA
+   */
+  async logBlogEdit(blogId, structureBefore, structureAfter, context = {}) {
+    try {
+      const payload = {
+        blog_id: blogId,
+        structure_before: structureBefore,
+        structure_after: structureAfter,
+        edit_context: context,
+      };
+
+      return await this.makeRequest(`/logs/blog/structure-change`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error("Error logging blog edit:", error);
+      return null;
+    }
+  }
+
+  // =========================================================================
+  // LOGS DE ENTRENAMIENTO IA BLOGS
+  // =========================================================================
+
+  /**
+   * Registro inicial: Lo que la IA propuso (Baseline)
+   */
+  async logInitialAI(blogId, scrapingId, result) {
+    try {
+      const payload = {
+        blog_id: blogId,
+        scraping_id: scrapingId,
+        titles_before: result, // La estructura JSON generada
+        prompt_used: "Generación inicial de estructura",
+        model_name: "gpt-4o",
+      };
+
+      // CORRECCIÓN: La ruta debe ser /ai-generation según tu controller.py
+      return await this.makeRequest("/logs_blog/ai-generation", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error("Error logging initial AI:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Registro de cambios: Lo que el usuario dejó (Target)
+   */
+  async logBlogStructureEdit(
+    blogId,
+    titlesAfter,
+    structureAfter,
+    actionType,
+    context = {}
+  ) {
+    try {
+      const payload = {
+        blog_id: blogId,
+        titles_after: titlesAfter, // Títulos finales (H1, H2, H3)
+        structure_after: structureAfter, // Estructura completa con contenido
+        action_type: actionType, // ej: "reorder_structure" o "content_finalized"
+        edit_context: context,
+      };
+
+      return await this.makeRequest("/logs_blog/structure-change", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error("Error logging structure edit:", error);
+      return null;
     }
   }
 }
