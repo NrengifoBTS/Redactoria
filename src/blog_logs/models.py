@@ -8,21 +8,11 @@ from datetime import datetime
 # =======================================================================
 
 class LogBlogStructureRequest(BaseModel):
-    """
-    Schema para registrar cambios manuales del usuario.
-    """
     blog_id: UUID
     scraping_id: Optional[UUID] = None
-    
-    # Usamos Any o List[Dict] para los títulos finales tras la edición
     titles_after: Optional[Any] = None 
-    structure_before: Optional[List[Dict[str, Any]]] = None
-    structure_after: List[Dict[str, Any]]
-    
-    edit_context: Dict[str, Any] = Field(
-        default_factory=dict, 
-        description="Metadatos: {action: 'drag_and_drop', section_id: '...'}"
-    )
+    structure_after: List[Dict[str, Any]] # <--- Esto acepta [] pero NO acepta null (None)
+    edit_context: Dict[str, Any] = Field(default_factory=dict)
 
 # =======================================================================
 # 2. MODELO PARA LA IA (Punto de partida - CORREGIDO)
@@ -32,6 +22,7 @@ class LogAIGenerationRequest(BaseModel):
     blog_id: UUID
     titles_before: Any  # Esto es lo único que envías
     scraping_id: Optional[UUID] = None
+    structure_before: Optional[Any] = None
     # Los demás los ponemos como opcionales con default None
     prompt_used: Optional[str] = None
     model_name: Optional[str] = None

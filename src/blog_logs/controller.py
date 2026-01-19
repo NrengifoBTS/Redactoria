@@ -93,6 +93,7 @@ def _process_ai_generation_log(db: DbSession, request: models.LogAIGenerationReq
             db=db,
             blog_id=request.blog_id,
             titles_before=request.titles_before, 
+            structure_before=request.structure_before, 
             scraping_id=request.scraping_id
         )
     except Exception as e:

@@ -221,6 +221,7 @@ const GeneracionBlog = () => {
 
     setIsSaving(true);
     try {
+      // 1. Guardado persistente en la tabla BLOGS (Como ya lo hace)
       const payload = {
         estructura_blog_json: tablaEstructuraFinal,
         estado: blogStatus,
@@ -228,9 +229,48 @@ const GeneracionBlog = () => {
         estimated_word_count: TotalGeneratedWords,
       };
 
-      // CAMBIO CLAVE: Usar updateBlog en lugar de .put
-      // El servicio ya se encarga de la ruta interna.
       await apiService.updateBlog(localBlogId, payload);
+
+      // =======================================================================
+      // 2. NUEVO: REGISTRO EN blog_structure_logs (columna structure_after)
+      // =======================================================================
+      try {
+        // Convertimos el Markdown de la tabla a Objeto JSON para el log
+        const estructuraParaLog = parseMarkdownStructure(tablaEstructuraFinal);
+
+        // Generamos el string de títulos para la columna titles_after
+        const h1Titulo = datosFinales?.title || "Título del Blog";
+        const titulosLog =
+          `[H1 - 0.0] ${h1Titulo}\n` +
+          estructuraParaLog
+            .map((h2) => {
+              const h2Enum = h2.enumeration.toString().includes(".")
+                ? h2.enumeration
+                : `${h2.enumeration}.0`;
+              return (
+                `[H2 - ${h2Enum}] ${stripHtml(h2.text)}\n` +
+                h2.children
+                  .map((h3) => `[H3 - ${h3.enumeration}] ${stripHtml(h3.text)}`)
+                  .join("\n")
+              );
+            })
+            .join("\n");
+
+        // Enviamos al log de estructura
+        await apiService.logBlogStructureEdit(
+          localBlogId,
+          titulosLog, // titles_after
+          estructuraParaLog, // structure_after (El JSON con contenido)
+          "manual_save", // action_type
+          { info: "Guardado manual desde el botón Guardar" } // context
+        );
+
+        console.log("✓ Cambio registrado en el historial de estructura.");
+      } catch (logErr) {
+        // Solo logeamos el error, no detenemos el éxito del guardado principal
+        console.error("Error al registrar log de estructura:", logErr);
+      }
+      // =======================================================================
 
       setHasUnsavedChanges(false);
       setEstimatedWordCount(TotalGeneratedWords);
@@ -251,6 +291,7 @@ const GeneracionBlog = () => {
     blogPriority,
     TotalGeneratedWords,
     isSaving,
+    datosFinales, // Añadido a dependencias para el H1
   ]);
 
   // Visibilidad de tarjetas en el front
@@ -1045,16 +1086,11 @@ const GeneracionBlog = () => {
         (item) => item.uniqueId === sectionToMove.uniqueId
       );
       if (currentIndex === -1) return;
-      if (currentIndex === 0) {
-        return;
-      }
-      // ====================================================================
+      if (currentIndex === 0) return; // No mover el H1/Primer H2
 
       let newIndex = currentIndex;
       if (direction === "UP" && currentIndex > 0) {
-        if (currentIndex - 1 === 0) {
-          return;
-        }
+        if (currentIndex - 1 === 0) return;
         newIndex = currentIndex - 1;
       } else if (
         direction === "DOWN" &&
@@ -1065,7 +1101,6 @@ const GeneracionBlog = () => {
         return;
       }
 
-      // Intercambiar posiciones
       const [movedItem] = newStructure.splice(currentIndex, 1);
       newStructure.splice(newIndex, 0, movedItem);
     } else {
@@ -1093,33 +1128,21 @@ const GeneracionBlog = () => {
         return;
       }
 
-      // Intercambiar posiciones
       const [movedItem] = h3Children.splice(currentIndex, 1);
       h3Children.splice(newIndex, 0, movedItem);
-
       parentH2.children = [...h3Children];
     }
 
-    // 3. Convertir la nueva estructura de vuelta a Markdown y actualizar el estado
+    // ACTUALIZACIÓN SOLO EN EL FRONT (ESTADO LOCAL)
     const newMarkdown = convertStructureToMarkdown(newStructure);
     setTablaEstructuraFinal(newMarkdown);
+
+    // Solo marcamos que hay cambios pendientes para que el usuario guarde manualmente
     markAsChanged();
 
-    apiService.logBlogEdit(
-      blogId, // El ID del blog actual
-      currentStructure, // Estructura vieja
-      newStructure, // Estructura nueva
-      {
-        action: "reorder_section",
-        section_id: sectionToMove.uniqueId,
-        direction: direction,
-        level: sectionToMove.level,
-      }
-    );
-
-    // 4. Opcional: Persistir el cambio en la tabla principal del blog
-    // Esto asegura que si el usuario refresca, el orden se mantiene
-    apiService.updateBlog(blogId, { estructura_blog_json: newStructure });
+    // --- SE ELIMINAN LAS LLAMADAS AL API QUE CAUSABAN EL ERROR 404 Y EL AUTOGUARDADO ---
+    // apiService.logBlogEdit(...); <-- ELIMINADO
+    // apiService.updateBlog(...);  <-- ELIMINADO
   };
 
   //Maneja acciones de Mover y Eliminar, mostrando un toast de confirmación
@@ -2079,6 +2102,7 @@ const GeneracionBlog = () => {
   const generarContenidoCompleto = async () => {
     const idDelBlog = blogId;
 
+    // 1. VALIDACIONES INICIALES
     if (!idDelBlog) {
       showToast("Error: No se encontró el ID del blog.", "error");
       return;
@@ -2094,35 +2118,45 @@ const GeneracionBlog = () => {
     const controller = new AbortController();
     referenciaControladorAborto.current = controller;
 
-    // 1. Obtenemos la estructura base (solo títulos al inicio)
+    // Obtenemos la estructura base (títulos actuales)
     let estructuraAnidada = parseMarkdownStructure(tablaEstructuraFinal);
 
     // =======================================================================
-    // REGISTRO DE TÍTULOS EN TITLES_AFTER (blog_structure_logs)
+    // PASO A: REGISTRO DE TÍTULOS (Formatos 0.0 y sin duplicados)
     // =======================================================================
-    try {
-      const titulosParaLog = estructuraAnidada
-        .map((h2) => {
-          const h2Text = `[H2 - ${h2.enumeration}] ${stripHtml(h2.text)}`;
-          const h3Texts = h2.children
-            .map((h3) => `    [H3 - ${h3.enumeration}] ${stripHtml(h3.text)}`)
-            .join("\n");
-          return h2Text + (h3Texts ? "\n" + h3Texts : "");
-        })
-        .join("\n");
+    const h1Titulo = datosFinales?.title || "Título del Blog";
+    const lineaH1 = `[H1 - 0.0] ${h1Titulo}`;
 
-      // ENVIAMOS SOLO LOS TÍTULOS.
-      // structure_after se envía como [] para evitar errores de validación en el Backend.
+    // Filtramos la estructura para que el H1 no aparezca como un H2 repetido
+    const cuerpoTitulos = estructuraAnidada
+      .filter(
+        (h2) => stripHtml(h2.text).toLowerCase() !== h1Titulo.toLowerCase()
+      )
+      .map((h2) => {
+        // Forzamos formato decimal X.0 si viene como entero
+        const h2Enum = h2.enumeration.toString().includes(".")
+          ? h2.enumeration
+          : `${h2.enumeration}.0`;
+        const h2Text = `[H2 - ${h2Enum}] ${stripHtml(h2.text)}`;
+        const h3Texts = h2.children
+          .map((h3) => `[H3 - ${h3.enumeration}] ${stripHtml(h3.text)}`)
+          .join("\n");
+        return h2Text + (h3Texts ? "\n" + h3Texts : "");
+      })
+      .join("\n");
+
+    const titulosFinalesIdenticos = `${lineaH1}\n${cuerpoTitulos}`;
+
+    // 1. Log en blog_structure_logs (titles_after)
+    try {
       await apiService.logBlogStructureEdit(
         idDelBlog,
-        titulosParaLog, // titles_after
-        [], // structure_after (VACÍO, como pediste)
-        "start_content_generation", // action_type
-        { info: "Captura de títulos previa a generación" } // context
+        titulosFinalesIdenticos,
+        [],
+        "start_content_generation"
       );
-      console.log("✓ Títulos guardados en titles_after exitosamente.");
     } catch (err) {
-      console.error("Error al registrar títulos en blog_structure_logs:", err);
+      console.error("Error en log structure edit:", err);
     }
 
     // =======================================================================
@@ -2140,7 +2174,7 @@ const GeneracionBlog = () => {
       contarPalabras
     );
 
-    // 2. BUCLE DE GENERACIÓN
+    // 2. BUCLE DE GENERACIÓN POR BLOQUES
     for (const h2Block of estructuraAnidada) {
       if (cancelacionSolicitada) break;
 
@@ -2181,33 +2215,31 @@ const GeneracionBlog = () => {
         )
       );
 
-      const payload = {
-        blog_id: idDelBlog,
-        query: datosFinales?.query,
-        consolidated_content: contenidoConsolidado,
-        keywords: datosFinales?.keywords || [],
-        idioma: datosFinales?.idioma,
-        acento: datosFinales?.acento,
-        tono: datosFinales?.tono,
-        section_type: "full_block_generation",
-        previous_content: generatedContentHistory,
-        palabras_acumuladas: palabrasAcumuladas,
-        subsecciones_pendientes: subseccionesPendientes,
-        limite_palabras_bloque: limiteFinal,
-        regenerate_data: {
-          section_title: blockTitle,
-          section_level: "h2_block",
-          section_text: blockMarkdownToGenerate,
-          full_structure_markdown: fullStructureMarkdown,
-          estimated_word_count: palabrasObjetivo || 0,
-        },
-      };
-
       try {
         const response = await fetch(URL_API_IA_COMPLETO, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            blog_id: idDelBlog,
+            query: datosFinales?.query,
+            consolidated_content: contenidoConsolidado,
+            keywords: datosFinales?.keywords || [],
+            idioma: datosFinales?.idioma,
+            acento: datosFinales?.acento,
+            tono: datosFinales?.tono,
+            section_type: "full_block_generation",
+            previous_content: generatedContentHistory,
+            palabras_acumuladas: palabrasAcumuladas,
+            subsecciones_pendientes: subseccionesPendientes,
+            limite_palabras_bloque: limiteFinal,
+            regenerate_data: {
+              section_title: blockTitle,
+              section_level: "h2_block",
+              section_text: blockMarkdownToGenerate,
+              full_structure_markdown: fullStructureMarkdown,
+              estimated_word_count: palabrasObjetivo || 0,
+            },
+          }),
           signal: controller.signal,
         });
 
@@ -2218,16 +2250,12 @@ const GeneracionBlog = () => {
           typeof result.generated_content === "string"
             ? result.generated_content
             : String(result.generated_content || "");
-        let generatedContentMap;
-        try {
-          generatedContentMap = JSON.parse(
-            rawContent.trim().replace(/```json\s*|```/g, "")
-          );
-        } catch (e) {
-          generatedContentMap = JSON.parse(rawContent.trim());
-        }
 
-        // ACTUALIZACIÓN DE LA ESTRUCTURA CON CONTENIDO
+        const generatedContentMap = JSON.parse(
+          rawContent.trim().replace(/```json\s*|```/g, "")
+        );
+
+        // Actualizamos estructura temporal
         estructuraTemporal = estructuraTemporal.map((h2Padre) => {
           if (h2Padre.enumeration !== h2Block.enumeration) return h2Padre;
           let h2Actualizado = { ...h2Padre };
@@ -2247,6 +2275,7 @@ const GeneracionBlog = () => {
           return h2Actualizado;
         });
 
+        // Actualizamos UI
         setTablaEstructuraFinal(convertStructureToMarkdown(estructuraTemporal));
         palabrasAcumuladas = recalcularPalabrasGeneradas(estructuraTemporal);
         subseccionesGeneradas = recalcularSubseccionesGeneradas(
@@ -2260,9 +2289,37 @@ const GeneracionBlog = () => {
       }
     }
 
-    // AL FINALIZAR TODO EL BUCLE:
-    // Aquí puedes decidir si quieres guardar de nuevo el log con el contenido final
-    // o si mantienes tu decisión de no guardar nada en structure_after.
+    // =======================================================================
+    // PASO C: PERSISTENCIA FINAL (Blogs y titles_before)
+    // =======================================================================
+    if (!cancelacionSolicitada) {
+      try {
+        const markdownFinalConContenido =
+          convertStructureToMarkdown(estructuraTemporal);
+
+        // 1. Guardar en tabla BLOGS (Para que no se borre al recargar)
+        await apiService.updateBlog(idDelBlog, {
+          estructura_blog_json: markdownFinalConContenido,
+        });
+
+        // 2. Guardar en blog_ai_generation_logs (Columna titles_before)
+        // Usamos el mismo string que preparamos para el log de edición
+        await apiService.logInitialAI(
+          idDelBlog,
+          null,
+          titulosFinalesIdenticos,
+          estructuraTemporal // <--- Enviamos el JSON con contenido
+        );
+
+        console.log(
+          "✓ Estructura persistida en Blogs y log Initial AI actualizado."
+        );
+        showToast("¡Blog generado y guardado correctamente!", "success");
+        markAsChanged();
+      } catch (finalSaveErr) {
+        console.error("Error al persistir blog final:", finalSaveErr);
+      }
+    }
 
     setCargandoIA(false);
     showToast("Generación finalizada.", "info");
