@@ -22,30 +22,24 @@ class BlogAILoggingService:
         scraping_id: Optional[UUID] = None
     ) -> Optional[BlogAIGenerationLog]:
         try:
-            # 1. BUSCAR SI YA EXISTE UN LOG PARA ESTE BLOG
             existing_log = db.query(BlogAIGenerationLog).filter(
                 BlogAIGenerationLog.blog_id == blog_id
             ).first()
 
             if existing_log:
-                # 2. ACTUALIZAR EL EXISTENTE (Evita duplicados)
                 existing_log.titles_before = titles_before
-                existing_log.structure_before = titles_before
-                existing_log.scraping_id = scraping_id
-                existing_log.created_at = datetime.now(timezone.utc) # Actualizar fecha
+                existing_log.created_at = datetime.now(timezone.utc)
                 db.commit()
-                db.refresh(existing_log)
                 return existing_log
             else:
-                # 3. CREAR UNO NUEVO SI ES LA PRIMERA VEZ
                 new_generation = BlogAIGenerationLog(
                     blog_id=blog_id,
                     scraping_id=scraping_id,
                     titles_before=titles_before, 
-                    structure_before=titles_before, 
-                    prompt_used="Generación inicial de estructura",
+                    structure_before=[], 
+                    prompt_used="Generación inicial de esqueleto",
                     model_name="gpt-4o",
-                    raw_ai_output={"info": "Generación base"}
+                    raw_ai_output={} 
                 )
                 db.add(new_generation)
                 db.commit()

@@ -511,7 +511,7 @@ const GeneracionBlog = () => {
     // El resto de la lógica de parsing de Markdown se mantiene intacta
     const structuredRegex = /^\[(H\d+)\s*-\s*([\d.]*)[\]>]\s*(.*)/i;
     const separateMediaRegex =
-      /^\[MULTIMEDIA:\s*(VIDEO|FOTO|MAPA|GRAFICO|IMAGEN)\s*\|\s*(.*?)\]\s*$/i;
+      /^\[MULTIMEDIA:\s*(VIDEO|FOTO|MAPA|GRAFICO|IMAGEN|IMAGE)\s*\|\s*(.*?)\]\s*$/i;
     const contentStartRegex = /^(?:\[CONTENIDO\]\s*|CONTENIDO:\s*)(.*)$/i;
 
     let leyendoContenido = false;
@@ -1741,14 +1741,10 @@ const GeneracionBlog = () => {
 
       // 5. GUARDADO EN LOGS (EVITANDO DUPLICADOS Y LIMPIANDO)
       try {
-        await apiService.logInitialAI(
-          idDelBlog,
-          result.log?.id || datosFinales?.scraping_id || null,
-          soloTitulos // Guardamos solo la lista de títulos numerados
-        );
-        console.log("✓ Log actualizado sin duplicados y solo títulos.");
+        await apiService.logInitialAI(idDelBlog, null, soloTitulos);
+        console.log("✓ Log enviado al servidor.");
       } catch (logErr) {
-        console.error("Error al registrar log de IA:", logErr);
+        console.error("Error al registrar log:", logErr);
       }
 
       markAsChanged();
@@ -2235,11 +2231,11 @@ const GeneracionBlog = () => {
     }
 
     // =======================================================================
-    // 3. REGISTRO FINAL: AQUÍ ES DONDE SE GUARDA TODO
+    // 3. REGISTRO FINAL: GUARDADO EN LA TABLA blog_ai_generation_logs
     // =======================================================================
     if (!cancelacionSolicitada) {
       try {
-        // ESTO genera el string de títulos (solo títulos)
+        // Generamos el resumen visual de títulos
         const titulosLimpiosParaLog = estructuraTemporal
           .map((h2) => {
             const h2Text = `[H2 - ${h2.enumeration}] ${stripHtml(h2.text)}`;
@@ -2250,20 +2246,18 @@ const GeneracionBlog = () => {
           })
           .join("\n");
 
-        // LLAMADA AL SERVICIO
-        // IMPORTANTE: titles_after recibe el string de títulos.
-        // structure_after recibe el OBJETO estructuraTemporal (JSON con contenido).
-        await apiService.logBlogStructureEdit(
-          idDelBlog,
-          titulosLimpiosParaLog, // Se guarda en titles_after (string)
-          estructuraTemporal, // Se guarda en structure_after (JSON COMPLETO CON CONTENIDO)
-          "content_finalized",
-          {
-            source: "generarContenidoCompleto",
-            total_words: palabrasAcumuladas,
-          }
-        );
-        console.log("✓ Estructura completa y títulos guardados.");
+        // CORRECCIÓN AQUÍ: Convertimos el objeto estructuraTemporal a STRING JSON
+        // Esto garantiza que se guarde la estructura completa + el contenido generado
+        const estructuraCompletaJSON = JSON.stringify(estructuraTemporal);
+
+        await apiService.logInitialAI({
+          blog_id: idDelBlog,
+          scraping_id: datosFinales?.scraping_id || null,
+          titles_before: titulosLimpiosParaLog,
+          structure_before: estructuraCompletaJSON, // Enviamos el JSON serializado
+        });
+
+        console.log("✓ Log final guardado con estructura y contenido.");
       } catch (finalLogErr) {
         console.error("Error al registrar log final:", finalLogErr);
       }
@@ -2272,7 +2266,6 @@ const GeneracionBlog = () => {
     setCargandoIA(false);
     showToast("Generación finalizada.", "info");
   };
-
   // =======================================================================
   // 5. COMPONENTE StructureRenderer
   // =======================================================================

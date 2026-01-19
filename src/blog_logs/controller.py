@@ -88,14 +88,12 @@ def _process_blog_edit_log(db: DbSession, current_user: CurrentUser, request: mo
 def _process_ai_generation_log(db: DbSession, request: models.LogAIGenerationRequest):
     try:
         service = BlogAILoggingService()
-        # Asegúrate de pasar titles_before que es lo que tu servicio espera
+        # Solo pasamos titles_before, el servicio se encarga del resto
         log_entry = service.log_generation(
             db=db,
             blog_id=request.blog_id,
             titles_before=request.titles_before, 
             scraping_id=request.scraping_id
         )
-        if log_entry:
-            logging.info(f"✓ Log de IA guardado para blog {request.blog_id}")
     except Exception as e:
         logging.error(f"✗ Error: {e}")

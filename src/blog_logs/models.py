@@ -29,22 +29,12 @@ class LogBlogStructureRequest(BaseModel):
 # =======================================================================
 
 class LogAIGenerationRequest(BaseModel):
-    """
-    Schema flexible para registrar la propuesta inicial de la IA.
-    He hecho opcionales los campos que no quieres enviar obligatoriamente ahora.
-    """
     blog_id: UUID
+    titles_before: Any  # Esto es lo único que envías
     scraping_id: Optional[UUID] = None
-    
-    # Campo clave: Aquí recibiremos el markdown o JSON de títulos del render
-    titles_before: Any 
-    
-    # Campos que ahora son opcionales para evitar errores 422
-    prompt_used: Optional[str] = "Generación inicial"
-    model_name: Optional[str] = "gpt-4o"
-    raw_ai_output: Optional[Union[Dict[str, Any], List[Any]]] = None
-    duration_ms: Optional[int] = 0
-    tokens_used: Optional[int] = None
+    # Los demás los ponemos como opcionales con default None
+    prompt_used: Optional[str] = None
+    model_name: Optional[str] = None
 
 # =======================================================================
 # 3. MODELOS DE RESPUESTA PARA ANALÍTICAS
