@@ -2097,6 +2097,36 @@ const GeneracionBlog = () => {
     // 1. Obtenemos la estructura base (solo títulos al inicio)
     let estructuraAnidada = parseMarkdownStructure(tablaEstructuraFinal);
 
+    // =======================================================================
+    // REGISTRO DE TÍTULOS EN TITLES_AFTER (blog_structure_logs)
+    // =======================================================================
+    try {
+      const titulosParaLog = estructuraAnidada
+        .map((h2) => {
+          const h2Text = `[H2 - ${h2.enumeration}] ${stripHtml(h2.text)}`;
+          const h3Texts = h2.children
+            .map((h3) => `    [H3 - ${h3.enumeration}] ${stripHtml(h3.text)}`)
+            .join("\n");
+          return h2Text + (h3Texts ? "\n" + h3Texts : "");
+        })
+        .join("\n");
+
+      // ENVIAMOS SOLO LOS TÍTULOS.
+      // structure_after se envía como [] para evitar errores de validación en el Backend.
+      await apiService.logBlogStructureEdit(
+        idDelBlog,
+        titulosParaLog, // titles_after
+        [], // structure_after (VACÍO, como pediste)
+        "start_content_generation", // action_type
+        { info: "Captura de títulos previa a generación" } // context
+      );
+      console.log("✓ Títulos guardados en titles_after exitosamente.");
+    } catch (err) {
+      console.error("Error al registrar títulos en blog_structure_logs:", err);
+    }
+
+    // =======================================================================
+
     showToast("Iniciando generación de contenido...", "info");
 
     let estructuraTemporal = estructuraAnidada;
@@ -2230,42 +2260,14 @@ const GeneracionBlog = () => {
       }
     }
 
-    // =======================================================================
-    // 3. REGISTRO FINAL: GUARDADO EN LA TABLA blog_ai_generation_logs
-    // =======================================================================
-    if (!cancelacionSolicitada) {
-      try {
-        // Generamos el resumen visual de títulos
-        const titulosLimpiosParaLog = estructuraTemporal
-          .map((h2) => {
-            const h2Text = `[H2 - ${h2.enumeration}] ${stripHtml(h2.text)}`;
-            const h3Texts = h2.children
-              .map((h3) => `   [H3 - ${h3.enumeration}] ${stripHtml(h3.text)}`)
-              .join("\n");
-            return h2Text + (h3Texts ? "\n" + h3Texts : "");
-          })
-          .join("\n");
-
-        // CORRECCIÓN AQUÍ: Convertimos el objeto estructuraTemporal a STRING JSON
-        // Esto garantiza que se guarde la estructura completa + el contenido generado
-        const estructuraCompletaJSON = JSON.stringify(estructuraTemporal);
-
-        await apiService.logInitialAI({
-          blog_id: idDelBlog,
-          scraping_id: datosFinales?.scraping_id || null,
-          titles_before: titulosLimpiosParaLog,
-          structure_before: estructuraCompletaJSON, // Enviamos el JSON serializado
-        });
-
-        console.log("✓ Log final guardado con estructura y contenido.");
-      } catch (finalLogErr) {
-        console.error("Error al registrar log final:", finalLogErr);
-      }
-    }
+    // AL FINALIZAR TODO EL BUCLE:
+    // Aquí puedes decidir si quieres guardar de nuevo el log con el contenido final
+    // o si mantienes tu decisión de no guardar nada en structure_after.
 
     setCargandoIA(false);
     showToast("Generación finalizada.", "info");
   };
+
   // =======================================================================
   // 5. COMPONENTE StructureRenderer
   // =======================================================================

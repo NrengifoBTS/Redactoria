@@ -955,6 +955,28 @@ class ApiService {
     }
   }
 
+  /**
+   * Registra cambios estructurales o de contenido en el log de entrenamiento IA
+   */
+  async logBlogEdit(blogId, structureBefore, structureAfter, context = {}) {
+    try {
+      const payload = {
+        blog_id: blogId,
+        structure_before: structureBefore,
+        structure_after: structureAfter,
+        edit_context: context,
+      };
+
+      return await this.makeRequest(`/logs/blog/structure-change`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error("Error logging blog edit:", error);
+      return null;
+    }
+  }
+
   // =========================================================================
   // LOGS DE ENTRENAMIENTO IA BLOGS
   // =========================================================================

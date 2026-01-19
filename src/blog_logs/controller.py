@@ -72,7 +72,7 @@ def _process_blog_edit_log(db: DbSession, current_user: CurrentUser, request: mo
             user_id=current_user.get_uuid(),
             blog_id=request.blog_id,
             titles_after=request.titles_after, # <--- Antes se llamaba diferente en el controlador
-            structure_after=request.structure_after, # <---Estructura generada de titulos y contenido IA
+            structure_after=request.structure_after or [], # <---Estructura generada de titulos y contenido IA
             scraping_id=request.scraping_id, 
             action_type="user_confirmed_structure",
             action_context=request.edit_context
