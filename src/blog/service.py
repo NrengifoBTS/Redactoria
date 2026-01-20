@@ -18,9 +18,7 @@ logging.basicConfig(level=logging.INFO)
 # Lista de IDs de administradores (Manteniendo el snippet original)
 ADMIN_USER_IDS = [
   '66f98888-6a48-468a-a467-56a90608b976',
-  'f49cda9b-2138-435e-a497-fda85be87e63',
-  'c7c17838-074d-44fa-9248-8dc87c15edd5',
-  '152c46be-e2f4-48da-86b1-592af570624a'
+  '9c7e4bf6-e645-4a59-8a56-d8a47e8c184b'
   ]
 
 class CurrentUser(object): 

@@ -11,7 +11,7 @@ body {
   font-family: Arial, sans-serif;
   background: #e6e6e6;
   color: #000000;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 /* ==========================================================
@@ -65,12 +65,21 @@ select {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 30px;
+  padding: 0 40px; /* Aumentamos el padding lateral */
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
+  height: 75px; /* Altura fija para consistencia */
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03); /* Sombra sutil */
 }
 .navbar h1 {
-  color: #0583ff;
+  color: #0f172a; /* Cambiamos a un azul casi negro más elegante */
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin: 0;
 }
 
 /* ----------------------------------------------------------
@@ -94,7 +103,9 @@ select {
   font-weight: 600;
   border-radius: 6px; /* Bordes suaves */
   cursor: pointer;
-  transition: background-color 0.2s ease, box-shadow 0.2s ease,
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
     transform 0.2s ease;
   text-decoration: none;
   border: none;
@@ -301,7 +312,9 @@ select {
   border-radius: 16px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 /* Efecto Hover Consolidado */
@@ -351,12 +364,26 @@ select {
 
 .generadores-derecha {
   flex: 1 1 50%;
-  height: calc(99vh);
+  height: calc(100vh - 100px); /* Ajuste para no chocar con el borde */
   overflow-y: auto;
-  background-color: #ffffff;
-  padding: 20px;
+  background-color: #f8fafc; /* Gris ultra claro para diferenciar del fondo */
+  padding: 0; /* Quitamos padding para que la cabecera llegue a los bordes */
   border-radius: 16px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08); /* Mantenemos la sombra de tarjeta */
+  border: 1px solid #e2e8f0;
+}
+
+.idea-generator .card-title.structure-title-with-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  margin: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-radius: 16px 16px 0 0;
 }
 
 .generadores-derecha .analysis-result {
@@ -528,20 +555,18 @@ select {
 
 /* Estilos base para cada título  */
 .structure-item {
-  border: 1px solid #e0e6ec;
-  border-radius: 6px;
-  padding: 12px 18px; /* Más padding */
-  margin-bottom: 10px;
-  transition: all 0.2s ease;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
   background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
 }
-
 /* Efecto Hover */
 .structure-item:hover {
-  background-color: #f7f7f7;
-  border-color: #ccc;
-  transform: translateY(-1px);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateX(4px);
 }
 
 /* Estilo para los encabezados H2 (Nivel principal) */
@@ -559,12 +584,9 @@ select {
 
 /* Estilo para el elemento seleccionado (Resaltado) */
 .structure-item-selected {
-  /* Estilo para el elemento seleccionado (Resaltado MODERNO) */
-  border-color: #007bff;
-  background-color: #eaf3ff; /* Fondo azul muy claro */
-  font-weight: 600;
-  box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
-  transform: none;
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 /* Estilo para los iconos dentro de la estructura */
@@ -612,7 +634,9 @@ select {
   padding: 15px 20px;
   border-radius: 16px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s, box-shadow 0.3s;
+  transition:
+    transform 0.3s,
+    box-shadow 0.3s;
   cursor: pointer;
   text-align: left;
   font-size: 0.95rem;
@@ -722,7 +746,9 @@ select {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 1000;
   opacity: 1;
-  transition: opacity 0.5s ease-in-out, transform 0.3s ease-out;
+  transition:
+    opacity 0.5s ease-in-out,
+    transform 0.3s ease-out;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -760,121 +786,110 @@ select {
 /* ============================================= */
 /* VISTA DOCUMENTO - EDICIÓN PREMIUM            */
 /* ============================================= */
+/* ============================================= */
+/* VISTA DOCUMENTO - MAXIMIZADA Y MODERNA        */
+/* ============================================= */
 
 .blog-document-window {
   background-color: #ffffff;
-  /* Aumentamos el padding para que respire más (formato A4) */
-  padding: 3rem 4rem;
-  /* Sombra más suave y difuminada para dar profundidad */
-  box-shadow: 0 10px 30px rgba(42, 7, 7, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
-  margin: 10px auto;
-  min-height: 800px;
-  border-radius: 8px;
-  /* Fuente tipográfica más moderna */
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  /* Reducimos el padding para ganar espacio útil */
+  padding: 2rem 2.5rem;
+  margin: 0; /* Eliminamos márgenes externos */
+  width: 100%; /* Ocupa todo el ancho disponible */
+  max-width: none; /* Quitamos la restricción de 800px */
+  min-height: auto;
+  border-radius: 0 0 16px 16px; /* Solo redondeamos abajo para encajar en el contenedor */
+  border: none;
+  box-shadow: none; /* Eliminamos sombras pesadas que restan espacio visual */
+
+  font-family:
+    "Inter",
+    -apple-system,
     sans-serif;
-  color: #3d648b;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-  transition: all 0.3s ease;
-  position: relative;
-  border: 1px solid #d9d9d9;
+  line-height: 1.6;
+  color: #1e293b;
 }
 
-/* 1. SOPORTE DE TIPOGRAFÍAS (Quill) */
-.blog-document-window .ql-font-serif {
-  font-family: "Georgia", serif !important;
-}
-.blog-document-window .ql-font-monospace {
-  font-family: "Fira Code", "Courier New", monospace !important;
-}
-
-/* 2. SOPORTE DE TAMAÑOS (Más balanceados) */
-.blog-document-window .ql-size-small {
-  font-size: 0.85rem !important;
-}
-.blog-document-window .ql-size-large {
-  font-size: 1.75rem !important;
-  line-height: 1.3;
-}
-.blog-document-window .ql-size-huge {
-  font-size: 2.5rem !important;
-  line-height: 1.1;
-  letter-spacing: -1px;
-}
-
-/* 3. TÍTULOS ELEGANTES */
-.blog-title,
-.section-h2,
-.subsection-h3 {
-  color: #1a1a1a;
-  font-family: inherit;
-  word-break: break-word;
-  font-weight: 700;
-  margin-top: 0;
-}
-
+/* 1. TÍTULOS OPTIMIZADOS */
 .blog-title {
-  font-size: 2.8rem;
+  font-size: 2.5rem; /* Tamaño más balanceado para pantallas */
+  font-weight: 800;
+  line-height: 1.2;
+  color: #0f172a;
   margin-bottom: 1.5rem;
-  /* Línea decorativa sutil debajo del título principal */
-  border-bottom: 3px solid #f1f3f5;
-  padding-bottom: 1rem;
+  letter-spacing: -0.02em;
 }
 
 .section-h2 {
-  font-size: 1.8rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
   margin-top: 2.5rem;
-  margin-bottom: 1.2rem;
-  border-left: 5px solid #423d89; /* Un toque de color de tu marca */
-  padding-left: 15px;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f1f5f9; /* Línea sutil a lo ancho para separar secciones */
 }
 
 .subsection-h3 {
-  font-size: 1.4rem;
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-  color: #4a5568;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
 }
 
-/* 4. BLOQUES DE CONTENIDO Y PÁRRAFOS */
-.content-block {
+/* 2. BLOQUES DE CONTENIDO (APROVECHANDO EL ANCHO) */
+.content-block p {
+  margin-bottom: 1.25rem;
+  font-size: 1.05rem;
+  color: #334155;
+  max-width: 100%; /* El texto se expande */
+  text-align: justify; /* Opcional: para un look más ordenado en anchos grandes */
+}
+
+/* 3. IMÁGENES DINÁMICAS */
+.blog-document-window img {
+  width: 100%;
+  max-height: 400px; /* Evitamos que imágenes verticales ocupen toda la pantalla */
+  object-fit: cover; /* Recorte inteligente */
+  border-radius: 12px;
+  margin: 2rem 0;
+}
+
+/* 4. CONTENEDOR DE LA VISTA (Ajuste para el padre) */
+.blog-view-toggle-container {
+  padding: 0; /* Eliminamos el espacio extra del contenedor padre */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Botón de descarga pegado a la derecha pero discreto */
+.btn-download {
+  align-self: flex-end;
+  margin: 15px 25px 0 0;
+  height: 40px;
+  font-size: 0.9rem;
+}
+
+/* 5. LISTAS EN DOS COLUMNAS (Si hay mucho espacio) */
+.blog-document-window ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+  padding-left: 1.2rem;
   margin-bottom: 1.5rem;
 }
 
-.content-block p {
-  margin-bottom: 1.2rem;
-  font-size: 1.1rem;
-  color: #4a5568;
-}
-
-/* Imágenes dentro del contenido para que sean responsivas */
-.blog-document-window img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  margin: 1rem 0;
-}
-
-/* 5. RESPONSIVE (Ajustes para tablets y móviles) */
 @media (max-width: 768px) {
   .blog-document-window {
-    padding: 2rem 1.5rem;
-    margin: 10px auto;
-    width: 98%;
+    padding: 1.5rem;
   }
-
-  .blog-title {
-    font-size: 2rem;
-  }
-  .section-h2 {
-    font-size: 1.5rem;
-  }
-  .subsection-h3 {
-    font-size: 1.2rem;
+  .blog-document-window ul {
+    grid-template-columns: 1fr;
   }
 }
-
 /* 6. PLACEHOLDER MEJORADO */
 .blog-view-placeholder {
   padding: 80px 20px;
@@ -897,54 +912,55 @@ select {
 }
 
 .toggle-view-button {
-  background: none;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  color: var(--color-principal, #343a40);
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
   cursor: pointer;
-  font-size: 1.1em;
-  padding: 5px 10px;
-  margin-left: 15px;
-  opacity: 0.8;
-  transition: all 0.2s;
+  padding: 8px 12px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .toggle-view-button:hover {
-  background-color: #f8f9fa;
-  opacity: 1;
+  background-color: #e2e8f0;
+  color: #0f172a;
+  transform: scale(1.05);
 }
 
 .blog-view-toggle-container {
-  padding: 10px 0;
+  padding: 30px;
+  background: #f8fafc; /* Fondo neutro para resaltar el papel */
 }
 /* ==========================================================
    BADGES DE CONTEO
    ========================================================== */
-.count-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border-radius: 12px; /* Más redondeado para moderno */
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-.count-badge i {
-  margin-right: 5px;
+/* Modificación: Card Body */
+.idea-generator .card-body {
+  padding: 25px;
 }
 
-.count-badge.total {
-  background-color: #6c757d; /* Gris para total */
-  color: #ffffff;
+/* Modificación: Título H1 dentro de la Estructura */
+.idea-generator .card-body h1.text-center {
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+  margin-bottom: 30px !important;
 }
-.count-badge.remaining {
-  background-color: #eaf3ff; /* Azul claro */
-  color: #007bff;
-  border: 1px solid #007bff;
-}
-.count-badge.remaining.exceeded {
-  background-color: #ffe0e6; /* Fondo de peligro suave */
-  color: #dc3545; /* Rojo de peligro */
-  border: 1px solid #dc3545;
+
+/* Modificación: Badge de Conteo de Palabras */
+.count-badge.generated {
+  display: inline-flex;
+  align-items: center;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #10b981;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
 }
 
 @media screen and (max-width: 768px) {
@@ -1007,7 +1023,11 @@ select {
 .ql-editor {
   font-size: 18px !important; /* Ajusta este número al tamaño que prefieras */
   line-height: 1.6;
-  font-family: "Inter", -apple-system, system-ui, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    system-ui,
+    sans-serif;
   color: #333;
   min-height: 200px;
 }
@@ -1127,4 +1147,68 @@ select {
 
 .btn-active-save:hover {
   background-color: #218838 !important;
+}
+
+/* Contenedor de la Píldora de Usuario */
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.4rem;
+  padding-right: 1rem;
+  background: #ffffff;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Círculo del Avatar */
+.user-avatar {
+  width: 2.2rem;
+  height: 2.2rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+/* Contenedor de Textos */
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.1;
+}
+
+.user-role {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #2b76ef;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-top: 2px;
+}
+
+/* Ajuste para el Header de Generación */
+.generation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 2rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }

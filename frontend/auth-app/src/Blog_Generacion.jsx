@@ -9,6 +9,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import "@iconscout/unicons/css/line.css";
 import apiService from "./services/apiService";
 import "./css/blog_Generacion.css";
+import { useCurrentUser } from "./hooks/useApi.js";
+import { isAdminUser, isEditorUser } from "./utils/roles";
+import { useUsers, useFilters, useSearch } from "./hooks/useApi.js";
 
 // Importaciones para el editor de texto enriquecido
 import ReactDOM from "react-dom";
@@ -66,6 +69,8 @@ const GeneracionBlog = () => {
   const [, setTempContentUpdate] = useState(null);
   const [listaUrls, setListaUrls] = useState(["", "", ""]);
   const [estadosUrls, setEstadosUrls] = useState({});
+
+  const { user: currentUser, loading: loadingUser } = useCurrentUser();
 
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
@@ -262,7 +267,7 @@ const GeneracionBlog = () => {
           titulosLog, // titles_after
           estructuraParaLog, // structure_after (El JSON con contenido)
           "manual_save", // action_type
-          { info: "Guardado manual desde el botón Guardar" } // context
+          { info: "Guardado manual desde el botón Guardar" }, // context
         );
 
         console.log("✓ Cambio registrado en el historial de estructura.");
@@ -332,7 +337,7 @@ const GeneracionBlog = () => {
       // Verificar que sea DOCX
       const contentType = response.headers.get("Content-Type");
       const isDocx = contentType?.includes(
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       );
 
       if (!isDocx) {
@@ -383,7 +388,7 @@ const GeneracionBlog = () => {
           markdownLines.push(
             `[MULTIMEDIA: ${
               item.multimedia
-            } | ${item.multimediaDescription.trim()}]`
+            } | ${item.multimediaDescription.trim()}]`,
           );
         }
 
@@ -407,7 +412,7 @@ const GeneracionBlog = () => {
         markdownLines.push(
           `[MULTIMEDIA: ${
             item.multimedia
-          } | ${item.multimediaDescription.trim()}]`
+          } | ${item.multimediaDescription.trim()}]`,
         );
       }
 
@@ -433,7 +438,7 @@ const GeneracionBlog = () => {
             markdownLines.push(
               `[MULTIMEDIA: ${
                 h3Item.multimedia
-              } | ${h3Item.multimediaDescription.trim()}]`
+              } | ${h3Item.multimediaDescription.trim()}]`,
             );
           }
 
@@ -495,7 +500,7 @@ const GeneracionBlog = () => {
         } catch (e) {
           console.error(
             "La estructura recibida es un objeto no serializable:",
-            markdown
+            markdown,
           );
           return [];
         }
@@ -503,7 +508,7 @@ const GeneracionBlog = () => {
     } else if (typeof finalStructureString !== "string") {
       console.error(
         "parseMarkdownStructure recibió un valor inesperado (no string ni object):",
-        finalStructureString
+        finalStructureString,
       );
       finalStructureString = "";
     }
@@ -849,16 +854,6 @@ const GeneracionBlog = () => {
   //    (Selección, Guardar Título/Contenido, Mover, Eliminar, Agregar)
   // ==============================================================================================================================================
 
-  const cambiarEstado = (e) => {
-    setBlogStatus(e.target.value);
-    markAsChanged();
-  };
-
-  const cambiarPrioridad = (e) => {
-    setBlogPriority(e.target.value);
-    markAsChanged();
-  };
-
   // Función para actualizar una URL específica
   const manejarCambioUrl = (index, valor) => {
     const nuevasUrls = [...listaUrls];
@@ -902,7 +897,7 @@ const GeneracionBlog = () => {
       // Lógica existente para H2 y H3
       const idH2 = enumeration.split(".")[0];
       const h2Padre = fullStructureObject.find(
-        (item) => item.enumeration === idH2
+        (item) => item.enumeration === idH2,
       );
 
       if (h2Padre) {
@@ -910,7 +905,7 @@ const GeneracionBlog = () => {
           contentToEdit = h2Padre.content || "";
         } else if (level === "h3") {
           const h3Objetivo = h2Padre.children.find(
-            (item) => item.enumeration === enumeration
+            (item) => item.enumeration === enumeration,
           );
           contentToEdit = h3Objetivo?.content || "";
         }
@@ -944,7 +939,7 @@ const GeneracionBlog = () => {
 
     if (level.toLowerCase() === "h1") {
       const h1Item = nuevaEstructura.find(
-        (item) => item.level.toLowerCase() === "h1"
+        (item) => item.level.toLowerCase() === "h1",
       );
       if (h1Item) {
         h1Item.text = newTitle;
@@ -958,7 +953,7 @@ const GeneracionBlog = () => {
           encontrado = true;
         } else if (level.toLowerCase() === "h3") {
           const h3Objetivo = h2Padre.children.find(
-            (item) => item.enumeration === enumeration
+            (item) => item.enumeration === enumeration,
           );
           if (h3Objetivo) {
             h3Objetivo.text = newTitle;
@@ -971,7 +966,7 @@ const GeneracionBlog = () => {
     if (!encontrado) {
       showToast(
         "ERROR CRÍTICO: No se pudo localizar la sección en la estructura.",
-        "error"
+        "error",
       );
       return;
     }
@@ -998,7 +993,7 @@ const GeneracionBlog = () => {
     if (!selectedSectionForRegen) {
       showToast(
         "ERROR: No hay una sección seleccionada para guardar el contenido.",
-        "error"
+        "error",
       );
       return;
     }
@@ -1024,7 +1019,7 @@ const GeneracionBlog = () => {
           h2Padre[propertyToUpdate] = valueToSave;
         } else if (level === "h3") {
           const h3Objetivo = h2Padre.children.find(
-            (item) => item.enumeration === enumeration
+            (item) => item.enumeration === enumeration,
           );
           if (h3Objetivo) h3Objetivo[propertyToUpdate] = valueToSave;
         }
@@ -1058,7 +1053,7 @@ const GeneracionBlog = () => {
     const fieldName = fieldToUpdate === "title" ? "Título" : "Contenido";
     showToast(
       `${fieldName} guardado localmente y conteo actualizado.`,
-      "success"
+      "success",
     );
   };
 
@@ -1083,7 +1078,7 @@ const GeneracionBlog = () => {
 
     if (isH2) {
       const currentIndex = newStructure.findIndex(
-        (item) => item.uniqueId === sectionToMove.uniqueId
+        (item) => item.uniqueId === sectionToMove.uniqueId,
       );
       if (currentIndex === -1) return;
       if (currentIndex === 0) return; // No mover el H1/Primer H2
@@ -1106,7 +1101,7 @@ const GeneracionBlog = () => {
     } else {
       const h2IdMatch = sectionToMove.enumeration.split(".")[0];
       const parentH2 = newStructure.find(
-        (item) => item.enumeration === h2IdMatch
+        (item) => item.enumeration === h2IdMatch,
       );
 
       if (!parentH2) return;
@@ -1115,7 +1110,7 @@ const GeneracionBlog = () => {
       const h3CurrentId = sectionToMove.uniqueId;
 
       const currentIndex = h3Children.findIndex(
-        (item) => item.uniqueId === h3CurrentId
+        (item) => item.uniqueId === h3CurrentId,
       );
       if (currentIndex === -1) return;
 
@@ -1154,20 +1149,20 @@ const GeneracionBlog = () => {
           `Sección ${section.enumeration} movida ${
             direction === "UP" ? "hacia arriba" : "hacia abajo"
           } correctamente.`,
-          "info"
+          "info",
         );
         break;
       case "delete":
         // Usar window.confirm para acciones destructivas
         if (
           window.confirm(
-            ` ¿Estás seguro de que quieres ELIMINAR la sección ${section.enumeration}: "${section.text}" y todas sus subsecciones?`
+            ` ¿Estás seguro de que quieres ELIMINAR la sección ${section.enumeration}: "${section.text}" y todas sus subsecciones?`,
           )
         ) {
           eliminarSeccion(section);
           showToast(
             `Sección ${section.enumeration} eliminada correctamente.`,
-            "success"
+            "success",
           );
         }
         break;
@@ -1194,7 +1189,7 @@ const GeneracionBlog = () => {
       // 1. ELIMINAR H2: Simplemente filtramos el array principal para excluir el H2.
       // Esto elimina automáticamente todos los H3 que estaban anidados dentro.
       newStructure = parsedStructure.filter(
-        (item) => item.uniqueId !== targetId
+        (item) => item.uniqueId !== targetId,
       );
     } else if (level === "h3") {
       // 2. ELIMINAR H3: Debemos encontrar el H2 padre y filtrar solo sus hijos.
@@ -1209,7 +1204,7 @@ const GeneracionBlog = () => {
 
           // Filtramos su array de hijos para EXCLUIR el H3 que coincide con el ID.
           const newChildren = h2Item.children.filter(
-            (h3Item) => h3Item.uniqueId !== targetId
+            (h3Item) => h3Item.uniqueId !== targetId,
           );
 
           // Retornamos un NUEVO objeto H2 (inmutabilidad) con los hijos filtrados
@@ -1231,7 +1226,7 @@ const GeneracionBlog = () => {
     setSelectedSectionForRegen(null);
     showToast(
       `Sección eliminada correctamente. La estructura ha sido re-enumerada.`,
-      "success"
+      "success",
     );
   };
 
@@ -1266,7 +1261,7 @@ const GeneracionBlog = () => {
 
     showToast(
       " Sección H2 añadida exitosamente al final de la estructura.",
-      "success"
+      "success",
     );
   };
 
@@ -1276,7 +1271,7 @@ const GeneracionBlog = () => {
     if (!selectedSectionForRegen || !tablaEstructuraFinal) {
       showToast(
         "ERROR: Debe seleccionar una sección H2 o H3 para añadir un subtítulo.",
-        "error"
+        "error",
       );
       return;
     }
@@ -1292,13 +1287,13 @@ const GeneracionBlog = () => {
 
     // 4. Encontrar el H2 padre en el array principal.
     const h2Padre = nuevaEstructura.find(
-      (item) => item.enumeration === idH2Padre
+      (item) => item.enumeration === idH2Padre,
     );
 
     if (!h2Padre) {
       showToast(
         "ERROR: No se pudo encontrar la sección H2 padre para agregar el H3.",
-        "error"
+        "error",
       );
       return;
     }
@@ -1327,7 +1322,7 @@ const GeneracionBlog = () => {
 
     showToast(
       "Subsección H3 agregada. Se ha re-enumerado la estructura.",
-      "success"
+      "success",
     );
   };
 
@@ -1341,7 +1336,7 @@ const GeneracionBlog = () => {
 
       showToast(
         "Se ha solicitado la cancelación del proceso completo. Esperando que termine la solicitud actual...",
-        "warning"
+        "warning",
       );
       console.log("Solicitud de cancelación enviada.");
     }
@@ -1351,7 +1346,7 @@ const GeneracionBlog = () => {
     // 1. Confirmación de seguridad
     if (
       !window.confirm(
-        "¿Estás seguro de borrar TODO el contenido? Los títulos se mantendrán."
+        "¿Estás seguro de borrar TODO el contenido? Los títulos se mantendrán.",
       )
     ) {
       return;
@@ -1504,7 +1499,7 @@ const GeneracionBlog = () => {
 
       if (!response.ok) {
         throw new Error(
-          `Error HTTP: ${response.status} - Verifica el backend.`
+          `Error HTTP: ${response.status} - Verifica el backend.`,
         );
       }
 
@@ -1583,7 +1578,7 @@ const GeneracionBlog = () => {
                       consolidated_content: consolidatedContent,
                     }),
                   }).catch((err) =>
-                    console.error("Error guardando consolidado:", err)
+                    console.error("Error guardando consolidado:", err),
                   );
                 }
 
@@ -1641,7 +1636,7 @@ const GeneracionBlog = () => {
     // Casos H1 y H2: Nivel raíz
     if (level === "h1" || level === "h2") {
       const index = nuevaEstructura.findIndex(
-        (item) => item.level === level && item.enumeration === enumeration
+        (item) => item.level === level && item.enumeration === enumeration,
       );
 
       if (index !== -1) {
@@ -1656,13 +1651,13 @@ const GeneracionBlog = () => {
 
       // Buscamos el H2 padre en la raíz [cite: 122]
       const h2Padre = nuevaEstructura.find(
-        (item) => item.level === "h2" && item.enumeration === parentEnumeration
+        (item) => item.level === "h2" && item.enumeration === parentEnumeration,
       );
 
       if (h2Padre && h2Padre.children) {
         // Buscamos el H3 dentro de los hijos del H2 encontrado [cite: 124]
         const h3Index = h2Padre.children.findIndex(
-          (child) => child.level === "h3" && child.enumeration === enumeration
+          (child) => child.level === "h3" && child.enumeration === enumeration,
         );
 
         if (h3Index !== -1) {
@@ -1674,11 +1669,11 @@ const GeneracionBlog = () => {
 
     if (!found) {
       console.error(
-        `[FALLO] No se encontró: [${level.toUpperCase()} - ${enumeration}].`
+        `[FALLO] No se encontró: [${level.toUpperCase()} - ${enumeration}].`,
       );
       showToast(
         "Error al reemplazar el título. No se encontró la sección.",
-        "error"
+        "error",
       );
       return;
     }
@@ -1721,7 +1716,7 @@ const GeneracionBlog = () => {
     setError(null);
 
     try {
-      // 2. LLAMADA AL ENDPOINT DE GENERACIÓN
+      // 2. LLAMADA AL ENDPOINT DE GENERACIÓN (Tu IA actual)
       const response = await fetch(URL_API_IA, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1743,29 +1738,29 @@ const GeneracionBlog = () => {
       const result = await response.json();
       const structureRaw = result.results || result.structure_markdown || "";
 
-      // 3. LIMPIEZA DE TÍTULOS (Quitar Multimedia y SEO)
-      // Esta regex elimina las líneas que empiezan por [MULTIMEDIA o RECOMENDACIÓN
+      // 3. LIMPIEZA DE TÍTULOS (Quitar Multimedia y SEO para el log)
       const soloTitulos = structureRaw
         .split("\n")
         .filter(
           (line) =>
             line.trim() !== "" &&
             !line.includes("[MULTIMEDIA") &&
-            !line.includes("RECOMENDACIÓN SEO")
+            !line.includes("RECOMENDACIÓN SEO"),
         )
         .join("\n");
 
-      // 4. ACTUALIZACIÓN DE UI (Mantenemos la original con multimedia para el usuario)
+      // 4. ACTUALIZACIÓN DE UI
       setTablaEstructuraFinal(structureRaw);
       setDatosFinales((prev) => ({
         ...prev,
         final_structure_object: result,
       }));
 
-      // 5. GUARDADO EN LOGS (EVITANDO DUPLICADOS Y LIMPIANDO)
+      // 5. GUARDADO EN LOGS E INCREMENTO DE CONTEO
+      // Cada vez que se ejecute esta línea, el backend sumará +1 a 'generation_counts'
       try {
         await apiService.logInitialAI(idDelBlog, null, soloTitulos);
-        console.log("✓ Log enviado al servidor.");
+        console.log("✓ Log registrado y contador incrementado en BD.");
       } catch (logErr) {
         console.error("Error al registrar log:", logErr);
       }
@@ -1779,13 +1774,12 @@ const GeneracionBlog = () => {
       setCargandoIA(false);
     }
   }, [blogId, datosFinales, URL_API_IA, markAsChanged, showToast]);
-
   // GENERACION DE CONTENIDO PARA SECCIÓN ESPECÍFICA
   const generarContenidoSeccion = async () => {
     if (!selectedSectionForRegen) {
       showToast(
         "ERROR: Faltan datos clave (Sección o Contenido Consolidado).",
-        "error"
+        "error",
       );
       return;
     }
@@ -1815,7 +1809,7 @@ const GeneracionBlog = () => {
           });
       } else if (level === "h3") {
         const parentH2 = structureWithCount.find(
-          (s) => s.children && s.children.some((c) => c.uniqueId === sectionId)
+          (s) => s.children && s.children.some((c) => c.uniqueId === sectionId),
         );
 
         if (parentH2) {
@@ -1824,7 +1818,7 @@ const GeneracionBlog = () => {
           if (parentH2.content)
             contextData += ` (Contenido del H2: ${parentH2.content.substring(
               0,
-              50
+              50,
             )}...)`;
 
           contextData += `\n--- Subtemas cubiertos (H3s hermanos): ---\n`;
@@ -1911,7 +1905,7 @@ const GeneracionBlog = () => {
 
         // 3. Ejecutar el conteo sobre la estructura simulada
         const totalPalabras = recalcularPalabrasGeneradas(
-          estructuraConNuevoContenido
+          estructuraConNuevoContenido,
         );
 
         // Asegúrate de que el nombre del estado sea exactamente el que usas en el componente
@@ -1919,7 +1913,7 @@ const GeneracionBlog = () => {
 
         showToast(
           "Contenido generado con éxito. Revisa el contador en la parte superior.",
-          "success"
+          "success",
         );
       } else {
         throw new Error("La IA no devolvió contenido válido.");
@@ -1936,12 +1930,12 @@ const GeneracionBlog = () => {
   const regenerarSeccion = async (sectionType, historyArray) => {
     if (!datosFinales || !datosFinales.title || !datosFinales.id) {
       setError(
-        "Error: Título principal o ID del blog no disponibles. Necesarios para la consulta."
+        "Error: Título principal o ID del blog no disponibles. Necesarios para la consulta.",
       );
       return;
     }
     console.log(
-      `[IA - REGENERACIÓN] Iniciando regeneración de la sección: ${sectionType}`
+      `[IA - REGENERACIÓN] Iniciando regeneración de la sección: ${sectionType}`,
     );
     setCargandoIA(true);
     setSeccionRegenerando(sectionType);
@@ -1993,7 +1987,7 @@ const GeneracionBlog = () => {
 
       if (!response.ok) {
         throw new Error(
-          `Error en la llamada de regeneración: ${response.statusText}`
+          `Error en la llamada de regeneración: ${response.statusText}`,
         );
       }
 
@@ -2039,7 +2033,7 @@ const GeneracionBlog = () => {
             // Fallback si el contenido no es un JSON válido
             console.warn(
               "El contenido de la IA no pudo ser parseado como JSON. Tratando como texto plano.",
-              e
+              e,
             );
             generatedContent = aiMessageContent;
           }
@@ -2057,13 +2051,13 @@ const GeneracionBlog = () => {
         regeneratedSuggestions.length === 0
       ) {
         throw new Error(
-          "Respuesta de IA vacía o formato de resultado no reconocido (Se esperaban 3 títulos)."
+          "Respuesta de IA vacía o formato de resultado no reconocido (Se esperaban 3 títulos).",
         );
       }
 
       console.log(
         `[IA - REGENERACIÓN] Sugerencias recibidas para ${sectionType}:`,
-        regeneratedSuggestions
+        regeneratedSuggestions,
       ); // 6. Actualización de Estados y Historial
 
       switch (sectionType) {
@@ -2076,20 +2070,20 @@ const GeneracionBlog = () => {
         case "titles":
           setError(`La regeneración de ${sectionType} está deshabilitada.`);
           console.warn(
-            `[IA - REGENERACIÓN] Intento de regeneración de ${sectionType} deshabilitado.`
+            `[IA - REGENERACIÓN] Intento de regeneración de ${sectionType} deshabilitado.`,
           );
           break;
         default: // Manejo de caso por defecto para evitar warning
           console.warn(
             "Tipo de sección de regeneración no manejado:",
-            sectionType
+            sectionType,
           );
           break;
       }
     } catch (err) {
       console.error(
         `[IA - REGENERACIÓN] Error al regenerar ${sectionType}:`,
-        err
+        err,
       );
       setError(`Error al regenerar ${sectionType}: ${err.message}`);
     } finally {
@@ -2130,7 +2124,7 @@ const GeneracionBlog = () => {
     // Filtramos la estructura para que el H1 no aparezca como un H2 repetido
     const cuerpoTitulos = estructuraAnidada
       .filter(
-        (h2) => stripHtml(h2.text).toLowerCase() !== h1Titulo.toLowerCase()
+        (h2) => stripHtml(h2.text).toLowerCase() !== h1Titulo.toLowerCase(),
       )
       .map((h2) => {
         // Forzamos formato decimal X.0 si viene como entero
@@ -2153,7 +2147,7 @@ const GeneracionBlog = () => {
         idDelBlog,
         titulosFinalesIdenticos,
         [],
-        "start_content_generation"
+        "start_content_generation",
       );
     } catch (err) {
       console.error("Error en log structure edit:", err);
@@ -2171,7 +2165,7 @@ const GeneracionBlog = () => {
     let palabrasAcumuladas = recalcularPalabrasGeneradas(estructuraAnidada);
     let subseccionesGeneradas = recalcularSubseccionesGeneradas(
       estructuraAnidada,
-      contarPalabras
+      contarPalabras,
     );
 
     // 2. BUCLE DE GENERACIÓN POR BLOQUES
@@ -2189,7 +2183,7 @@ const GeneracionBlog = () => {
       const blockMarkdownToGenerate = [
         `## ${h2Block.enumeration}. ${cleanH2Text}`,
         ...h2Block.children.map(
-          (h3) => `### ${h3.enumeration}. ${stripHtml(h3.text)}`
+          (h3) => `### ${h3.enumeration}. ${stripHtml(h3.text)}`,
         ),
       ].join("\n");
 
@@ -2205,14 +2199,14 @@ const GeneracionBlog = () => {
 
       const subseccionesPendientes = Math.max(
         1,
-        totalSubsecciones - subseccionesGeneradas
+        totalSubsecciones - subseccionesGeneradas,
       );
       const limiteFinal = Math.max(
         100,
         Math.ceil(
           ((palabrasObjetivo - palabrasAcumuladas) / subseccionesPendientes) *
-            subseccionesEnBloqueActual
-        )
+            subseccionesEnBloqueActual,
+        ),
       );
 
       try {
@@ -2252,7 +2246,7 @@ const GeneracionBlog = () => {
             : String(result.generated_content || "");
 
         const generatedContentMap = JSON.parse(
-          rawContent.trim().replace(/```json\s*|```/g, "")
+          rawContent.trim().replace(/```json\s*|```/g, ""),
         );
 
         // Actualizamos estructura temporal
@@ -2280,7 +2274,7 @@ const GeneracionBlog = () => {
         palabrasAcumuladas = recalcularPalabrasGeneradas(estructuraTemporal);
         subseccionesGeneradas = recalcularSubseccionesGeneradas(
           estructuraTemporal,
-          contarPalabras
+          contarPalabras,
         );
       } catch (error) {
         if (error.name === "AbortError") break;
@@ -2308,11 +2302,11 @@ const GeneracionBlog = () => {
           idDelBlog,
           null,
           titulosFinalesIdenticos,
-          estructuraTemporal // <--- Enviamos el JSON con contenido
+          estructuraTemporal, // <--- Enviamos el JSON con contenido
         );
 
         console.log(
-          "✓ Estructura persistida en Blogs y log Initial AI actualizado."
+          "✓ Estructura persistida en Blogs y log Initial AI actualizado.",
         );
         showToast("¡Blog generado y guardado correctamente!", "success");
         markAsChanged();
@@ -2400,8 +2394,8 @@ const GeneracionBlog = () => {
                         isH1
                           ? "uil-heading"
                           : item.level === "h2"
-                          ? "uil-align-left-h"
-                          : "uil-corner-down-right"
+                            ? "uil-align-left-h"
+                            : "uil-corner-down-right"
                       }`}
                     ></i>
                   </span>
@@ -2639,165 +2633,133 @@ const GeneracionBlog = () => {
             Volver al Dashboard
           </a>
           <h1>Generación de Blog</h1>
+
+          {/* Derecha: Usuario (Mismo estilo que Dashboard) */}
+          <div className="header-right">
+            {currentUser && (
+              <div className="user-pill">
+                {/* Avatar */}
+                <div className="user-avatar">
+                  {currentUser.avatar ||
+                    (currentUser.first_name || currentUser.last_name
+                      ? `${(currentUser.first_name?.[0] || "").toUpperCase()}${(currentUser.last_name?.[0] || "").toUpperCase()}`
+                      : (currentUser.email?.[0] || "").toUpperCase())}
+                </div>
+
+                {/* Textos: Nombre y Rol */}
+                <div className="user-info">
+                  <span className="user-name">
+                    {currentUser.name || currentUser.first_name}
+                  </span>
+                  <span className="user-role">
+                    {isAdminUser(currentUser.id)
+                      ? "Administrador"
+                      : isEditorUser(currentUser.id)
+                        ? "Editor"
+                        : "Redactor"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </header>
 
-        {/* Sección de Input */}
         <section className="preconfig">
+          {/* Encabezado con el botón de añadir integrado */}
           <div
+            className="analysis-title"
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              borderBottom: "2px solid #e0e6ec",
+              paddingBottom: "10px",
+              marginBottom: "20px",
             }}
           >
-            <h2>Ingresa URLs (mínimo 3)</h2>
+            <h2 style={{ color: "#007bff", margin: 0, fontSize: "1.2rem" }}>
+              Fuentes de Referencia
+            </h2>
 
-            {/* Contenedor de los selectores: usa gap para separarlos */}
-            <div style={{ display: "flex", gap: "25px" }}>
-              {/* 1. Selector de Estado del Blog */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <label
-                  htmlFor="blog-status"
-                  style={{
-                    marginRight: "10px",
-                    fontWeight: "bold",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Estado:
-                </label>
-                <select
-                  id="blog-status"
-                  value={blogStatus}
-                  onChange={cambiarEstado}
-                  disabled={cargandoScraping}
-                  style={{
-                    padding: "7px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid #aaa",
-                    backgroundColor: "white",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
-                    minWidth: "160px",
-                    cursor: "pointer",
-                  }}
-                >
-                  {/* Es CRÍTICO que el VALUE coincida con el dato que la BD devuelve/espera */}
-                  <option value="draft">Borrador</option>
-                  <option value="generated">Estructura Generada</option>
-                  <option value="review">En Revisión</option>
-                  <option value="approved">Aprobado</option>
-                  <option value="published">Publicado</option>
-                </select>
-              </div>
-              {/* 2. Selector de Prioridad del Blog */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <label
-                  htmlFor="blog-priority"
-                  style={{
-                    marginRight: "10px",
-                    fontWeight: "bold",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Prioridad:
-                </label>
-                <select
-                  id="blog-priority"
-                  value={blogPriority}
-                  onChange={cambiarPrioridad}
-                  disabled={cargandoScraping}
-                  style={{
-                    padding: "7px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid #aaa",
-                    backgroundColor: "white",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
-                    minWidth: "100px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <option value="Baja">Baja</option>
-                  <option value="Media">Media</option>
-                  <option value="Alta">Alta</option>
-                </select>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span
+                className="status-text pending"
+                style={{ fontSize: "0.8rem" }}
+              >
+                Añadir fuente
+              </span>
+              <button
+                type="button"
+                onClick={agregarCampoUrl}
+                disabled={cargandoScraping}
+                className="btn-remove-url" /* Reutiliza tu clase de botón circular */
+                style={{
+                  background: "#e8f5e9",
+                  color: "#28a745",
+                  border: "1px solid #c8e6c9",
+                  fontSize: "16px",
+                }}
+                title="Añadir otra URL"
+              >
+                +
+              </button>
             </div>
           </div>
-          {/* ========================================================= */}
-          {/* FIN DEL NUEVO CONTENEDOR DE ENCABEZADO */}
-          {/* ========================================================= */}
 
-          {listaUrls.map((url, index) => (
-            <div key={index} className="url-container">
-              <div className="url-input-group">
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => manejarCambioUrl(index, e.target.value)}
-                  placeholder={`https://ejemplo${index + 1}.com`}
-                  className={`auto-expand ${estadosUrls[index]}`}
-                  disabled={cargandoScraping}
-                />
+          <div className="config-cards-wrapper">
+            {listaUrls.map((url, index) => (
+              <div key={index} className="url-container">
+                <div className="url-input-group">
+                  <input
+                    type="text"
+                    value={url}
+                    onChange={(e) => manejarCambioUrl(index, e.target.value)}
+                    placeholder={`https://ejemplo${index + 1}.com`}
+                    className={`auto-expand ${estadosUrls[index]}`}
+                    disabled={cargandoScraping}
+                  />
 
-                {/* Botón X Mejorado */}
-                <button
-                  type="button"
-                  className="btn-remove-url"
-                  onClick={() => eliminarCampoUrl(index)}
-                  disabled={cargandoScraping}
-                  title="Eliminar URL"
-                >
-                  ✕
-                </button>
+                  <button
+                    type="button"
+                    className="btn-remove-url"
+                    onClick={() => eliminarCampoUrl(index)}
+                    disabled={cargandoScraping}
+                    title="Eliminar URL"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="url-status-label">
+                  {estadosUrls[index] === "analizando" && (
+                    <span className="status-text analyzing">
+                      ⏳ Analizando...
+                    </span>
+                  )}
+                  {estadosUrls[index] === "exito" && (
+                    <span className="status-text success">✅ Analizado</span>
+                  )}
+                  {estadosUrls[index] === "error" && (
+                    <span className="status-text error">⚠️ Error</span>
+                  )}
+                </div>
               </div>
+            ))}
+          </div>
 
-              {/* Etiqueta de Estado */}
-              <div className="url-status-label">
-                {estadosUrls[index] === "analizando" && (
-                  <span className="status-text analyzing">
-                    ⏳ Analizando contenido...
-                  </span>
-                )}
-                {estadosUrls[index] === "exito" && (
-                  <span className="status-text success">
-                    ✅ Contenido Analizado
-                  </span>
-                )}
-                {estadosUrls[index] === "error" && (
-                  <span className="status-text error">
-                    ⚠️ No se pudo analizar
-                  </span>
-                )}
-                {!estadosUrls[index] && url.trim() !== "" && (
-                  <span className="status-text pending">
-                    ⚪ Esperando análisis
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={agregarCampoUrl}
-            disabled={cargandoScraping}
-            className="btn-add-h2"
-          >
-            + Añadir otra URL
-          </button>
-
-          {/* Botón de Ejecución/Cancelación */}
-          <button
-            onClick={cargandoScraping ? cancelarScraping : ejecutarScraping}
-            className={`btn-generate ${cargandoScraping ? "btn-cancel" : ""}`}
-            // El botón se deshabilita si:
-            // 1. No estamos cargando Y no hay al menos 3 URLs con texto.
-            disabled={
-              !cargandoScraping &&
-              listaUrls.filter((url) => url.trim() !== "").length < 3
-            }
-          >
-            {cargandoScraping ? "Cancelar Analizador" : "Analizar Google"}
-          </button>
+          {/* Botón de Acción Principal */}
+          <div style={{ marginTop: "20px" }}>
+            <button
+              onClick={cargandoScraping ? cancelarScraping : ejecutarScraping}
+              className={`btn-generate ${cargandoScraping ? "btn-cancel" : ""}`}
+              disabled={
+                !cargandoScraping &&
+                listaUrls.filter((u) => u.trim() !== "").length < 3
+              }
+            >
+              {cargandoScraping ? "Cancelar Analizador" : "Analizar Google"}
+            </button>
+          </div>
         </section>
 
         {/* Mensaje de Error  */}
@@ -2807,99 +2769,104 @@ const GeneracionBlog = () => {
         {/* --- SECCIÓN: TARJETAS DE CONFIGURACIÓN INICIAL (INPUTS) --- */}
         {/* ========================================================= */}
 
-        <section className="config-panel-unified analysis-result info-card">
+        <section className="analysis-result info-card">
+          {/* Encabezado Colapsable */}
           <h2
             className="analysis-title"
+            onClick={() => tarjetasInformacion("preconfiguracionUnificada")}
             style={{
-              borderBottomColor: "#1A2E44",
               cursor: "pointer",
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
             }}
-            onClick={() => tarjetasInformacion("preconfiguracionUnificada")}
           >
-            <div>
-              <i className="uil uil-setting"></i> Preconfiguraciones
+            <div className="structure-buttons-group">
+              <i className="uil uil-setting"></i>
+              <span>Parámetros de Generación</span>
             </div>
             <i
-              className={`uil ${
-                cardVisibility.preconfiguracionUnificada
-                  ? "uil-angle-up"
-                  : "uil-angle-down"
-              }`}
+              className={`uil ${cardVisibility.preconfiguracionUnificada ? "uil-angle-up" : "uil-angle-down"}`}
             ></i>
           </h2>
 
           {cardVisibility.preconfiguracionUnificada && (
-            <div className="analysis-detail config-unified-content">
-              {/* GRUPO 1: Título y Keywords (Items que ocupan todo el ancho) */}
-              <div className="config-group config-group-wide">
-                {/* Título Base: Etiqueta y valor en una misma fila en escritorio */}
-                <div className="config-item-row">
-                  <span className="analysis-title config-label">
-                    <i className="uil uil-tag-alt"></i> Título Base:
+            <div className="config-cards-wrapper">
+              {/* GRUPO PRINCIPAL: Título y Keywords */}
+              <div className="config-group">
+                <div className="url-container">
+                  <span className="status-text pending">
+                    <i className="uil uil-tag-alt"></i> TÍTULO DEL PROYECTO
                   </span>
-                  <p className="main-title-output config-value config-value-break">
-                    {datosFinales?.title || "N/A"}
+                  <p
+                    className="blog-title"
+                    style={{ fontSize: "1.2rem", border: "none" }}
+                  >
+                    {datosFinales?.title || "Sin título definido"}
                   </p>
                 </div>
 
-                {/* Keywords: Etiqueta y chips en una misma fila en escritorio */}
-                <div className="config-item-row">
-                  <span className="analysis-title config-label">
-                    <i className="uil uil-key-skeleton"></i> Keywords
-                    Secundarias:
+                <div className="url-status-label">
+                  <span className="status-text pending">
+                    Keywords de Apoyo:
                   </span>
-                  <div className="keywords-tags config-value config-chips-container">
+                  <div
+                    className="suggestions-container"
+                    style={{ flexDirection: "row" }}
+                  >
                     {(datosFinales?.keywords || "")
                       .split(",")
                       .map((keyword, index) =>
                         keyword.trim() ? (
-                          <span key={index} className="keyword-chip">
+                          <span key={index} className="keyword-tag">
                             {keyword.trim()}
                           </span>
-                        ) : null
+                        ) : null,
                       )}
-                    {!datosFinales?.keywords && (
-                      <span className="data-chip missing">N/A</span>
-                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Contenedor Flex/Grid para Grupos 2 y 3: Estilo/Tono y Contexto*/}
-              <div className="config-group-columns-container">
-                {/* GRUPO 2: Estilo y Tono */}
-                <div className="config-group config-group-column-item">
+              {/* GRILLA DE METADATOS: Usando tus log-card */}
+              <div className="idea-layout">
+                {/* Columna: Estilo Editorial */}
+                <div className="log-card" style={{ flex: 1 }}>
                   <span className="analysis-title">
-                    <i className="uil uil-palette"></i> Estilo y Tono:
+                    <i className="uil uil-palette"></i> Estilo Editorial
                   </span>
-                  <div className="data-chip-container config-chips-container">
-                    <span className="data-chip primary">
-                      Tono: <strong>{datosFinales?.tono || "N/A"}</strong>
-                    </span>
-                    <span className="data-chip secondary">
-                      Acento: <strong>{datosFinales?.acento || "N/A"}</strong>
-                    </span>
-                    <span className="data-chip tertiary">
-                      Técnica: <strong>{datosFinales?.tecnica || "N/A"}</strong>
-                    </span>
-                  </div>
+                  <ul className="list-style-none">
+                    <li>
+                      <small>Tono:</small>{" "}
+                      <strong>{datosFinales?.tono || "N/A"}</strong>
+                    </li>
+                    <li>
+                      <small>Acento:</small>{" "}
+                      <strong>{datosFinales?.acento || "N/A"}</strong>
+                    </li>
+                    <li>
+                      <small>Técnica:</small>{" "}
+                      <strong>{datosFinales?.tecnica || "N/A"}</strong>
+                    </li>
+                  </ul>
                 </div>
 
-                {/* GRUPO 3: Metadatos/Contexto */}
-                <div className="config-group config-group-column-item">
+                {/* Columna: Configuración Regional */}
+                <div className="log-card" style={{ flex: 1 }}>
                   <span className="analysis-title">
-                    <i className="uil uil-globe"></i> Contexto:
+                    <i className="uil uil-globe"></i> Configuración Regional
                   </span>
-                  <div className="data-chip-container config-chips-container">
-                    <span className="data-chip context-lang">
-                      Idioma: <strong>{datosFinales?.idioma || "N/A"}</strong>
+                  <div
+                    className="structure-buttons-group"
+                    style={{
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: "10px",
+                    }}
+                  >
+                    <span className="count-badge remaining">
+                      Idioma: {datosFinales?.idioma || "Español"}
                     </span>
-                    <span className="data-chip context-project">
-                      Proyecto:{" "}
-                      <strong>{datosFinales?.categoria || "N/A"}</strong>
+                    <span className="count-badge total">
+                      Proyecto: {datosFinales?.categoria || "General"}
                     </span>
                   </div>
                 </div>
@@ -3015,8 +2982,8 @@ const GeneracionBlog = () => {
                     !localBlogId
                       ? "Cree primero el artículo base para poder guardar la estructura."
                       : !tablaEstructuraFinal
-                      ? "Genere la estructura antes de guardar."
-                      : "Guardar la estructura actual del blog."
+                        ? "Genere la estructura antes de guardar."
+                        : "Guardar la estructura actual del blog."
                   }
                   style={{ flex: 1 }} // <--- Esto hace que se expanda equitativamente
                 >

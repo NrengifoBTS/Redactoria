@@ -124,7 +124,7 @@ function Dashboard() {
   } = useFilters(proyectos, filterFunctions);
   const { searchTerm, setSearchTerm, searchResults } = useSearch(
     filteredByFilters,
-    ["name", "description"]
+    ["name", "description"],
   );
 
   // Proyectos visibles según permisos del usuario
@@ -146,14 +146,14 @@ function Dashboard() {
         (proyecto) =>
           proyecto.assignedTo === currentUser.id ||
           proyecto.assignedTo === null ||
-          proyecto.createdBy === currentUser.id
+          proyecto.createdBy === currentUser.id,
       );
     }
 
     return searchResults.filter(
       (proyecto) =>
         proyecto.assignedTo === currentUser.id ||
-        proyecto.createdBy === currentUser.id
+        proyecto.createdBy === currentUser.id,
     );
   }, [searchResults, currentUser]);
 
@@ -161,10 +161,10 @@ function Dashboard() {
   const stats = useMemo(() => {
     const total = visibleProyectos.length;
     const completed = visibleProyectos.filter(
-      (p) => p.status === "completed"
+      (p) => p.status === "completed",
     ).length;
     const nonCompleted = visibleProyectos.filter(
-      (p) => p.status !== "completed"
+      (p) => p.status !== "completed",
     ).length;
     const unassigned = visibleProyectos.filter((p) => !p.assignedTo).length;
 
@@ -405,8 +405,8 @@ function Dashboard() {
                   {isAdminUser(currentUser.id)
                     ? "Administrador"
                     : isEditorUser(currentUser.id)
-                    ? "Editor"
-                    : "Visualizador"}
+                      ? "Editor"
+                      : "Visualizador"}
                 </p>
               </div>
             </div>
@@ -900,7 +900,7 @@ function ProjectsTable({
           <tbody>
             {proyectos.map((proyecto, index) => {
               const assignedUser = users?.find(
-                (u) => u.id === proyecto.assignedTo
+                (u) => u.id === proyecto.assignedTo,
               );
 
               return (
@@ -994,7 +994,7 @@ function ProjectsTable({
                       style={{
                         padding: "0.25rem 0.5rem",
                         backgroundColor: `${getPriorityColor(
-                          proyecto.priority
+                          proyecto.priority,
                         )}15`,
                         color: getPriorityColor(proyecto.priority),
                         borderRadius: "0.25rem",
@@ -1005,8 +1005,8 @@ function ProjectsTable({
                       {proyecto.priority === "high"
                         ? "Alta"
                         : proyecto.priority === "medium"
-                        ? "Media"
-                        : "Baja"}
+                          ? "Media"
+                          : "Baja"}
                     </span>
                   </td>
 
@@ -1014,7 +1014,7 @@ function ProjectsTable({
                     <span style={{ fontSize: "0.875rem", color: "#64748b" }}>
                       {proyecto.lastModified
                         ? new Date(proyecto.lastModified).toLocaleDateString(
-                            "es-ES"
+                            "es-ES",
                           )
                         : "-"}
                     </span>
@@ -1156,7 +1156,7 @@ function CreateProyectoModal({ onClose, onSubmit }) {
       try {
         setTemplatesLoading(true);
         const response = await fetch(
-          "http://192.168.1.129:8000/templates/public/active"
+          "http://192.168.1.129:8000/templates/public/active",
         );
 
         if (response.ok) {
@@ -1429,7 +1429,7 @@ function CreateProyectoModal({ onClose, onSubmit }) {
                               </label>
                             ))}
                           </div>
-                        )
+                        ),
                       )}
                     </div>
                   ))}
@@ -1633,7 +1633,7 @@ function CreateProyectoModal({ onClose, onSubmit }) {
                 <strong>Template seleccionado:</strong>
                 {(() => {
                   const selectedTemplate = templates.find(
-                    (t) => t.id === formData.template_id
+                    (t) => t.id === formData.template_id,
                   );
                   return selectedTemplate ? (
                     <div style={{ marginTop: "0.25rem" }}>

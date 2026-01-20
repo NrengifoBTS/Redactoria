@@ -152,7 +152,7 @@ class ApiService {
       if (filters.prioridad) {
         queryParams.append(
           "prioridad",
-          this.mapPriorityToBackend(filters.prioridad)
+          this.mapPriorityToBackend(filters.prioridad),
         );
       }
       if (filters.assigned_to) {
@@ -227,7 +227,7 @@ class ApiService {
         {
           method: "POST",
           body: JSON.stringify({ assigned_to: userId }),
-        }
+        },
       );
       return this.mapBackendToFrontend(response);
     } catch (error) {
@@ -247,7 +247,7 @@ class ApiService {
         {
           method: "POST",
           body: JSON.stringify({ estado: backendEstado }),
-        }
+        },
       );
       return this.mapBackendToFrontend(response);
     } catch (error) {
@@ -364,7 +364,7 @@ class ApiService {
       });
       console.log(
         "🔥 API SERVICE - Payload que se envía:",
-        JSON.stringify(payload, null, 2)
+        JSON.stringify(payload, null, 2),
       );
 
       if (!response.ok) {
@@ -383,7 +383,7 @@ class ApiService {
           console.error("Error Data:", errorData);
           throw new Error(
             errorData.detail ||
-              `Error ${response.status}: ${response.statusText}`
+              `Error ${response.status}: ${response.statusText}`,
           );
         } catch (e) {
           throw new Error(`Error ${response.status}: ${errorText}`);
@@ -408,7 +408,7 @@ class ApiService {
     targetLanguage,
     cellKey,
     blockTitle,
-    tema
+    tema,
   ) {
     try {
       const response = await fetch(`${this.baseURL}/ia/${lpId}/translate`, {
@@ -433,7 +433,8 @@ class ApiService {
 
         const errorData = await response.json();
         throw new Error(
-          errorData.detail || `Error ${response.status}: ${response.statusText}`
+          errorData.detail ||
+            `Error ${response.status}: ${response.statusText}`,
         );
       }
 
@@ -472,7 +473,7 @@ class ApiService {
     if (frontendData.description !== undefined)
       backendData.description = frontendData.description;
     backendData.estado = this.mapStatusToBackend(
-      frontendData.status || "draft"
+      frontendData.status || "draft",
     );
     if (frontendData.status !== undefined) {
       backendData.estado = this.mapStatusToBackend(frontendData.status);
@@ -724,7 +725,7 @@ class ApiService {
   async getLandingPageByProyecto(proyectoId) {
     try {
       const response = await this.makeRequest(
-        `/landing-pages/by-proyecto/${proyectoId}`
+        `/landing-pages/by-proyecto/${proyectoId}`,
       );
       return response;
     } catch (error) {
@@ -820,7 +821,7 @@ class ApiService {
       if (filters.priority) {
         queryParams.append(
           "prioridad",
-          this.mapPriorityToBackend(filters.priority)
+          this.mapPriorityToBackend(filters.priority),
         );
       }
       if (filters.assignedTo) {
@@ -1014,7 +1015,7 @@ class ApiService {
     titlesAfter,
     structureAfter,
     actionType,
-    context = {}
+    context = {},
   ) {
     try {
       const payload = {

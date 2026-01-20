@@ -4,6 +4,9 @@ import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBlogs } from "./hooks/useApi.js";
 import { useUsers, useFilters, useSearch } from "./hooks/useApi.js";
+import apiService from "./services/apiService.js";
+import { useCurrentUser } from "./hooks/useApi.js";
+import { isAdminUser, isEditorUser } from "./utils/roles";
 
 // -----------------------------------------------------------------------------
 // FUNCIONES AUXILIARES DE VISTA
@@ -18,18 +21,6 @@ const getStatusText = (status) => {
     published: "Publicado",
   };
   return texts[status] || status;
-};
-
-const getPriorityText = (priority) => {
-  const texts = {
-    // Estas son las únicas claves que el backend/DB puede enviar
-    Alta: "Alta",
-    Media: "Media",
-    Baja: "Baja",
-  };
-
-  // Devuelve el valor mapeado o el valor original si no lo encuentra.
-  return texts[priority] || priority || "N/A";
 };
 
 const getUserName = (userId, users) => {
@@ -57,6 +48,229 @@ const formatDateTime = (dateString) => {
     return "Fecha inválida";
   }
 };
+
+function EditBlogModal({ blog, onClose, onSubmit }) {
+  const [formData, setFormData] = useState({
+    title: blog.title || "",
+    categoria: blog.categoria || "",
+    estado: blog.estado,
+    prioridad: blog.prioridad,
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await onSubmit(formData);
+    } catch (error) {
+      console.error("Error al actualizar el blog:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1100,
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: "0.75rem",
+          padding: "2rem",
+          minWidth: "500px",
+          maxWidth: "600px",
+        }}
+      >
+        <h2
+          style={{
+            margin: "0 0 1.5rem 0",
+            fontSize: "1.5rem",
+            fontWeight: "700",
+          }}
+        >
+          Editar Blog
+        </h2>
+
+        <form onSubmit={handleSubmit}>
+          {/* Título */}
+          <div style={{ marginBottom: "1rem" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+              }}
+            >
+              Título
+            </label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+              style={{
+                width: "100%",
+                padding: "0.5rem 0.75rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.375rem",
+                fontSize: "0.875rem",
+                boxSizing: "border-box",
+              }}
+              required
+            />
+          </div>
+
+          {/* Categoría / Proyecto (SELECTOR ACTUALIZADO) */}
+          <div style={{ marginBottom: "1rem" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+              }}
+            >
+              Categoría / Proyecto
+            </label>
+            <select
+              value={formData.categoria}
+              onChange={(e) =>
+                setFormData({ ...formData, categoria: e.target.value })
+              }
+              style={{
+                width: "100%",
+                padding: "0.5rem 0.75rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.375rem",
+                fontSize: "0.875rem",
+                backgroundColor: "white",
+                boxSizing: "border-box",
+              }}
+              required
+            >
+              <option value="">Selecciona una categoría</option>
+              <option value="Arriendo">Arriendo</option>
+              <option value="Viajemos">Viajemos</option>
+              <option value="Guia legal">Guía Legal</option>
+            </select>
+          </div>
+
+          {/* Estado */}
+          <div style={{ marginBottom: "1rem" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+              }}
+            >
+              Estado
+            </label>
+            <select
+              value={formData.estado}
+              onChange={(e) =>
+                setFormData({ ...formData, estado: e.target.value })
+              }
+              style={{
+                width: "100%",
+                padding: "0.5rem 0.75rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.375rem",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="draft">Borrador</option>
+              <option value="generated">Estructura Generada</option>
+              <option value="review">En Revisión</option>
+              <option value="approved">Aprobado</option>
+              <option value="published">Publicado</option>
+            </select>
+          </div>
+
+          {/* Prioridad */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+              }}
+            >
+              Prioridad
+            </label>
+            <select
+              value={formData.prioridad}
+              onChange={(e) =>
+                setFormData({ ...formData, prioridad: e.target.value })
+              }
+              style={{
+                width: "100%",
+                padding: "0.5rem 0.75rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.375rem",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="Baja">Baja</option>
+              <option value="Media">Media</option>
+              <option value="Alta">Alta</option>
+            </select>
+          </div>
+
+          {/* Botones de acción */}
+          <div
+            style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="btn-generate"
+              style={{
+                padding: "0.5rem 1rem",
+                backgroundColor: "#f63b3b",
+                color: "white",
+                border: "none",
+                borderRadius: "0.375rem",
+                cursor: "pointer",
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-generate"
+              style={{
+                padding: "0.5rem 1rem",
+                backgroundColor: "#3b82f6",
+                color: "white",
+                border: "none",
+                borderRadius: "0.375rem",
+                cursor: "pointer",
+              }}
+            >
+              {loading ? "Guardando..." : "Guardar Cambios"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 // -----------------------------------------------------------------------------
 // CONFIGURACIÓN DINÁMICA POR CATEGORÍA
@@ -151,16 +365,23 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
       <div className="modal-content">
         <div className="modal-header">
           <h2>Generar Idea y Borrador Inicial</h2>
-          <button className="btn-close" onClick={onClose}>
-            &times;
+          <button
+            className="btn-close"
+            onClick={onClose}
+            aria-label="Cerrar modal"
+          >
+            <i className="uil uil-times"></i>
           </button>
         </div>
+
         <form onSubmit={handleSubmit} className="modal-form">
+          {/* Sección Principal */}
           <div className="form-group">
-            <label>Título del Blog/Tema Central (Query):</label>
+            <label>Título del Blog / Tema Central</label>
             <input
               type="text"
               name="title"
+              placeholder="Ej: Tendencias de arriendo en 2024"
               value={formData.title}
               onChange={handleChange}
               required
@@ -168,7 +389,7 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="categoria">Categoría:</label>
+            <label htmlFor="categoria">Categoría</label>
             <select
               id="categoria"
               name="categoria"
@@ -176,7 +397,7 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
               onChange={handleCategoriaChange}
               required
             >
-              <option value="">Selecciona una categoría</option>
+              <option value="">Seleccionar...</option>
               <option value="Arriendo">Arriendo</option>
               <option value="Viajemos">Viajemos</option>
               <option value="Guia legal">Guía Legal</option>
@@ -184,22 +405,22 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="keywords">Keywords Secundarias:</label>
+            <label htmlFor="keywords">Keywords Secundarias</label>
             <textarea
               name="keywords"
               value={formData.keywords}
               onChange={handleChange}
-              rows="3"
-              placeholder="Ej: 'impuestos, contrato alquiler'"
+              rows="2"
+              placeholder="Separa con comas (ej: impuestos, contrato alquiler)"
             />
           </div>
 
-          {/* CAMPOS DINÁMICOS: Solo se muestran si hay una categoría elegida */}
+          {/* CAMPOS DINÁMICOS: Aparecen con una transición suave */}
           {currentConfig && (
-            <>
-              <div className="form-group-inline">
+            <div className="dynamic-fields-section">
+              <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="idioma">Idioma:</label>
+                  <label htmlFor="idioma">Idioma</label>
                   <select
                     name="idioma"
                     value={formData.idioma}
@@ -212,191 +433,308 @@ const ModalCreacionBlog = ({ onClose, onCreateSuccess }) => {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="tecnica">Técnica:</label>
+                  <label htmlFor="prioridad">Prioridad</label>
                   <select
-                    name="tecnica"
-                    value={formData.tecnica}
+                    name="prioridad"
+                    value={formData.prioridad}
                     onChange={handleChange}
+                    required
                   >
-                    {currentConfig.tecnicas.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
+                    <option value="Baja">Baja</option>
+                    <option value="Media">Media</option>
+                    <option value="Alta">Alta</option>
                   </select>
                 </div>
               </div>
-
-              <div className="form-group-inline">
-                <div className="form-group">
-                  <label htmlFor="acento">Acento:</label>
-                  <select
-                    name="acento"
-                    value={formData.acento}
-                    onChange={handleChange}
-                  >
-                    {currentConfig.acentos.map((a) => (
-                      <option key={a} value={a}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="tono">Tono:</label>
-                  <select
-                    name="tono"
-                    value={formData.tono}
-                    onChange={handleChange}
-                  >
-                    {currentConfig.tonos.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </>
+            </div>
           )}
 
-          <div className="form-group">
-            <label htmlFor="prioridad">Prioridad</label>
-            <select
-              name="prioridad"
-              value={formData.prioridad}
-              onChange={handleChange}
-              required
+          <div className="modal-footer">
+            <button
+              type="submit"
+              className="btn-generate"
+              disabled={loading || !formData.categoria}
             >
-              <option value="Baja">Baja</option>
-              <option value="Media">Media</option>
-              <option value="Alta">Alta</option>
-            </select>
+              {loading ? (
+                <>
+                  <i className="uil uil-spinner-alt spin"></i> Guardando...
+                </>
+              ) : (
+                "Generar Idea y Borrador"
+              )}
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="btn-generate"
-            disabled={loading || !formData.categoria}
-          >
-            {loading ? "Guardando Idea..." : "Generar Idea y Borrador"}
-          </button>
         </form>
       </div>
     </div>
   );
 };
 
+// Modal reutilizado del Dashboard principal
+function AssignModal({ proyecto, users, onClose, onAssign }) {
+  // 'proyecto' aquí es el objeto 'blog' que pasamos desde la tabla
+  const [selectedUser, setSelectedUser] = useState(proyecto?.assigned_to || "");
+  const [loading, setLoading] = useState(false);
+
+  const handleAssign = async () => {
+    try {
+      setLoading(true);
+      // Ejecutamos la función que pasamos desde el DashboardBlog
+      await onAssign(proyecto.id, selectedUser || null);
+    } catch (error) {
+      console.error("Error in assignment:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="modal-backdrop"
+      style={{
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.5)",
+      }}
+    >
+      <div
+        className="modal-content"
+        style={{
+          backgroundColor: "white",
+          padding: "2rem",
+          borderRadius: "0.75rem",
+          minWidth: "400px",
+        }}
+      >
+        <h2 style={{ margin: "0 0 1.5rem 0" }}>Asignar Usuario</h2>
+
+        <p style={{ marginBottom: "1rem", color: "#64748b" }}>
+          {/* Usamos title porque es un Blog */}
+          Blog: <strong>{proyecto?.title}</strong>
+        </p>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "0.5rem",
+              fontWeight: "500",
+            }}
+          >
+            Asignar a
+          </label>
+          <select
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              borderRadius: "0.375rem",
+              border: "1px solid #d1d5db",
+            }}
+          >
+            <option value="">Sin asignar</option>
+            {users?.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div
+          style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}
+        >
+          <button
+            onClick={onClose}
+            className="btn-generate"
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#f63b3b",
+              color: "white",
+              border: "none",
+              borderRadius: "0.375rem",
+              cursor: "pointer",
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleAssign}
+            className="btn-generate"
+            disabled={loading}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: "0.375rem",
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Asignando..." : "Asignar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // -----------------------------------------------------------------------------
 // 2. COMPONENTE DE FILA DE LA TABLA (CRUD VISTAS)
 // -----------------------------------------------------------------------------
-const TableRow = ({ blog, onDelete, onEditClick, assignedUsers, onAssign }) => {
-  // <-- NUEVA LÓGICA DE ASIGNACIÓN: Estado para el dropdown
-  const [showAssignDropdown, setShowAssignDropdown] = useState(false);
+const TableRow = ({
+  blog,
+  onDelete,
+  onEditClick,
+  assignedUsers,
+  onAssign,
+  onViewClick,
+  currentUser,
+}) => {
+  // 1. LÓGICA DE PERMISOS
+  const isIdAdmin = isAdminUser(currentUser?.id);
+  const isAssignedToMe = blog.assigned_to === currentUser?.id;
 
-  // Llama a la función auxiliar para mostrar el nombre del asignado
+  // Obtenemos el nombre del usuario para mostrarlo en la celda
   const assignedUserName = getUserName(blog.assigned_to, assignedUsers);
 
-  // Handler que llama a la función del padre y cierra el dropdown
-  const handleUserSelect = (userId) => {
-    // userId puede ser el UUID de un usuario, o null para desasignar
-    onAssign(blog.id, userId);
-    setShowAssignDropdown(false);
+  // Función para obtener el icono según el estado
+  const getStatusIcon = (status) => {
+    const icons = {
+      draft: "uil-edit-alt",
+      generated: "uil-layer-group",
+      review: "uil-clock",
+      approved: "uil-check-circle",
+      published: "uil-rocket",
+    };
+    return icons[status] || "uil-info-circle";
   };
 
   return (
     <tr>
-      <td>{blog.title}</td>
-      <td>{blog.categoria}</td>
-
-      {/* CELDA DE USUARIO ASIGNADO (Muestra el nombre) */}
-      <td>{assignedUserName}</td>
-
-      <td className={`status-${blog.estado}`}>{getStatusText(blog.estado)}</td>
-      <td className={`priority-${blog.prioridad}`}>
-        {getPriorityText(blog.prioridad)}
+      <td style={{ fontWeight: "600", color: "#1e293b" }}>{blog.title}</td>
+      <td>
+        <span style={{ color: "#64748b", fontSize: "0.85rem" }}>
+          <i className="uil uil-folder" style={{ marginRight: "4px" }}></i>
+          {blog.categoria}
+        </span>
       </td>
 
-      <td>{formatDateTime(blog.last_modified)}</td>
-
-      {/* CELDA DE OPCIONES (Lleva la lógica del dropdown) */}
       <td>
-        <div className="options-container" style={{ position: "relative" }}>
-          {/* BOTÓN/ICONO DE ASIGNACIÓN */}
-          <button
-            onClick={() => setShowAssignDropdown(!showAssignDropdown)}
-            className="btn-action assign"
-            title="Asignar/Desasignar Usuario"
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{
+              width: "24px",
+              height: "24px",
+              borderRadius: "50%",
+              backgroundColor: "#e2e8f0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "0.7rem",
+            }}
           >
-            {/* Ícono uil-user-plus para asignar */}
-            <i className="uil uil-user-plus"></i>
-          </button>
+            <i className="uil uil-user"></i>
+          </div>
+          <span style={{ fontSize: "0.85rem" }}>{assignedUserName}</span>
+        </div>
+      </td>
 
-          {/* DROPDOWN DE ASIGNACIÓN */}
-          {showAssignDropdown && (
-            // NOTA: Debes añadir CSS para la clase 'dropdown-menu'
-            <div className="dropdown-menu">
-              {/* Opción 1: Desasignar (solo si ya está asignado) */}
-              {blog.assigned_to && (
-                <button
-                  // Envia 'null' para desasignar
-                  onClick={() => handleUserSelect(null)}
-                  className="dropdown-item desasignar"
-                >
-                  <i className="uil uil-times-circle"></i> Desasignar
-                </button>
-              )}
+      <td>
+        <span className={`badge status-${blog.estado}`}>
+          <i
+            className={`uil ${getStatusIcon(blog.estado)}`}
+            style={{ fontSize: "0.9rem" }}
+          ></i>
+          {getStatusText(blog.estado)}
+        </span>
+      </td>
 
-              {/* Opción 2: Lista de Usuarios para Asignar */}
-              <div className="dropdown-title">Asignar a:</div>
-              {(assignedUsers || []).map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() => handleUserSelect(user.id)}
-                  className="btn-action user"
-                  // Resalta al usuario actualmente asignado
-                  style={{
-                    fontWeight:
-                      user.id === blog.assigned_to ? "bold" : "normal",
-                  }}
-                >
-                  {user.name || user.email}
-                </button>
-              ))}
-            </div>
-          )}
+      <td>
+        <span className={`badge priority-${blog.prioridad}`}>
+          <span
+            className="dot"
+            style={{
+              backgroundColor:
+                blog.prioridad === "Alta"
+                  ? "#dc3545"
+                  : blog.prioridad === "Media"
+                    ? "#ffc107"
+                    : "#28a745",
+            }}
+          ></span>
+          {blog.prioridad}
+        </span>
+      </td>
 
-          {/* Boton de Editar  */}
+      <td style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+        {formatDateTime(blog.last_modified)}
+      </td>
+
+      <td>
+        <div className="options-container">
+          {/* BOTÓN VER: Siempre visible para todos */}
           <button
-            onClick={() => onEditClick(blog.id)}
-            className="btn-action edit"
-            title="Editar Blog"
+            onClick={onViewClick}
+            className="btn-action view"
+            title="Ver/Generar"
           >
-            <i className="uil uil-edit"></i>
-          </button>
-
-          {/* Boton de Eliminar */}
-          <button
-            onClick={() => onDelete(blog.id)}
-            className="btn-action delete"
-            title="Eliminar Blog"
-          >
-            <i className="uil uil-trash-alt"></i>
-          </button>
-          {/* Boton de Visualizar  */}
-          <button className="btn-action view" title="Visualizar Blog">
             <i className="uil uil-eye"></i>
           </button>
+
+          {/* BOTÓN ASIGNAR: Solo visible para Administradores */}
+          {isIdAdmin && (
+            <button
+              onClick={onAssign}
+              className="btn-action assign"
+              title="Asignar Usuario"
+            >
+              <i className="uil uil-user-plus"></i>
+            </button>
+          )}
+
+          {/* BOTÓN EDITAR PARÁMETROS: Visible para Admin O si el Editor está asignado */}
+          {(isIdAdmin || isAssignedToMe) && (
+            <button
+              onClick={onEditClick}
+              className="btn-action edit"
+              title="Editar Configuración"
+            >
+              <i className="uil uil-setting"></i>
+            </button>
+          )}
+
+          {/* BOTÓN ELIMINAR: Solo visible para Administradores */}
+          {isIdAdmin && (
+            <button
+              onClick={() => onDelete(blog.id)}
+              className="btn-action delete"
+              title="Eliminar"
+            >
+              <i className="uil uil-trash-alt"></i>
+            </button>
+          )}
         </div>
       </td>
     </tr>
   );
 };
+
 // -----------------------------------------------------------------------------
 // 3. COMPONENTE PRINCIPAL DASHBOARD BLOG (Integrado)
 // -----------------------------------------------------------------------------
 export const DashboardBlog = () => {
   const navigate = useNavigate();
+  // --- HOOK PARA EL USUARIO ACTUAL ---
+  const { user: currentUser } = useCurrentUser();
 
   const {
     blogs,
@@ -407,86 +745,103 @@ export const DashboardBlog = () => {
   } = useBlogs();
   const { users, loading: loadingUsers } = useUsers();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Modal de creación
 
-  //Logica de busqueda y filtros
+  // --- ESTADOS PARA ASIGNACIÓN ---
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedBlogForAssign, setSelectedBlogForAssign] = useState(null);
+
+  //-- ESTADOS PARA EDICION ---
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedBlogForEdit, setSelectedBlogForEdit] = useState(null);
+
+  // Lógica de búsqueda y filtros
   const { searchTerm, setSearchTerm, searchResults } = useSearch(blogs, [
-    "title", // Buscar por título
-    "categoria", // Buscar por categoría
+    "title",
+    "categoria",
   ]);
 
   const filterFunctions = useMemo(() => {
     return {
-      // Filtro por ESTADO (blog.estado)
-      estado: (blog, value) => {
-        return value === "" || blog.estado === value;
-      },
-      // Filtro por ASIGNADO A (blog.assigned_to)
+      estado: (blog, value) => value === "" || blog.estado === value,
       assigned_to: (blog, value) => {
-        // value puede ser el UUID de un usuario, o "unassigned" para los sin asignar
-        if (value === "") return true; // Mostrar todos
-        if (value === "unassigned") return !blog.assigned_to; // No asignado
+        if (value === "") return true;
+        if (value === "unassigned") return !blog.assigned_to;
         return blog.assigned_to === value;
       },
-      // Filtro por PRIORIDAD (blog.prioridad)
-      prioridad: (blog, value) => {
-        return value === "" || blog.prioridad === value;
-      },
+      prioridad: (blog, value) => value === "" || blog.prioridad === value,
     };
   }, []);
 
-  // Aplicar useFilters sobre los resultados de la búsqueda (searchResults)
   const { filteredData, updateFilter, filters, clearAllFilters } = useFilters(
     searchResults,
-    filterFunctions
+    filterFunctions,
   );
 
   const blogsToDisplay = filteredData;
 
-  // Función que se llama al guardar exitosamente el borrador
-  const handleCreationSuccess = (newBlogData) => {
-    setIsModalOpen(false); // Cierra el modal
-    loadBlogs(); // Recarga la lista para mostrar el nuevo borrador
+  // --- HANDLERS ---
 
-    // VISTA CRUD: Navegar al editor del blog recién creado
-    navigate(`/blog/edit/${newBlogData.id}`);
+  // Al hacer clic en el botón de asignar en la tabla
+  const handleAssignClick = (blog) => {
+    setSelectedBlogForAssign(blog);
+    setShowAssignModal(true);
   };
 
-  // Función para manejar la edición (VISTA CRUD)
-  const handleEditClick = (blogId) => {
+  // Procesa la asignación final desde el Modal
+  const handleProcessAssignment = async (blogId, userId) => {
+    try {
+      await assignBlog(blogId, userId);
+      setShowAssignModal(false);
+      // loadBlogs(); // Opcional si el hook no refresca solo
+    } catch (error) {
+      console.error("Error al asignar:", error);
+      alert("Error al asignar usuario.");
+    }
+  };
+
+  const handleCreationSuccess = (newBlogData) => {
+    setIsModalOpen(false);
+    loadBlogs();
+  };
+
+  const handleViewClick = (blogId) => {
     navigate(`/blog/edit/${blogId}`);
   };
 
-  // Función para eliminar (Llama a la función del hook)
+  // Función que abre el modal (se la pasaremos a la tabla)
+  const handleEditClick = (blog) => {
+    setSelectedBlogForEdit(blog);
+    setShowEditModal(true);
+  };
+
+  // Función que procesa el guardado
+  const handleUpdateBlog = async (updatedData) => {
+    try {
+      // Aquí usamos la lógica de tu api o hook para actualizar
+      // Por ejemplo, si usas supabase o un apiService:
+      await apiService.updateBlog(selectedBlogForEdit.id, updatedData);
+
+      setShowEditModal(false);
+      loadBlogs(); // Recargar la lista
+    } catch (error) {
+      alert("Error al actualizar: " + error.message);
+    }
+  };
+
   const handleDeleteBlog = async (id) => {
     if (
       window.confirm("¿Estás seguro de que quieres eliminar este borrador?")
     ) {
       try {
         await deleteBlog(id);
-        loadBlogs(); // Recargar tras eliminar
+        loadBlogs();
       } catch (error) {
         alert("Error al eliminar el blog: " + error.message);
-        console.error("Error deleting blog:", error);
       }
     }
   };
 
-  // <-- NUEVA LÓGICA DE ASIGNACIÓN: Handler para asignar/desasignar
-  const handleAssignBlog = async (blogId, userId) => {
-    try {
-      // Llama a la función del hook, que a su vez llama a apiService.assignBlog.
-      // El valor userId puede ser un UUID o 'null' para desasignar.
-      await assignBlog(blogId, userId);
-      // loadBlogs() NO ES NECESARIO si el hook useBlogs actualiza la lista
-      // internamente (como se ve en useApi.js).
-    } catch (error) {
-      console.error("Error al asignar/desasignar el blog:", error);
-      alert("Hubo un error al asignar el blog. Verifica tus permisos.");
-    }
-  };
-
-  // ... (El resto de las funciones de renderizado de Header, Stats, Footer se mantienen) ...
   const statsData = useMemo(() => {
     const totalBlogs = blogs ? blogs.length : 0;
     return [
@@ -495,38 +850,177 @@ export const DashboardBlog = () => {
     ];
   }, [blogs]);
 
-  const Header = () => (
-    <header className="navbar">
-      <h1>Analíticas</h1>
-      <nav>
-        <a href="/" className="btn">
-          Volver al Home
-        </a>
-      </nav>
-    </header>
-  );
-
-  const Stats = () => (
-    <section className="stats">
-      {statsData.map((stat, idx) => (
-        <div className="stat-card" key={idx}>
-          <h2>{stat.value}</h2>
-          <p>{stat.label}</p>
-        </div>
-      ))}
-    </section>
-  );
-
-  const Footer = () => <footer className="footer"></footer>;
-
-  // --- Renderizado Principal ---
   return (
     <div style={{ background: "#e6e6e6", minHeight: "100vh" }}>
-      <Header />
+      <header
+        className="navbar"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "0.75rem 2rem",
+          backgroundColor: "#ffffff",
+          borderBottom: "1px solid #e2e8f0",
+          boxShadow:
+            "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        {/* Sección Izquierda: Título */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "1.80rem",
+              fontWeight: "800",
+              color: "#0f172a",
+              letterSpacing: "-0.025em",
+            }}
+          >
+            Dashboard <span style={{ color: "#3b82f6" }}>Blogs</span>
+          </h1>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "1.00rem",
+              color: "#64748b",
+              fontWeight: "500",
+            }}
+          >
+            Sistema de gestión de contenido
+          </p>
+        </div>
+
+        {/* Sección Derecha: Nav y Usuario */}
+        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+          <nav>
+            <a
+              href="/"
+              style={{
+                textDecoration: "none",
+                fontSize: "0.85rem",
+                color: "#475569",
+                fontWeight: "700",
+                padding: "0.6rem 1.2rem",
+                borderRadius: "0.75rem",
+                backgroundColor: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              }}
+              // Efectos dinámicos con JS para el hover
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "#3b82f6";
+                e.currentTarget.style.color = "#ffffff";
+                e.currentTarget.style.borderColor = "#3b82f6";
+                e.currentTarget.style.boxShadow =
+                  "0 0 15px rgba(59, 130, 246, 0.5)"; // Efecto de iluminación
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "#f8fafc";
+                e.currentTarget.style.color = "#475569";
+                e.currentTarget.style.borderColor = "#e2e8f0";
+                e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              <i className="uil uil-estate" style={{ fontSize: "1.1rem" }}></i>
+              <span>Volver al Home</span>
+            </a>
+          </nav>
+
+          {/* SECCIÓN DEL USUARIO MEJORADA */}
+          {currentUser && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.85rem",
+                padding: "0.4rem",
+                paddingRight: "1rem",
+                backgroundColor: "#ffffff",
+                borderRadius: "9999px", // Estilo píldora
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                transition: "all 0.2s ease",
+              }}
+            >
+              {/* Avatar con gradiente y borde */}
+              <div
+                style={{
+                  width: "2.5rem",
+                  height: "2.5rem",
+                  background:
+                    "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontSize: "0.9rem",
+                  fontWeight: "700",
+                  boxShadow: "0 2px 4px rgba(37, 99, 235, 0.2)",
+                  border: "2px solid #fff",
+                }}
+              >
+                {currentUser.avatar ||
+                  (currentUser.first_name || currentUser.last_name
+                    ? `${(currentUser.first_name?.[0] || "").toUpperCase()}${(currentUser.last_name?.[0] || "").toUpperCase()}`
+                    : (currentUser.email?.[0] || "").toUpperCase())}
+              </div>
+
+              {/* Textos: Nombre y Rol */}
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span
+                  style={{
+                    fontSize: "0.85rem",
+                    fontWeight: "700",
+                    color: "#1e293b",
+                    lineHeight: "1.1",
+                  }}
+                >
+                  {currentUser.name || currentUser.first_name}
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    fontWeight: "600",
+                    color: "#2b76ef", // Color del rol para resaltar
+                    textTransform: "uppercase",
+                    letterSpacing: "0.025em",
+                    marginTop: "2px",
+                  }}
+                >
+                  {isAdminUser(currentUser.id)
+                    ? "Administrador"
+                    : isEditorUser(currentUser.id)
+                      ? "Editor"
+                      : "Redactor"}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
+
       <main className="container">
-        <Stats />
-        {/* LLAMADA AL NUEVO COMPONENTE BlogsTable */}
+        <section className="stats">
+          {statsData.map((stat, idx) => (
+            <div className="stat-card" key={idx}>
+              <h2>{stat.value}</h2>
+              <p>{stat.label}</p>
+            </div>
+          ))}
+        </section>
+
         <BlogsTable
+          currentUser={currentUser}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           filters={filters}
@@ -537,18 +1031,37 @@ export const DashboardBlog = () => {
           blogsToDisplay={blogsToDisplay}
           handleDeleteBlog={handleDeleteBlog}
           handleEditClick={handleEditClick}
-          handleAssignBlog={handleAssignBlog}
+          handleAssignBlog={handleAssignClick}
           clearAllFilters={clearAllFilters}
-          setIsModalOpen={setIsModalOpen} // Pasa el setter del modal
+          setIsModalOpen={setIsModalOpen}
+          handleViewClick={handleViewClick} // Visualizador de la generación
         />
       </main>
-      <Footer />
 
-      {/* Modal de Creación de Borrador */}
+      {/* MODAL DE CREACIÓN */}
       {isModalOpen && (
         <ModalCreacionBlog
           onClose={() => setIsModalOpen(false)}
           onCreateSuccess={handleCreationSuccess}
+        />
+      )}
+
+      {/* MODAL DE ASIGNACIÓN (EL QUE SOLICITASTE) */}
+      {showAssignModal && (
+        <AssignModal
+          proyecto={selectedBlogForAssign} // El modal usa la prop .title y .id
+          users={users}
+          onClose={() => setShowAssignModal(false)}
+          onAssign={handleProcessAssignment}
+        />
+      )}
+
+      {/* Renderizar el modal al final del componente */}
+      {showEditModal && (
+        <EditBlogModal
+          blog={selectedBlogForEdit}
+          onClose={() => setShowEditModal(false)}
+          onSubmit={handleUpdateBlog}
         />
       )}
     </div>
@@ -569,132 +1082,137 @@ const BlogsTable = ({
   handleAssignBlog,
   setIsModalOpen,
   clearAllFilters,
+  handleViewClick,
+  currentUser,
 }) => (
   <section className="table-section">
-    <div className="table-controls">
-      <div className="filters">
-        <input
-          type="text"
-          placeholder="Buscar..."
-          value={searchTerm} // Estado controlado
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        {/* 2. FILTRO DE ESTADOS (CONECTAR useFilters) */}
-        <select
-          value={filters.estado || ""}
-          onChange={(e) => updateFilter("estado", e.target.value)}
-        >
-          <option value="">Todos los Estados</option>
-          <option value="draft">Borrador</option>
-          <option value="generated">Estructura Generada</option>
-          <option value="review">En Revisión</option>
-          <option value="approved">Aprobado</option>
-          <option value="published">Publicado</option>
-        </select>
-        {/* 3. FILTRO DE FECHAS  */}
-        <select>
-          <option>Todas las fechas</option>
-          <option value="last_7_days">Últimos 7 días</option>
-          <option value="last_30_days">Últimos 30 días</option>
-          <option value="last_90_days">Últimos 90 días</option>
-        </select>
+    <div className="table-header-flex">
+      <h3>Últimos Archivos Generados</h3>
 
-        {/* 4. FILTRO DE USUARIOS ASIGNADOS (CONECTAR useFilters) */}
-        <select
-          disabled={loadingUsers}
-          value={filters.assigned_to || ""} // Añade el valor del asignado
-          onChange={(e) => updateFilter("assigned_to", e.target.value)} // Clave 'assigned_to'
-        >
-          <option value="">Todos los asignados</option>
-          {/* Opción para blogs sin asignar */}
-          <option value="unassigned">Sin asignar</option>
-          {users &&
-            users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
-            ))}
-        </select>
+      <div className="table-actions-top">
+        {/* 1. BUSCADOR (Ocupará el espacio disponible) */}
+        <div className="search-container">
+          <div className="search-wrapper">
+            <i className="uil uil-search"></i>
+            <input
+              type="text"
+              placeholder="Buscar por título o categoría..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
 
-        {/* 5. FILTRO DE PRIORIDADES (CONECTAR useFilters) */}
-        <select
-          value={filters.prioridad || ""} // Añade el valor de la prioridad
-          onChange={(e) => updateFilter("prioridad", e.target.value)}
-        >
-          <option value="">Todas las prioridades</option>
-          <option value="Baja">Baja</option>
-          <option value="Media">Media</option>
-          <option value="Alta">Alta</option>
-        </select>
-      </div>
+        {/* 2. FILTROS Y BOTONES (Agrupados al final) */}
+        <div className="controls-container">
+          <div className="filters-row">
+            <select
+              className="filter-select"
+              value={filters.estado || ""}
+              onChange={(e) => updateFilter("estado", e.target.value)}
+            >
+              <option value="">Estado</option>
+              <option value="draft">Borrador</option>
+              <option value="review">En Revisión</option>
+              <option value="published">Publicado</option>
+            </select>
 
-      <div className="actions-group">
-        {/* 1. BOTÓN CREAR BLOG */}
-        <button
-          className="btn-create"
-          onClick={() => setIsModalOpen(true)}
-          disabled={loadingBlogs}
-        >
-          + Crear Blog
-        </button>
+            <select
+              className="filter-select"
+              disabled={loadingUsers}
+              value={filters.assigned_to || ""}
+              onChange={(e) => updateFilter("assigned_to", e.target.value)}
+            >
+              <option value="">Asignado</option>
+              <option value="unassigned">Sin asignar</option>
+              {users?.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
 
-        {/* 2. BOTÓN BORRAR FILTROS (Debajo de Crear Blog) */}
-        {(Object.keys(filters).length > 0 || searchTerm) && (
-          <button
-            className="btn-clear-filters"
-            onClick={() => {
-              clearAllFilters(); // Limpia los filtros
-              setSearchTerm(""); // Limpia la búsqueda
-            }}
-            title="Restablecer todos los filtros y la búsqueda"
-          >
-            <i className="uil uil-times-circle"></i> Borrar Filtros
-          </button>
-        )}
+            <select
+              className="filter-select"
+              value={filters.prioridad || ""}
+              onChange={(e) => updateFilter("prioridad", e.target.value)}
+            >
+              <option value="">Prioridad</option>
+              <option value="Baja">Baja</option>
+              <option value="Media">Media</option>
+              <option value="Alta">Alta</option>
+            </select>
+          </div>
+
+          <div className="button-group">
+            {(Object.keys(filters).length > 0 || searchTerm) && (
+              <button
+                className="btn-clear-filters"
+                onClick={() => {
+                  clearAllFilters();
+                  setSearchTerm("");
+                }}
+              >
+                <i className="uil uil-refresh"></i>
+              </button>
+            )}
+            {isAdminUser(currentUser?.id) && (
+              <button
+                className="btn-create-new"
+                onClick={() => setIsModalOpen(true)}
+              >
+                <i className="uil uil-plus"></i> Nuevo Blog
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
 
-    <h3>Últimos Archivos Generados</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Título</th>
-          <th>Proyecto (Categoría)</th>
-          <th>Asignado a</th>
-          <th>Estado</th>
-          <th>Prioridad</th>
-          <th>Última modificación</th>
-          <th>Opciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {loadingBlogs && !blogsToDisplay.length ? (
+    <div className="table-container shadow-sm">
+      <table className="modern-table">
+        <thead>
           <tr>
-            <td colSpan="7">Cargando datos...</td>
+            <th>Título del Contenido</th>
+            <th>Categoría</th>
+            <th>Asignado</th>
+            <th>Estado</th>
+            <th>Prioridad</th>
+            <th>Modificación</th>
+            <th style={{ textAlign: "right" }}>Acciones</th>
           </tr>
-        ) : (
-          // ITERAR sobre la lista FINAL filtrada y buscada: blogsToDisplay
-          (blogsToDisplay || []).map((blog) => (
-            <TableRow
-              key={blog.id}
-              blog={blog}
-              onDelete={handleDeleteBlog}
-              onEditClick={handleEditClick}
-              assignedUsers={users}
-              onAssign={handleAssignBlog}
-            />
-          ))
-        )}
-
-        {!(blogsToDisplay || []).length && !loadingBlogs && (
-          <tr>
-            <td colSpan="7" style={{ textAlign: "center", padding: "20px" }}>
-              No hay resultados que coincidan con los filtros/búsqueda.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {loadingBlogs && !blogsToDisplay.length ? (
+            <tr>
+              <td colSpan="7" className="text-center py-4">
+                Cargando datos...
+              </td>
+            </tr>
+          ) : (
+            (blogsToDisplay || []).map((blog) => (
+              <TableRow
+                key={blog.id}
+                blog={blog}
+                onDelete={handleDeleteBlog}
+                onEditClick={() => handleEditClick(blog)}
+                onViewClick={() => handleViewClick(blog.id)}
+                onAssign={() => handleAssignBlog(blog)}
+                currentUser={currentUser}
+                assignedUsers={users}
+              />
+            ))
+          )}
+          {!(blogsToDisplay || []).length && !loadingBlogs && (
+            <tr>
+              <td colSpan="7" className="text-center py-5">
+                No se encontraron resultados
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   </section>
 );
 

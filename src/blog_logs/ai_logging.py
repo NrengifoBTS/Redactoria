@@ -15,6 +15,7 @@ class BlogAILoggingService:
     """
 
     @staticmethod
+    @staticmethod
     def log_generation(
         db: Session,
         blog_id: UUID,
@@ -23,27 +24,33 @@ class BlogAILoggingService:
         scraping_id: Optional[UUID] = None
     ) -> Optional[BlogAIGenerationLog]:
         try:
-            # Buscamos si ya existe un log para este blog
+            # 1. Buscamos si ya existe un registro para este blog
             existing_log = db.query(BlogAIGenerationLog).filter(
                 BlogAIGenerationLog.blog_id == blog_id
             ).first()
 
             if existing_log:
-                # --- CAMBIO CLAVE: PROTECCIÓN DE DATOS INICIALES ---
-                # Si titles_before ya tiene contenido, no hacemos nada y retornamos el log existente
-                if existing_log.titles_before:
-                    logging.info(f"skipping log_generation: Baseline already exists for blog {blog_id}")
-                    return existing_log
+                # --- LÓGICA DE CONTEO ---
+                # Incrementamos siempre que se entre aquí (clic en generar estructura)
+                # Usamos (valor o 0) por si la columna está nula inicialmente
+                existing_log.generation_counts = (existing_log.generation_counts or 0) + 1
                 
-                # Si existía el registro pero estaba vacío (por algún error previo), lo llenamos
-                existing_log.titles_before = titles_before
-                if structure_before:
-                    existing_log.structure_before = structure_before
+                # --- PROTECCIÓN DE DATOS INICIALES ---
+                # Solo actualizamos titles/structure si están vacíos (primera vez real)
+                if not existing_log.titles_before:
+                    existing_log.titles_before = titles_before
+                    if structure_before:
+                        existing_log.structure_before = structure_before
+                    logging.info(f"✓ Baseline data saved for blog {blog_id}")
+                else:
+                    logging.info(f"✓ Incrementing generation count for blog {blog_id}. Baseline preserved.")
+
                 existing_log.created_at = datetime.now(timezone.utc)
                 db.commit()
                 return existing_log
+
             else:
-                # Si no existe registro, lo creamos por primera vez
+                # 2. Si no existe registro, lo creamos con conteo inicial = 1
                 new_generation = BlogAIGenerationLog(
                     blog_id=blog_id,
                     scraping_id=scraping_id,
@@ -51,16 +58,19 @@ class BlogAILoggingService:
                     structure_before=structure_before or [], 
                     prompt_used="Generación inicial Baseline",
                     model_name="gpt-4o",
-                    raw_ai_output={} 
+                    raw_ai_output={},
+                    generation_counts=1  # <--- Iniciamos el contador
                 )
                 db.add(new_generation)
                 db.commit()
                 db.refresh(new_generation)
                 return new_generation
+
         except Exception as e:
             db.rollback()
             logging.error(f"✗ Error en log_generation: {e}")
             return None
+
 
 
     @staticmethod

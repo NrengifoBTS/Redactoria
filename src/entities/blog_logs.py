@@ -50,6 +50,7 @@ class BlogAIGenerationLog(Base):
     titles_before = Column(JSONB, nullable=False) # Solo el esqueleto (H1, H2, H3)
     structure_before = Column(JSONB, nullable=False) # Estructura completa del blog con el primer contenido generado
 
+    generation_counts = Column(Integer, default=1, nullable=False)
     
     prompt_used = Column(Text, nullable=False)
     raw_ai_output = Column(JSONB, nullable=False) 
