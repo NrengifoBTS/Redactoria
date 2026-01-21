@@ -6,78 +6,67 @@ from collections import Counter
 from .semantic_analyzer import SemanticAnalyzer
 
 class BlogAlignmentAnalyzer:
-    """
-    Analiza la alineación entre el contenido generado por la IA y la edición final del usuario.
-    """
-
     def __init__(self):
-        """Inicializa usando una instancia de SemanticAnalyzer para procesar texto."""
         self.semantic_analyzer = SemanticAnalyzer()
         self.nlp = self.semantic_analyzer.nlp  
 
-    def calculate_alignment_shift_score(
-        self,
-        ai_baseline_text: str,
-        final_content_text: str
-    ) -> float:
-        """
-        Calcula el Alignment Shift Score (ASS) entre la base de la IA y el texto final.
-        """
+    def calculate_alignment_shift_score(self, ai_baseline_text: str, final_content_text: str) -> float:
         if not ai_baseline_text or not final_content_text:
             return 0.0
-
         analysis = self.semantic_analyzer.analyze_edit(ai_baseline_text, final_content_text)
         return analysis.get("similarity_score", 0.0)
 
-    def analyze_structural_alignment(self, ai_json: List[Dict], final_json: List[Dict]) -> Dict[str, Any]:
-        """
-        Analiza qué tanto cambió la JERARQUÍA del blog (títulos H2/H3).
-        """
-        # Extraemos títulos ignorando vacíos y espacios extra
-        ai_titles = [s.get('text', '').strip().lower() for s in ai_json if s.get('text')]
-        final_titles = [s.get('text', '').strip().lower() for s in final_json if s.get('text')]
-        
-        if not ai_titles:
-            return {
-                "retention_score": 1.0 if not final_titles else 0.0,
-                "original_count": 0,
-                "final_count": len(final_titles),
-                "was_reordered": False
-            }
+    def analyze_structural_alignment(self, ai_structure: List[Dict], final_structure: List[Dict]) -> Dict[str, Any]:
+        if not ai_structure or not final_structure:
+            return {"retention_score": 0, "status": "incomplete"}
 
-        # Encontrar cuántos títulos originales sobrevivieron
-        matches = set(ai_titles).intersection(set(final_titles))
-        structure_retention = len(matches) / len(ai_titles)
+        ai_ids = [block.get('uniqueId') for block in ai_structure if block.get('uniqueId')]
+        final_ids = [block.get('uniqueId') for block in final_structure if block.get('uniqueId')]
+
+        matches = set(ai_ids).intersection(set(final_ids))
+        retention_score = len(matches) / len(ai_ids) if ai_ids else 0
+
+        added_by_user = [uid for uid in final_ids if uid not in ai_ids]
+        common_ai_order = [uid for uid in ai_ids if uid in matches]
+        common_final_order = [uid for uid in final_ids if uid in matches]
         
+        was_reordered = common_ai_order != common_final_order
+
         return {
-            "retention_score": round(structure_retention, 2),
-            "original_count": len(ai_titles),
-            "final_count": len(final_titles),
-            "was_reordered": ai_titles != final_titles and structure_retention > 0.7
+            "retention_score": round(retention_score, 4), # Score para la columna de la DB
+            "sections_kept": len(matches),
+            "sections_added": len(added_by_user),
+            "sections_removed": len(ai_ids) - len(matches),
+            "was_reordered": was_reordered,
+            "alignment_rating": "high" if retention_score > 0.8 else "moderate" if retention_score > 0.5 else "low"
         }
 
-    def extract_formatting_patterns(self, html_content: str) -> Dict[str, Any]:
-        """
-        Extrae patrones de formato para entender el estilo visual del redactor.
-        """
-        if not html_content:
-            return {"tags_count": {}, "rich_text_density": 0}
+    def extract_formatting_patterns(self, structure: List[Dict]) -> Dict[str, Any]:
+        """Complemento: Extrae qué tanto formatea el usuario el texto"""
+        total_content = ""
+        levels = Counter()
+        multimedia_count = 0
 
-        tags = self._extract_html_tags(html_content)
-        total_tags = sum(tags.values())
+        for block in structure:
+            total_content += block.get('content', '')
+            levels[block.get('level', 'p')] += 1
+            if block.get('multimedia') and block.get('multimedia') != "NONE":
+                multimedia_count += 1
+
+        tags = self._extract_html_tags(total_content)
         
         return {
-            "tags_count": dict(tags),
-            "rich_text_density": round(total_tags / len(html_content), 4) if len(html_content) > 0 else 0,
-            "prefers_lists": tags['li'] > 0 or tags['ul'] > 0,
-            "prefers_emphasis": (tags['strong'] + tags['b']) > 2
+            "hierarchy_distribution": dict(levels),
+            "multimedia_density": round(multimedia_count / len(structure), 2) if structure else 0,
+            "formatting_habits": {
+                "uses_bold": tags['strong'] > 0 or tags['b'] > 0,
+                "uses_lists": tags['li'] > 0,
+                "avg_bold_per_section": round(tags['strong'] / len(structure), 2) if structure else 0
+            }
         }
 
     def _extract_html_tags(self, html_content: str) -> Counter:
-        """Extrae todas las etiquetas HTML y sus conteos."""
-        if not html_content:
-            return Counter()
-        # Captura el nombre de la etiqueta (p, strong, li, etc.)
+        if not html_content: return Counter()
         tag_pattern = r'<(\w+)(?:\s|>)'
         tags = re.findall(tag_pattern, html_content)
         return Counter(tags)

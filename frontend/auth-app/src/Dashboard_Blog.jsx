@@ -845,8 +845,19 @@ export const DashboardBlog = () => {
   const statsData = useMemo(() => {
     const totalBlogs = blogs ? blogs.length : 0;
     return [
-      { value: "0", label: "Visitas Totales" },
       { value: totalBlogs, label: "Artículos Generados" },
+      {
+        value: blogs.filter((blog) => blog.estado === "published").length,
+        label: "Publicados",
+      },
+      {
+        value: blogs.filter((blog) => !blog.assigned_to).length,
+        label: "Sin Asignar",
+      },
+      {
+        value: blogs.filter((blog) => blog.estado === "review").length,
+        label: "En progreso",
+      },
     ];
   }, [blogs]);
 
@@ -935,6 +946,47 @@ export const DashboardBlog = () => {
             </a>
           </nav>
 
+          <nav>
+            {/*BOTON DE METRICAS */}
+            <a
+              href="/blog_metrics"
+              style={{
+                textDecoration: "none",
+                fontSize: "0.85rem",
+                color: "#66a175",
+                fontWeight: "700",
+                padding: "0.6rem 1.2rem",
+                borderRadius: "0.75rem",
+                backgroundColor: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              }}
+              // Efectos dinámicos con JS para el hover
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "#3fb21f";
+                e.currentTarget.style.color = "#ffffff";
+                e.currentTarget.style.borderColor = "#3bf64e";
+                e.currentTarget.style.boxShadow =
+                  "0 0 15px rgba(59, 130, 246, 0.5)"; // Efecto de iluminación
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "#f8fafc";
+                e.currentTarget.style.color = "#475569";
+                e.currentTarget.style.borderColor = "#e2e8f0";
+                e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              <i className="uil uil-estate" style={{ fontSize: "1.1rem" }}></i>
+              <span>METRICAS</span>
+            </a>
+          </nav>
+
           {/* SECCIÓN DEL USUARIO MEJORADA */}
           {currentUser && (
             <div
@@ -1011,10 +1063,17 @@ export const DashboardBlog = () => {
 
       <main className="container">
         <section className="stats">
-          {statsData.map((stat, idx) => (
-            <div className="stat-card" key={idx}>
-              <h2>{stat.value}</h2>
+          {statsData.map((stat, index) => (
+            <div key={index} className="stat-card">
+              <div className="stat-icon">
+                {/* Asignación lógica de iconos según el índice o label */}
+                {index === 0 && <i className="uil uil-files-landscapes"></i>}
+                {index === 1 && <i className="uil uil-check-circle"></i>}
+                {index === 2 && <i className="uil uil-user-exclamation"></i>}
+                {index === 3 && <i className="uil uil-sync"></i>}
+              </div>
               <p>{stat.label}</p>
+              <h2>{stat.value}</h2>
             </div>
           ))}
         </section>

@@ -7,6 +7,9 @@ from src.auth.service import CurrentUser
 from . import models 
 from .edit_logging import BlogEditLoggingService
 from .ai_logging import BlogAILoggingService
+from .alignment_analyzer import BlogAlignmentAnalyzer
+from src.entities.blog_logs import BlogStructureLog
+from sqlalchemy import func
 
 router = APIRouter(
     prefix="/logs_blog",
@@ -98,3 +101,55 @@ def _process_ai_generation_log(db: DbSession, request: models.LogAIGenerationReq
         )
     except Exception as e:
         logging.error(f"✗ Error: {e}")
+
+
+@router.get("/analytics/{blog_id}", response_model=Dict[str, Any])
+def get_blog_analytics(blog_id: UUID, db: DbSession):
+    """
+    Endpoint que consumirá el Dashboard en React.
+    Devuelve los scores y el detalle de cambios por sección.
+    """
+    log = db.query(BlogStructureLog).filter(BlogStructureLog.blog_id == blog_id).first()
+    
+    if not log:
+        raise HTTPException(status_code=404, detail="No hay análisis disponibles para este blog")
+
+    # Retornamos los datos limpios para los gráficos de React
+    return {
+        "blog_id": log.blog_id,
+        "scores": {
+            "semantic": log.semantic_score,   # Para un gráfico de aguja o dona
+            "alignment": log.alignment_score # Para medir la fidelidad estructural
+        },
+        "summary": log.change_summary, # Aquí van las entidades_added y tone_shift
+        "created_at": log.created_at
+    }
+
+@router.get("/analytics/global/summary")
+def get_global_blog_analytics(db: DbSession):
+    from src.entities.blog_logs import BlogStructureLog
+    
+    # Calculamos promedios globales
+    stats = db.query(
+        func.avg(BlogStructureLog.semantic_score).label("avg_semantic"),
+        func.avg(BlogStructureLog.alignment_score).label("avg_alignment"),
+        func.count(BlogStructureLog.id).label("total_logs")
+    ).first()
+
+    # Obtenemos los últimos 10 logs para ver la tendencia
+    recent_logs = db.query(BlogStructureLog).order_by(BlogStructureLog.created_at.desc()).limit(10).all()
+
+    return {
+        "global_scores": {
+            "avg_semantic": round(stats.avg_semantic or 0, 4),
+            "avg_alignment": round(stats.avg_alignment or 0, 4),
+            "total_analyzed": stats.total_logs
+        },
+        "history": [
+            {
+                "date": log.created_at.strftime("%d/%m"),
+                "semantic": log.semantic_score,
+                "alignment": log.alignment_score
+            } for log in reversed(recent_logs)
+        ]
+    }

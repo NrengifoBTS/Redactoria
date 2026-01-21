@@ -9,6 +9,7 @@ import Home from "./Home";
 import { AppProvider } from "./context/AppContext";
 import BlogGeneracion from "./Blog_Generacion";
 import Dashboard_Blog from "./Dashboard_Blog";
+import BlogMetrics from "./BlogMetrics";
 
 function App() {
   return (
@@ -22,6 +23,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/blog/edit/:blogId" element={<BlogGeneracion />} />
           <Route path="/dashboard_blog" element={<Dashboard_Blog />} />
+          <Route path="/blog_metrics" element={<BlogMetrics />} />
+          <Route path="*" element={<div>404 Not Found</div>} />
         </Routes>
       </Router>
     </AppProvider>

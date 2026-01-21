@@ -18,6 +18,7 @@ es_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/es
 httpx
 python-docx
 htmldocx
+es_core_news_sm
 
 
 cloudscraper

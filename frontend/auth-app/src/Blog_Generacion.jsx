@@ -2628,18 +2628,172 @@ const GeneracionBlog = () => {
       <ToastNotification toast={toast} /> {/* Renderizar la notificación */}
       <div className="blog-generation-page">
         {/* Header */}
-        <header className="navbar">
-          <a href="/dashboard_blog" className="btn-generate-image">
-            Volver al Dashboard
-          </a>
-          <h1>Generación de Blog</h1>
+        <header
+          className="navbar"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "0.75rem 2rem",
+            backgroundColor: "#ffffff",
+            borderBottom: "1px solid #e2e8f0",
+            boxShadow:
+              "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
+          }}
+        >
+          {/* Sección Izquierda: Título */}
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "1.80rem",
+                fontWeight: "800",
+                color: "#0f172a",
+                letterSpacing: "-0.025em",
+              }}
+            >
+              Generación <span style={{ color: "#3b82f6" }}>Blogs</span>
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "1.00rem",
+                color: "#64748b",
+                fontWeight: "500",
+              }}
+            >
+              Sistema de gestión de contenido
+            </p>
+          </div>
 
-          {/* Derecha: Usuario (Mismo estilo que Dashboard) */}
-          <div className="header-right">
+          {/* Sección Derecha: Nav y Usuario */}
+          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+            <nav>
+              <a
+                href="/"
+                style={{
+                  textDecoration: "none",
+                  fontSize: "0.85rem",
+                  color: "#475569",
+                  fontWeight: "700",
+                  padding: "0.6rem 1.2rem",
+                  borderRadius: "0.75rem",
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.6rem",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                }}
+                // Efectos dinámicos con JS para el hover
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = "#3b82f6";
+                  e.currentTarget.style.color = "#ffffff";
+                  e.currentTarget.style.borderColor = "#3b82f6";
+                  e.currentTarget.style.boxShadow =
+                    "0 0 15px rgba(59, 130, 246, 0.5)"; // Efecto de iluminación
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = "#f8fafc";
+                  e.currentTarget.style.color = "#475569";
+                  e.currentTarget.style.borderColor = "#e2e8f0";
+                  e.currentTarget.style.boxShadow =
+                    "0 1px 2px rgba(0,0,0,0.05)";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                <i
+                  className="uil uil-estate"
+                  style={{ fontSize: "1.1rem" }}
+                ></i>
+                <span>Volver al Home</span>
+              </a>
+            </nav>
+
+            <nav>
+              {/*BOTON DE Dashboard */}
+              <a
+                href="/dashboard_blog"
+                style={{
+                  textDecoration: "none",
+                  fontSize: "0.85rem",
+                  color: "#66a175",
+                  fontWeight: "700",
+                  padding: "0.6rem 1.2rem",
+                  borderRadius: "0.75rem",
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.6rem",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                }}
+                // Efectos dinámicos con JS para el hover
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = "#3fb21f";
+                  e.currentTarget.style.color = "#ffffff";
+                  e.currentTarget.style.borderColor = "#3bf64e";
+                  e.currentTarget.style.boxShadow =
+                    "0 0 15px rgba(59, 130, 246, 0.5)"; // Efecto de iluminación
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = "#f8fafc";
+                  e.currentTarget.style.color = "#475569";
+                  e.currentTarget.style.borderColor = "#e2e8f0";
+                  e.currentTarget.style.boxShadow =
+                    "0 1px 2px rgba(0,0,0,0.05)";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                <i
+                  className="uil uil-estate"
+                  style={{ fontSize: "1.1rem" }}
+                ></i>
+                <span>Dashboard Blog</span>
+              </a>
+            </nav>
+
+            {/* SECCIÓN DEL USUARIO MEJORADA */}
             {currentUser && (
-              <div className="user-pill">
-                {/* Avatar */}
-                <div className="user-avatar">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.85rem",
+                  padding: "0.4rem",
+                  paddingRight: "1rem",
+                  backgroundColor: "#ffffff",
+                  borderRadius: "9999px", // Estilo píldora
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {/* Avatar con gradiente y borde */}
+                <div
+                  style={{
+                    width: "2.5rem",
+                    height: "2.5rem",
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                    fontSize: "0.9rem",
+                    fontWeight: "700",
+                    boxShadow: "0 2px 4px rgba(37, 99, 235, 0.2)",
+                    border: "2px solid #fff",
+                  }}
+                >
                   {currentUser.avatar ||
                     (currentUser.first_name || currentUser.last_name
                       ? `${(currentUser.first_name?.[0] || "").toUpperCase()}${(currentUser.last_name?.[0] || "").toUpperCase()}`
@@ -2647,11 +2801,27 @@ const GeneracionBlog = () => {
                 </div>
 
                 {/* Textos: Nombre y Rol */}
-                <div className="user-info">
-                  <span className="user-name">
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: "700",
+                      color: "#1e293b",
+                      lineHeight: "1.1",
+                    }}
+                  >
                     {currentUser.name || currentUser.first_name}
                   </span>
-                  <span className="user-role">
+                  <span
+                    style={{
+                      fontSize: "0.7rem",
+                      fontWeight: "600",
+                      color: "#2b76ef", // Color del rol para resaltar
+                      textTransform: "uppercase",
+                      letterSpacing: "0.025em",
+                      marginTop: "2px",
+                    }}
+                  >
                     {isAdminUser(currentUser.id)
                       ? "Administrador"
                       : isEditorUser(currentUser.id)
@@ -3235,6 +3405,8 @@ const GeneracionBlog = () => {
                     <option value="linea_tiempo">
                       Línea de Tiempo / Evolución Histórica
                     </option>
+                    <option value="tabla_comparativa">Tabla Comparativa</option>
+                    <option value="cronograma">Cronograma</option>
                   </select>
                 </div>
                 {/* FIN : Seleccion de formato */}

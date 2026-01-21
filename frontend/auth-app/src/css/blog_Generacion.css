@@ -364,7 +364,7 @@ select {
 
 .generadores-derecha {
   flex: 1 1 50%;
-  height: calc(100vh - 100px); /* Ajuste para no chocar con el borde */
+  height: calc(99vh); /* Ajuste para no chocar con el borde */
   overflow-y: auto;
   background-color: #f8fafc; /* Gris ultra claro para diferenciar del fondo */
   padding: 0; /* Quitamos padding para que la cabecera llegue a los bordes */
@@ -786,110 +786,110 @@ select {
 /* ============================================= */
 /* VISTA DOCUMENTO - EDICIÓN PREMIUM            */
 /* ============================================= */
-/* ============================================= */
-/* VISTA DOCUMENTO - MAXIMIZADA Y MODERNA        */
-/* ============================================= */
 
 .blog-document-window {
-  background-color: #ffffff;
-  /* Reducimos el padding para ganar espacio útil */
-  padding: 2rem 2.5rem;
-  margin: 0; /* Eliminamos márgenes externos */
-  width: 100%; /* Ocupa todo el ancho disponible */
-  max-width: none; /* Quitamos la restricción de 800px */
-  min-height: auto;
-  border-radius: 0 0 16px 16px; /* Solo redondeamos abajo para encajar en el contenedor */
+  margin: 0 auto;
+  max-width: 800px;
   border: none;
-  box-shadow: none; /* Eliminamos sombras pesadas que restan espacio visual */
-
-  font-family:
-    "Inter",
-    -apple-system,
-    sans-serif;
-  line-height: 1.6;
-  color: #1e293b;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-/* 1. TÍTULOS OPTIMIZADOS */
+/* 1. SOPORTE DE TIPOGRAFÍAS (Quill) */
+.blog-document-window .ql-font-serif {
+  font-family: "Georgia", serif !important;
+}
+.blog-document-window .ql-font-monospace {
+  font-family: "Fira Code", "Courier New", monospace !important;
+}
+
+/* 2. SOPORTE DE TAMAÑOS (Más balanceados) */
+.blog-document-window .ql-size-small {
+  font-size: 0.85rem !important;
+}
+.blog-document-window .ql-size-large {
+  font-size: 1.75rem !important;
+  line-height: 1.3;
+}
+.blog-document-window .ql-size-huge {
+  font-size: 2.5rem !important;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+
+/* 3. TÍTULOS ELEGANTES */
+.blog-title,
+.section-h2,
+.subsection-h3 {
+  color: #1a1a1a;
+  font-family: inherit;
+  word-break: break-word;
+  font-weight: 700;
+  margin-top: 0;
+}
+
 .blog-title {
-  font-size: 2.5rem; /* Tamaño más balanceado para pantallas */
-  font-weight: 800;
-  line-height: 1.2;
-  color: #0f172a;
+  font-size: 2.8rem;
   margin-bottom: 1.5rem;
-  letter-spacing: -0.02em;
+  /* Línea decorativa sutil debajo del título principal */
+  border-bottom: 3px solid #f1f3f5;
+  padding-bottom: 1rem;
 }
 
 .section-h2 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 1.8rem;
   margin-top: 2.5rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #f1f5f9; /* Línea sutil a lo ancho para separar secciones */
+  margin-bottom: 1.2rem;
+  border-left: 5px solid #423d89; /* Un toque de color de tu marca */
+  padding-left: 15px;
 }
 
 .subsection-h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #475569;
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  display: flex;
-  align-items: center;
+  font-size: 1.4rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: #4a5568;
 }
 
-/* 2. BLOQUES DE CONTENIDO (APROVECHANDO EL ANCHO) */
-.content-block p {
-  margin-bottom: 1.25rem;
-  font-size: 1.05rem;
-  color: #334155;
-  max-width: 100%; /* El texto se expande */
-  text-align: justify; /* Opcional: para un look más ordenado en anchos grandes */
-}
-
-/* 3. IMÁGENES DINÁMICAS */
-.blog-document-window img {
-  width: 100%;
-  max-height: 400px; /* Evitamos que imágenes verticales ocupen toda la pantalla */
-  object-fit: cover; /* Recorte inteligente */
-  border-radius: 12px;
-  margin: 2rem 0;
-}
-
-/* 4. CONTENEDOR DE LA VISTA (Ajuste para el padre) */
-.blog-view-toggle-container {
-  padding: 0; /* Eliminamos el espacio extra del contenedor padre */
-  display: flex;
-  flex-direction: column;
-}
-
-/* Botón de descarga pegado a la derecha pero discreto */
-.btn-download {
-  align-self: flex-end;
-  margin: 15px 25px 0 0;
-  height: 40px;
-  font-size: 0.9rem;
-}
-
-/* 5. LISTAS EN DOS COLUMNAS (Si hay mucho espacio) */
-.blog-document-window ul {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 10px;
-  padding-left: 1.2rem;
+/* 4. BLOQUES DE CONTENIDO Y PÁRRAFOS */
+.content-block {
   margin-bottom: 1.5rem;
 }
 
+.content-block p {
+  margin-bottom: 1.2rem;
+  font-size: 1.1rem;
+  color: #4a5568;
+}
+
+/* Imágenes dentro del contenido para que sean responsivas */
+.blog-document-window img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+/* 5. RESPONSIVE (Ajustes para tablets y móviles) */
 @media (max-width: 768px) {
   .blog-document-window {
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
+    margin: 10px auto;
+    width: 98%;
   }
-  .blog-document-window ul {
-    grid-template-columns: 1fr;
+
+  .blog-title {
+    font-size: 2rem;
+  }
+  .section-h2 {
+    font-size: 1.5rem;
+  }
+  .subsection-h3 {
+    font-size: 1.2rem;
   }
 }
+
 /* 6. PLACEHOLDER MEJORADO */
 .blog-view-placeholder {
   padding: 80px 20px;

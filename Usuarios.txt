@@ -57,5 +57,6 @@
 {
   "email": "miguelm@redactoria.com",
   "first_name": "Miguel",
-  "last_name": "Martinez"
+  "last_name": "Martinez",
+  "password": "MiguelMia2025"
 }

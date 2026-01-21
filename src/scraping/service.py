@@ -1277,6 +1277,10 @@ class AIService:
             format_instruction = "El contenido debe usar un formato de Mito vs. Realidad para desmentir conceptos erróneos. Cada punto debe tener una línea para el Mito y la siguiente línea para la Realidad (en formato de párrafo explicativo)."
         elif content_type == "linea_tiempo":
             format_instruction = "El contenido debe ser una línea de tiempo cronológica. Utiliza una lista numerada donde cada punto represente un hito o evento en la secuencia temporal, incluyendo el año o la fecha al inicio de cada punto."
+        elif content_type == "Cronograma":
+            format_instruction = "El contenido debe presentarse como un cronograma detallado. Utiliza una lista numerada donde cada punto represente una actividad o evento programado, incluyendo la hora o el período al inicio de cada punto."
+        elif content_type == "Tabla Comparativa":
+            format_instruction = "El contenido debe estructurarse como una tabla comparativa en formato de texto plano. Cada fila debe representar un criterio de comparación, y cada columna debe representar un elemento a comparar. Usa viñetas para listar las características bajo cada criterio."
         else: 
             format_instruction = (
                 "Tu tarea es generar el contenido utilizando el formato que consideres más apropiado (párrafos y listas con viñetas) para el tema de la sección. "
