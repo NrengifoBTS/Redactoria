@@ -19,6 +19,7 @@
   "password": "CamilaCIA2025"
 }
 
+
 {
   "email": "mariab@redactoria.com",
   "first_name": "Maria",
@@ -60,3 +61,5 @@
   "last_name": "Martinez",
   "password": "MiguelMia2025"
 }
+
+

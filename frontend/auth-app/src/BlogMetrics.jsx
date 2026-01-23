@@ -176,7 +176,10 @@ const BlogMetrics = ({ blogId, onBack }) => {
                 e.currentTarget.style.transform = "translateY(0)";
               }}
             >
-              <i className="uil uil-estate" style={{ fontSize: "1.1rem" }}></i>
+              <i
+                className="uil uil-dashboard"
+                style={{ fontSize: "1.1rem" }}
+              ></i>
               <span>Dashboard Blog</span>
             </a>
           </nav>

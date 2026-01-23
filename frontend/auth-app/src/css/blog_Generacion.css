@@ -689,7 +689,6 @@ select {
   display: flex;
   gap: 20px;
   align-items: flex-start;
-  margin-bottom: 15px;
 }
 
 .has-suggestions-flex > textarea {
@@ -831,7 +830,6 @@ select {
 
 .blog-title {
   font-size: 2.8rem;
-  margin-bottom: 1.5rem;
   /* Línea decorativa sutil debajo del título principal */
   border-bottom: 3px solid #f1f3f5;
   padding-bottom: 1rem;

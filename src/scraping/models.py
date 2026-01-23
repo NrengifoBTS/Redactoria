@@ -52,7 +52,8 @@ class ScrapeResponse(BaseModel):
 
 class PeticionGeneracionContenido(BaseModel):
     """Modelo para la petición de generación de contenido de una sección específica (H2/H3/H4)."""
-    blog_id: Optional[UUID] = None
+    # Usamos Union[UUID, str] porque si el front envía "", el validador de UUID falla.
+    blog_id: Optional[Union[UUID, str]] = None
     query: Optional[str] = None
     consolidated_content: Optional[str] = None
     idioma: Optional[str] = None
@@ -60,17 +61,18 @@ class PeticionGeneracionContenido(BaseModel):
     tono: Optional[str] = None
     tecnica: Optional[str] = None 
     
-    # Campos que el frontend añade y Pydantic debe aceptar
-    keywords: Optional[List[str]] = Field(None)
-    section_type: Optional[str] = Field(None)
-    # Campo CRÍTICO: el diccionario anidado que contiene los datos específicos
-    regenerate_data: Dict[str, Any] = Field(None)
+    # IMPORTANTE: Cambiar Field(None) por default_factory para evitar errores de iteración
+    keywords: List[str] = Field(default_factory=list)
+    section_type: Optional[str] = None
+    
+    # Aseguramos que siempre sea un diccionario
+    regenerate_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class AIAnalysisRequest(BaseModel):
     """Modelo para la petición de análisis o generación de IA (motor LLM)."""
-    blog_id: Optional[UUID] = None
-    query:  Optional[str] = None
+    blog_id: Optional[Union[UUID, str]] = None
+    query: Optional[str] = None
     consolidated_content: Optional[str] = None
     keywords: List[str] = Field(default_factory=list)
     results: Optional[List[ScrapeResult]] = None
@@ -81,25 +83,32 @@ class AIAnalysisRequest(BaseModel):
     tecnica: Optional[str] = None
     acento: Optional[str] = None
     tono: Optional[str] = None
-    main_title: Optional[str] =  Field(None)
+    main_title: Optional[str] = Field(None)
+    
+    # Agregamos project para que no de error si el front lo envía (o para usar el default)
+    project: Optional[str] = "viajemos"
+    
     max_length: int = Field(default=500)
 
-    # Campos para Presupuesto Dinámico y Conteo Regresivo
-    palabras_acumuladas: Optional[int] =  Field(None)
-    subsecciones_pendientes: Optional[int] =  Field(None)
-    limite_palabras_bloque: Optional[int] =  Field(None)
-    total_sections: Optional[int] =  Field(None)
-    total_word_budget: Optional[int] =  Field(None)
+    # Valores por defecto numéricos para evitar que 'None' rompa cálculos en el service
+    palabras_acumuladas: int = Field(default=0)
+    subsecciones_pendientes: int = Field(default=0)
+    limite_palabras_bloque: int = Field(default=0)
+    total_sections: Optional[int] = None
+    total_word_budget: Optional[int] = None
 
-    # Campos para Regeneración
-    section_type: Optional[str] =  Field(None)
-    previous_content: Optional[Union[str, List[str]]] =  Field(None)
-    regenerate_data: Optional[Dict[str, Any]] = Field(None)
+    # --- CORRECCIÓN CLAVE ---
+    section_type: Optional[str] = None
+    
+    # El front envía una LISTA de contenidos previos. 
+    # Usar Union[str, List[Any]] permite que acepte ambos formatos.
+    previous_content: Union[str, List[Any]] = Field(default_factory=list)
+    
+    # Cambiamos Optional por default_factory
+    regenerate_data: Dict[str, Any] = Field(default_factory=dict)
 
-    system_message: Optional[str] = Field(None)
-
-    contexto_minimo_conductor: Optional[str] = Field(None)
-
+    system_message: Optional[str] = None
+    contexto_minimo_conductor: Optional[str] = None
 # =======================================================================
 # 4. MODELOS DE PERSISTENCIA Y ACTUALIZACIÓN
 # =======================================================================

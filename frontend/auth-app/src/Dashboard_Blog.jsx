@@ -162,9 +162,9 @@ function EditBlogModal({ blog, onClose, onSubmit }) {
               required
             >
               <option value="">Selecciona una categoría</option>
-              <option value="Arriendo">Arriendo</option>
-              <option value="Viajemos">Viajemos</option>
-              <option value="Guia legal">Guía Legal</option>
+              <option value="arriendo">Arriendo</option>
+              <option value="viajemos">Viajemos</option>
+              <option value="guia_legal">Guía Legal</option>
             </select>
           </div>
 
@@ -982,8 +982,11 @@ export const DashboardBlog = () => {
                 e.currentTarget.style.transform = "translateY(0)";
               }}
             >
-              <i className="uil uil-estate" style={{ fontSize: "1.1rem" }}></i>
-              <span>METRICAS</span>
+              <i
+                className="uil uil-analytics"
+                style={{ fontSize: "1.1rem" }}
+              ></i>
+              <span>Metricas</span>
             </a>
           </nav>
 

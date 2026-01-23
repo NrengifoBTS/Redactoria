@@ -104,50 +104,38 @@ class DocumentService:
             sections.append(current_section)
         
         return sections
-    
-    def _process_html_to_word(self, html_content: str, paragraph, is_heading: bool = False):
-        """Convierte HTML con estilos inline a Word, incluyendo Quill."""
+    def _process_html_to_word(self, html_content: str, paragraph, is_heading: bool = False, doc=None):
+        """Convierte HTML con estilos inline a Word, incluyendo soporte para tablas y listas."""
         if not html_content or not html_content.strip():
             return
         
         try:
-            # Parsear HTML
             soup = BeautifulSoup(html_content, 'html.parser')
             
+            # --- FUNCIÓN INTERNA ORIGINAL (MANTENIDA) ---
             def process_node(node, current_paragraph, inherited_styles=None):
                 if inherited_styles is None:
                     inherited_styles = {}
                 
-                # Texto plano
                 if isinstance(node, str):
                     text = str(node).strip()
                     if text:
                         text = text.replace('&nbsp;', ' ').replace('\u202f', ' ')
                         if text:
                             run = current_paragraph.add_run(text + " ")
-                            
-                            # Combinar estilos heredados con estilos de Quill
                             all_styles = inherited_styles.copy()
-                            
-                            # Extraer estilos de clases Quill del nodo padre
                             if hasattr(node, 'parent') and node.parent:
                                 parent_classes = node.parent.get('class', [])
                                 if parent_classes:
                                     quill_styles = self._extract_quill_styles_from_classes(parent_classes)
                                     all_styles.update(quill_styles)
-                            
                             self._apply_css_styles(run, all_styles)
                     return
                 
-                # Elemento HTML
                 tag_name = getattr(node, 'name', None)
-                if not tag_name:
-                    return
+                if not tag_name: return
                 
-                # Copiar estilos heredados
                 current_styles = inherited_styles.copy()
-                
-                # Extraer estilos inline
                 style_attr = node.get('style', '')
                 if style_attr:
                     for style in style_attr.split(';'):
@@ -155,36 +143,70 @@ class DocumentService:
                             key, value = map(str.strip, style.split(':', 1))
                             current_styles[key.lower()] = value
                 
-                # Extraer estilos de clases Quill
                 classes = node.get('class', [])
                 if classes:
                     quill_styles = self._extract_quill_styles_from_classes(classes)
                     current_styles.update(quill_styles)
                 
-                # Procesar etiquetas de formato
-                if tag_name in ['strong', 'b']:
-                    current_styles['font-weight'] = 'bold'
-                elif tag_name in ['em', 'i']:
-                    current_styles['font-style'] = 'italic'
-                elif tag_name == 'u':
-                    current_styles['text-decoration'] = 'underline'
-                elif tag_name in ['s', 'strike', 'del']:
-                    current_styles['text-decoration'] = 'line-through'
+                if tag_name in ['strong', 'b']: current_styles['font-weight'] = 'bold'
+                elif tag_name in ['em', 'i']: current_styles['font-style'] = 'italic'
+                elif tag_name == 'u': current_styles['text-decoration'] = 'underline'
+                elif tag_name in ['s', 'strike', 'del']: current_styles['font-strike'] = 'line-through'
                 
-                # Procesar hijos
                 for child in node.children:
                     process_node(child, current_paragraph, current_styles)
-            
-            # Procesar todo
-            for child in soup.children:
-                process_node(child, paragraph)
-            
+
+            # --- LÓGICA DE DETECCIÓN DE BLOQUES (NUEVA) ---
+            for child in soup.contents:
+                tag_name = getattr(child, 'name', None)
+                
+                if tag_name in ['ul', 'ol'] and doc:
+                    self._add_list_to_word(child, doc)
+                elif tag_name == 'table' and doc:
+                    self._add_table_to_word(child, doc)
+                else:
+                    # Si es texto normal, párrafos o spans, usar la lógica original
+                    process_node(child, paragraph)
+                    
         except Exception as e:
             logging.error(f"Error procesando HTML: {e}")
+            # Fallback simple
             plain_text = re.sub(r'<[^>]*>', '', html_content)
-            plain_text = plain_text.replace('&nbsp;', ' ').replace('\u202f', ' ')
             if plain_text.strip():
                 paragraph.add_run(plain_text)
+
+    # --- MÉTODOS DE APOYO PARA TABLAS Y LISTAS ---
+
+    def _add_list_to_word(self, list_node, doc):
+        """Maneja listas <ul> y <ol>"""
+        is_ordered = list_node.name == 'ol'
+        style = 'List Number' if is_ordered else 'List Bullet'
+        for li in list_node.find_all('li', recursive=False):
+            p = doc.add_paragraph(style=style)
+            # Recursividad para mantener negritas/colores dentro del <li>
+            self._process_html_to_word(li.decode_contents(), p, doc=doc)
+
+    def _add_table_to_word(self, table_node, doc):
+        """Maneja tablas <table>"""
+        rows = table_node.find_all('tr', recursive=False)
+        if not rows: return
+        
+        # Contar columnas
+        max_cols = 0
+        for r in rows:
+            max_cols = max(max_cols, len(r.find_all(['td', 'th'], recursive=False)))
+        
+        table = doc.add_table(rows=0, cols=max_cols)
+        table.style = 'Table Grid'
+        
+        for row_node in rows:
+            row_cells = table.add_row().cells
+            cols = row_node.find_all(['td', 'th'], recursive=False)
+            for i, col in enumerate(cols):
+                if i < max_cols:
+                    # Usar el primer párrafo de la celda
+                    cell_p = row_cells[i].paragraphs[0]
+                    self._process_html_to_word(col.decode_contents(), cell_p, doc=doc)
 
     def _extract_quill_styles_from_classes(self, classes):
         """Extrae estilos de clases CSS de Quill."""
@@ -941,7 +963,7 @@ class AIService:
             }
 
         # --- PASO 1: EXTRACCIÓN DETALLADA POR BLOQUES (SIN PÉRDIDA) ---
-        # Dividimos el texto en bloques de 10,000 caracteres para procesar TODO
+        # Dividimos el texto en bloques de 10,000 caracteres para procesar todo
         chunk_size = 6000
         text_chunks = [consolidated_text[i:i+chunk_size] for i in range(0, len(consolidated_text), chunk_size)]
         
@@ -976,8 +998,7 @@ class AIService:
                 PERFIL: VIAJEMOS (Arquitectura de Experiencias y Viajes)
                     - PROHIBIDO crear H2 para un solo lugar si existen otros del mismo tipo.
                     - Reducción Técnica: Minimiza el uso de jerga técnica. Enfócate en la experiencia del usuario y en consejos prácticos.
-                    - Soluciona la intención de búsqueda con H2 claros y específicos sin extenderse a otros temas no relacionados, solamente respondemos la intencion de busqueda.
-                    - La voz del articulo no puede guiarse de a donde va o a donde viene el usuario , evita mensionar otros paises o ciudades que no esten en la intencion de busqueda
+                    - La voz del articulo no puede guiarse de a donde va o a donde viene el usuario , evita mencionar otros paises o ciudades que no esten en la intencion de busqueda
                     - En caso de ser itinerarios, cada H2 debe ser un día del itinerario y los H3 actividades dentro de ese día.
                     TONO Y ESTILO: Voz de guía experto, entusiasta y sofisticado. Títulos limpios, directos, con verbos de acción y sin signos de puntuación innecesarios.
             """,
@@ -988,7 +1009,7 @@ class AIService:
                 - Mandato de Estructura: Estructura lineal y lógica (Requisitos > Proceso > Costos > Consejos).
                 - Prioridad: Claridad absoluta en los pasos a seguir. Cada H2 debe ser una etapa del proceso.
                 - Reducción Técnica: No uses storytelling. Los títulos deben ser descriptivos y directos (ej. 'Documentos necesarios para arrendar').
-                - Estilo de Títulos: Informativos y sobrios. Usa (LISTA) frecuentemente para procesos.
+                - Estilo de Títulos: Informativos y sobrios. Usa (LISTA) o (TABLA) frecuentemente para procesos.
             """,
 
             "guia_legal": """
@@ -1001,8 +1022,9 @@ class AIService:
             """
         }
         
-        cat_key = categoria.lower().replace(" ", "_")
-        perfil_activo = EDITORIAL_PROFILES.get(cat_key, EDITORIAL_PROFILES.get("viajemos"))
+        cat_key = str(categoria).lower().strip().replace(" ", "_")
+        perfil_activo = EDITORIAL_PROFILES.get(cat_key, "PERFIL GENERAL: Estructura informativa equilibrada.")
+
 
         # -- SYSTEM MESSAGE: contexto base del modelo --
         system_message = f"""
@@ -1038,21 +1060,19 @@ class AIService:
             -Los encabezados deben ser relevantes y directamente vinculados a la intención de búsqueda.
 
         3. MÁXIMA CATEGORIZACIÓN Y EXCLUSIVIDAD (H2):
-            
             - Cada H2 debe representar una categoría o subtema distinto solucionando la intención de búsqueda.
             - Prohibición de Redundancia: No repitas temas o subtemas en múltiples H2.
             - Secuencia Lógica: Los H2 deben seguir un orden lógico que guíe al lector a través del tema.   
-            - REGLA ANTI-APÉNDICE: Prohibido crear secciones H2 o H3 para "Mapas", "Herramientas digitales", "Apps" o "Recursos". Estos elementos no son temas de lectura, son herramientas de apoyo.** 
+            - REGLA ANTI-APÉNDICE: Prohibido crear secciones H2 o H3 para "Mapas", "Herramientas digitales", "Apps" o "Recursos". Estos elementos no son temas de lectura, son herramientas de apoyo.
         
         4. DESARROLLO SEMÁNTICO Y AGRUPACIÓN (H3):
             - Cada H3 debe expandir o detallar el H2 bajo el cual se encuentra.
             - Evita H3 que no aporten valor o que sean demasiado generales.
-            - Si el titulo H2 contiene (LISTA) o (TABLA), no añadas H3 bajo ese H2.
-             
-        5. PROFUNDIDAD:
-            - Prioriza la calidad y relevancia sobre la cantidad.
-            - Si la intención de búsqueda se puede resolver en un número menor de H2/H3, hazlo.
-
+            
+        5. CRITERIO DE FORMATO (LISTA/TABLA)
+            - ¿Son Datos Duros? (Pasos, Requisitos, Precios, Plazos): Añade (LISTA) o (TABLA) al título y PROHIBIDO usar H3.
+            - ¿Es Teoría/Explicación?: No uses etiquetas y desarrolla H3 normalmente.
+        
         6. MULTIMEDIA (SUBORDINADA) (MAPAS, IMAGENES,  VIDEOS)
             - Tras cada H2 y H3:
             [MULTIMEDIA: TIPO | Descripción SEO]
@@ -1061,7 +1081,7 @@ class AIService:
             - La descripción SEO debe ser breve y directa, enfocada en la función del multimedia en el contexto del encabezado.
 
 
-        7. FORMATO DE SALIDA (OBLIGATORIO)
+        7. FORMATO DE SALIDA (OBLIGATORIO):
             - Formato: [H{{N}} - X.Y] Título del Encabezado
             - No uses Markdown.
             - No uses comillas, negritas, ni ningún otro formato a menos que sea en formato HTML.
@@ -1223,9 +1243,10 @@ class AIService:
         if required_keywords and isinstance(required_keywords, list):
             keywords_str = ', '.join(required_keywords)
             keyword_instruction = f"""
-            INSTRUCCIÓN CLAVE DE SEO: Debes incluir las siguientes palabras clave en el texto: **{keywords_str}**.
-            Es FUNDAMENTAL que te enfoques **únicamente** en el contexto de la sección '{section_title}' ({section_level}),
-            evitando estrictamente temas y palabras clave que pertenezcan a otros H2/H3 de la estructura general para evitar la redundancia y el canibalismo semántico.
+            Si el contexto lo permite y fluye de forma natural, intenta integrar estas palabras clave: **{keywords_str}**.
+            
+            REGLA DE USO: No las fuerces. Prioriza siempre la coherencia narrativa y el valor para el lector. 
+            Solo inclúyelas si aportan claridad a la sección '{section_title}'. Evita el 'keyword stuffing' (acumulación excesiva).
             """
 
         # Lógica de Contexto (Original)
@@ -1411,6 +1432,10 @@ class AIService:
             acento = getattr(req, "acento", None)
             if not idioma or not acento:
                 raise HTTPException(status_code=400, detail="Idioma/Acento requerido.")
+            
+            keywords_usuario = getattr(req, "keywords", [])
+            if isinstance(keywords_usuario, str): # Por si acaso llega como string
+                keywords_usuario = [k.strip() for k in keywords_usuario.split(",")]
 
         except (TypeError, ValueError) as e:
             raise HTTPException(status_code=400, detail=f"Error estructural: {e}")
@@ -1428,7 +1453,7 @@ class AIService:
         instruccion_longitud = ""
         if estimated_word_count > 0:
             num_sections = len([
-                line for line in full_structure_markdown.split('\n')
+                line for line in full_structure_markdown.split('\n') 
                 if re.match(r'^\[H[1-9]\s*-\s*[0-9.]+\]', line.strip())
             ]) or 1
             target_avg_words = int(estimated_word_count / num_sections)
@@ -1524,13 +1549,16 @@ class AIService:
             CONTEXTO EDITORIAL
             - Título principal: {req.main_title}
             - Idioma: {idioma}
-            - Acento: {acento}
-            - Técnica: {req.tecnica}
-            - Tono: {req.tono}
             - Autoridad SEO: Tu credibilidad se basa en la precisión. No ignores los datos técnicos del análisis; úsalos para dar peso al texto.
 
             Redacta con naturalidad humana, precisión informativa y control semántico.
             Evita texto genérico, redundante o reutilizable en otras secciones.
+
+            ESTRATEGIA SEO (PALABRAS CLAVE)
+                Es OBLIGATORIO integrar de forma natural las siguientes palabras clave en la redacción:
+                {", ".join(keywords_usuario)}
+                
+                No las amontones; distribúyelas orgánicamente donde aporten valor
 
             ---
 
@@ -1542,7 +1570,8 @@ class AIService:
             ---
 
             REGLAS CRÍTICAS DE SALIDA
-            - Devuelve únicamente un objeto JSON.
+            - Devuelve únicamente un objeto JSON unicamente con etiquetas HTML.
+            - Si algun titulo contienen (TABLA) o (LISTA), el contenido debe ser una tabla o una lista con viñetas respectivamente.
             - Las claves deben coincidir exactamente con los títulos/subtítulos.
             - Usa doble barra invertida (\\\\) para representar una barra literal (\).
 
@@ -2197,8 +2226,14 @@ class ContentExtractor:
             # Desactivamos los warnings molestos de SSL en la consola
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             
-            headers = {'User-Agent': self.ua.random}
-            
+            headers = {
+            'User-Agent': self.ua.random,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
+            'DNT': '1', # Do Not Track
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            }
             # EL CAMBIO CLAVE:
             # Usamos el scraper pero SIN el parámetro verify=False dentro del .get()
             # Cloudscraper ya se encarga de negociar el SSL correctamente.

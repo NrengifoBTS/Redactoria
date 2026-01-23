@@ -863,7 +863,12 @@ const GeneracionBlog = () => {
 
   // Función para añadir un nuevo campo de input
   const agregarCampoUrl = () => {
-    setListaUrls([...listaUrls, ""]);
+    // Solo permite agregar si hay menos de 5 elementos
+    if (listaUrls.length < 5) {
+      setListaUrls([...listaUrls, ""]);
+    } else {
+      alert("Solo puedes agregar un máximo de 5 URLs"); // Opcional
+    }
   };
 
   // Función para eliminar un campo si es necesario
@@ -1774,6 +1779,7 @@ const GeneracionBlog = () => {
       setCargandoIA(false);
     }
   }, [blogId, datosFinales, URL_API_IA, markAsChanged, showToast]);
+
   // GENERACION DE CONTENIDO PARA SECCIÓN ESPECÍFICA
   const generarContenidoSeccion = async () => {
     if (!selectedSectionForRegen) {
@@ -1833,6 +1839,22 @@ const GeneracionBlog = () => {
       }
     }
 
+    // 1. Asegurar que las keywords globales sean un Array
+    const cleanKeywords = Array.isArray(datosFinales?.keywords)
+      ? datosFinales.keywords
+      : typeof datosFinales?.keywords === "string"
+        ? datosFinales.keywords
+            .replace(/^Keywords:text\s*/i, "")
+            .split(",")
+            .map((k) => k.trim())
+            .filter((k) => k)
+        : [];
+
+    // 2. Asegurar que las keywords de la sección sean un Array
+    const sectionKeywords = Array.isArray(selectedSectionForRegen?.keywords)
+      ? selectedSectionForRegen.keywords
+      : [];
+
     const finalContextData = contextData.length > 50 ? contextData : "";
     const blogId = datosFinales.id;
 
@@ -1840,7 +1862,7 @@ const GeneracionBlog = () => {
       query: datosFinales.query,
       blog_id: blogId,
       consolidated_content: datosFinales.contenidoConsolidado,
-      keywords: datosFinales.keywords || [],
+      keywords: cleanKeywords,
       idioma: datosFinales.idioma,
       acento: datosFinales.acento,
       tono: datosFinales.tono,
@@ -2209,6 +2231,26 @@ const GeneracionBlog = () => {
         ),
       );
 
+      // 1. Obtener las keywords (asumiendo que vienen en datosFinales.keywords)
+      let rawKeywords = datosFinales?.keywords || "";
+
+      // 2. Limpiar y convertir a Array
+      let keywordsArray = [];
+
+      if (Array.isArray(rawKeywords)) {
+        // Si ya es un array, solo nos aseguramos de que sean strings
+        keywordsArray = rawKeywords.map((k) => String(k));
+      } else if (typeof rawKeywords === "string") {
+        // Si es el string "Keywords:text barrio rosales...", lo limpiamos
+        let cleanStr = rawKeywords.replace(/^Keywords:text\s*/i, ""); // Quita el prefijo si existe
+
+        // Separamos por comas y limpiamos espacios en blanco
+        keywordsArray = cleanStr
+          .split(",")
+          .map((k) => k.trim())
+          .filter((k) => k !== "");
+      }
+
       try {
         const response = await fetch(URL_API_IA_COMPLETO, {
           method: "POST",
@@ -2217,7 +2259,7 @@ const GeneracionBlog = () => {
             blog_id: idDelBlog,
             query: datosFinales?.query,
             consolidated_content: contenidoConsolidado,
-            keywords: datosFinales?.keywords || [],
+            keywords: keywordsArray,
             idioma: datosFinales?.idioma,
             acento: datosFinales?.acento,
             tono: datosFinales?.tono,
@@ -2753,7 +2795,7 @@ const GeneracionBlog = () => {
                 }}
               >
                 <i
-                  className="uil uil-estate"
+                  className="uil uil-dashboard"
                   style={{ fontSize: "1.1rem" }}
                 ></i>
                 <span>Dashboard Blog</span>
@@ -2861,15 +2903,19 @@ const GeneracionBlog = () => {
               <button
                 type="button"
                 onClick={agregarCampoUrl}
-                disabled={cargandoScraping}
-                className="btn-remove-url" /* Reutiliza tu clase de botón circular */
+                // Se deshabilita si está cargando O si ya hay 5 URLs
+                disabled={cargandoScraping || listaUrls.length >= 5}
+                className="btn-remove-url"
                 style={{
-                  background: "#e8f5e9",
-                  color: "#28a745",
+                  background: listaUrls.length >= 5 ? "#f5f5f5" : "#e8f5e9", // Cambia color si está lleno
+                  color: listaUrls.length >= 5 ? "#999" : "#28a745",
                   border: "1px solid #c8e6c9",
                   fontSize: "16px",
+                  cursor: listaUrls.length >= 5 ? "not-allowed" : "pointer",
                 }}
-                title="Añadir otra URL"
+                title={
+                  listaUrls.length >= 5 ? "Límite alcanzado" : "Añadir otra URL"
+                }
               >
                 +
               </button>
@@ -2975,24 +3021,20 @@ const GeneracionBlog = () => {
                   </p>
                 </div>
 
-                <div className="url-status-label">
-                  <span className="status-text pending">
-                    Keywords de Apoyo:
-                  </span>
-                  <div
-                    className="suggestions-container"
-                    style={{ flexDirection: "row" }}
-                  >
-                    {(datosFinales?.keywords || "")
-                      .split(",")
-                      .map((keyword, index) =>
-                        keyword.trim() ? (
-                          <span key={index} className="keyword-tag">
-                            {keyword.trim()}
-                          </span>
-                        ) : null,
-                      )}
-                  </div>
+                <span className="status-text pending">Keywords de Apoyo:</span>
+                <div
+                  className="suggestions-container"
+                  style={{ flexDirection: "row" }}
+                >
+                  {(datosFinales?.keywords || "")
+                    .split(",")
+                    .map((keyword, index) =>
+                      keyword.trim() ? (
+                        <span key={index} className="keyword-tag">
+                          {keyword.trim()}
+                        </span>
+                      ) : null,
+                    )}
                 </div>
               </div>
 
