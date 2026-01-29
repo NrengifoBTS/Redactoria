@@ -183,11 +183,11 @@ def get_active_templates_public(db: Session) -> List[Template]:
 
 def get_all_templates_for_analytics(db: Session) -> List[Template]:
     """
-    Obtener todos los templates ACTIVOS del sistema (de todos los usuarios)
-    Para uso en Analytics donde necesitamos hacer match de todas las LPs con sus templates
+    Obtener todos los templates del sistema (activos e inactivos)
+    Para uso en Analytics/Dashboard donde necesitamos ver todas las LPs con sus templates
     """
-    templates = db.query(Template).filter(Template.is_active == True).order_by(Template.created_at.desc()).all()
-    logging.info(f"Retrieved {len(templates)} active templates for analytics")
+    templates = db.query(Template).order_by(Template.created_at.desc()).all()
+    logging.info(f"Retrieved {len(templates)} templates for analytics")
     return templates
 
 def get_unique_proyectos(db: Session) -> List[str]:

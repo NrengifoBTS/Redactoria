@@ -563,6 +563,7 @@ class ApiService {
       approved: "approved",
       rev_kws: "rev_kws",
       cargue: "cargue",
+      en_it: "en_it",
       test: "test",
     };
     return mapping[frontendStatus] || "draft";
@@ -579,6 +580,7 @@ class ApiService {
       approved: "approved",
       rev_kws: "rev_kws",
       cargue: "cargue",
+      en_it: "en_it",
       test: "test",
     };
     return mapping[backendStatus] || "draft";

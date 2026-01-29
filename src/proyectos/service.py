@@ -139,13 +139,13 @@ def delete_proyecto(current_user: TokenData, db: Session, proyecto_id: UUID) -> 
         pass
     
     try:
-        # 1. 🔥 ELIMINAR LANDING PAGE PRIMERO
+        # 1. ELIMINAR LANDING PAGE PRIMERO
         landing_page = db.query(LandingPage).filter(LandingPage.proyecto_id == proyecto_id).first()
         if landing_page:
             db.delete(landing_page)
             logging.info(f"Landing page {landing_page.id} deleted for proyecto {proyecto_id}")
         
-        # 2. 🔥 ELIMINAR PROYECTO
+        # 2. ELIMINAR PROYECTO
         db.delete(proyecto)
         
         # 3. Confirmar cambios

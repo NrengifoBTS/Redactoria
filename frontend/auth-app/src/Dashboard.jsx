@@ -97,7 +97,8 @@ function Dashboard() {
     const loadTemplates = async () => {
       try {
         setLoadingTemplates(true);
-        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://192.168.1.36:8000'}/templates/public/active`);
+        // Usar endpoint que devuelve todos los templates (activos e inactivos) para filtrar proyectos
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://192.168.1.36:8000'}/templates/public/all-for-analytics`);
         if (response.ok) {
           const templatesData = await response.json();
           setTemplates(templatesData);
@@ -264,7 +265,8 @@ function Dashboard() {
       pen_ajuste: '#ef4444',       
       approved: '#059669',         
       rev_kws: '#E3AAAA',          
-      cargue: '#0ea5e9',           
+      cargue: '#0ea5e9',
+      en_it: '#6366f1',
       test: '#f97316'              
     };
     return colors[status] || '#6b7280';
@@ -281,7 +283,8 @@ function Dashboard() {
       pen_ajuste: <AlertTriangle size={16} />,   
       approved: <ThumbsUp size={16} />,          
       rev_kws: <Hash size={16} />,              
-      cargue: <Upload size={16} />,             
+      cargue: <Upload size={16} />,
+      en_it: <Clock size={16} />,
       test: <TestTube size={16} />              
     };
     return icons[status] || <Clock size={16} />;
@@ -297,6 +300,7 @@ function Dashboard() {
       apporved: 'Aprobado',
       rev_kws: 'Pendiente KWS',
       cargue: 'Cargue',
+      en_it: 'En IT',
       test: 'Test',
       completed: 'Publicado'
     };
@@ -798,6 +802,7 @@ function FilterPanel({ searchTerm, onSearchChange, filters, onFilterChange, user
           <option value="approved">Aprobado</option>
           <option value="rev_kws">Pendiente KWS</option>
           <option value="cargue">Cargue</option>
+          <option value="en_it">En IT</option>
           <option value="test">Test</option>
           <option value="completed">Publicado</option>
         </select>
@@ -1847,6 +1852,7 @@ function EditProyectoModal({ proyecto, onClose, onSubmit }) {
               <option value="approved">Aprobado</option>
               <option value="rev_kws">Pendiente KWS</option>
               <option value="cargue">Cargue</option>
+              <option value="en_it">En IT</option>
               <option value="test">Test</option>
               <option value="completed">Publicado</option>
             </select>

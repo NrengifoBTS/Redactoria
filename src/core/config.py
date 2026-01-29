@@ -29,6 +29,7 @@ class Settings:
     TEAMS_WEBHOOK_URL: str = os.getenv("TEAMS_WEBHOOK_URL", "")
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     ENABLE_TEAMS_NOTIFICATIONS: bool = os.getenv("ENABLE_TEAMS_NOTIFICATIONS", "true").lower() == "true"
+    TEAMS_BOT_NAME: str = os.getenv("TEAMS_BOT_NAME", "Sistema de Notificaciones")
 
     # Timezone setting (default: America/Bogota for Colombia UTC-5)
     TIMEZONE: str = os.getenv("TIMEZONE", "America/Bogota")

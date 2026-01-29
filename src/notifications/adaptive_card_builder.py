@@ -57,7 +57,8 @@ class AdaptiveCardBuilder:
         template_key: str,
         project_url: Optional[str] = None,
         changed_by_teams_id: Optional[str] = None,
-        client_name: Optional[str] = None
+        client_name: Optional[str] = None,
+        recipient_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Build an Adaptive Card for project status change notification.
@@ -118,17 +119,12 @@ class AdaptiveCardBuilder:
             "spacing": "None"
         })
 
-        # Build "Realizado por" value with @mention if available
-        changed_by_value = f"{changed_by_name} ({changed_by_email})"
-        if changed_by_teams_id:
-            changed_by_value = f"<at>{changed_by_teams_id}</at> ({changed_by_email})"
-
         # Build LP value showing client if available
         lp_value = project_name
         if client_name:
             lp_value = f"{client_name} - {project_name}"
 
-        # Add facts
+        # Add facts (first part - before "Realizado por")
         card_body.append({
             "type": "FactSet",
             "facts": [
@@ -139,20 +135,79 @@ class AdaptiveCardBuilder:
                 {
                     "title": "Cambio de Estado:",
                     "value": f"{old_status_display} → {new_status_display}"
-                },
-                {
-                    "title": "Realizado por:",
-                    "value": changed_by_value
-                },
-                {
-                    "title": "Fecha:",
-                    "value": AdaptiveCardBuilder._format_timestamp(timestamp)
                 }
             ],
             "separator": True
         })
 
-        # Build mention entities
+        # Add "Realizado por" with @mention using ColumnSet for alignment (mentions don't work in FactSet)
+        changed_by_mention = f"{changed_by_name} ({changed_by_email})"
+        if changed_by_teams_id:
+            changed_by_mention = f"<at>{changed_by_teams_id}</at> ({changed_by_email})"
+
+        card_body.append({
+            "type": "ColumnSet",
+            "spacing": "None",
+            "columns": [
+                {
+                    "type": "Column",
+                    "width": "122px",
+                    "items": [
+                        {
+                            "type": "TextBlock",
+                            "text": "Realizado por:",
+                            "weight": "Bolder",
+                            "wrap": True
+                        }
+                    ]
+                },
+                {
+                    "type": "Column",
+                    "width": "stretch",
+                    "items": [
+                        {
+                            "type": "TextBlock",
+                            "text": changed_by_mention,
+                            "wrap": True
+                        }
+                    ]
+                }
+            ]
+        })
+
+        # Add Fecha using ColumnSet for alignment
+        card_body.append({
+            "type": "ColumnSet",
+            "spacing": "None",
+            "columns": [
+                {
+                    "type": "Column",
+                    "width": "122px",
+                    "items": [
+                        {
+                            "type": "TextBlock",
+                            "text": "Fecha:",
+                            "weight": "Bolder",
+                            "wrap": True
+                        }
+                    ]
+                },
+                {
+                    "type": "Column",
+                    "width": "stretch",
+                    "items": [
+                        {
+                            "type": "TextBlock",
+                            "text": AdaptiveCardBuilder._format_timestamp(timestamp),
+                            "wrap": True
+                        }
+                    ]
+                }
+            ]
+        })
+
+        # Build mention entities for Incoming Webhook
+        # Note: For webhooks, mentions require user's UPN (email) as the id
         mentions = []
         if recipient_teams_id:
             mentions.append({
@@ -160,7 +215,7 @@ class AdaptiveCardBuilder:
                 "text": f"<at>{recipient_teams_id}</at>",
                 "mentioned": {
                     "id": recipient_teams_id,
-                    "name": recipient_teams_id
+                    "name": recipient_name or "Usuario"
                 }
             })
 

@@ -69,8 +69,8 @@ def get_active_templates_public(db: DbSession):
     return service.get_active_templates_public(db)
 
 @router.get("/public/all-for-analytics", response_model=List[models.TemplateResponse])
-def get_all_templates_for_analytics(db: DbSession, current_user: CurrentUser):
-    """Obtener TODOS los templates (de todos los usuarios, activos e inactivos) para Analytics"""
+def get_all_templates_for_analytics(db: DbSession):
+    """Obtener TODOS los templates (activos e inactivos) para Dashboard/Analytics"""
     return service.get_all_templates_for_analytics(db)
 
 @router.get("/public/proyectos", response_model=List[str])

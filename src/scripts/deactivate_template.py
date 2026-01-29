@@ -5,10 +5,10 @@ def deactivate_template(template_id):
     """Desactivar un template marcándolo como is_active: False"""
     
     # TOKEN - REEMPLAZA CON TU TOKEN
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjMwNzA0NzN9.9sppy0WBnd65hoajuni78Yl9ZtBKT8QJkSyvwsSH2n0"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjkxMTE0NTl9.aC_D_IQfXxNHY-2pR-6l7l-ph00cIb55exS3Nu8qn6o"
     
     # URL de tu API
-    base_url = "http://192.168.1.129:8000"
+    base_url = "http://192.168.1.36:8000"
     
     # Payload para desactivar - solo cambiar is_active
     payload = {
@@ -94,8 +94,8 @@ def deactivate_template(template_id):
 def list_templates():
     """Listar todos los templates para ver cuáles están activos"""
     
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjMwNzA0NzN9.9sppy0WBnd65hoajuni78Yl9ZtBKT8QJkSyvwsSH2n0"
-    base_url = "http://192.168.1.129:8000"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjkxMTE0NTl9.aC_D_IQfXxNHY-2pR-6l7l-ph00cIb55exS3Nu8qn6o"
+    base_url = "http://192.168.1.36:8000"
     
     headers = {
         "Authorization": f"Bearer {token}"
@@ -103,9 +103,9 @@ def list_templates():
     
     try:
         print(f"\n Listando templates...")
-        print(f" URL: {base_url}/templates")
-        
-        response = requests.get(f"{base_url}/templates", headers=headers, timeout=30)
+        print(f" URL: {base_url}/templates/public/active")
+
+        response = requests.get(f"{base_url}/templates/public/active", headers=headers, timeout=30)
         
         if response.status_code == 200:
             templates = response.json()
@@ -158,8 +158,8 @@ def list_templates():
 def get_template_by_id(template_id):
     """Obtener información detallada de un template específico"""
     
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjMwNzA0NzN9.9sppy0WBnd65hoajuni78Yl9ZtBKT8QJkSyvwsSH2n0"
-    base_url = "http://192.168.1.129:8000"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjkxMTE0NTl9.aC_D_IQfXxNHY-2pR-6l7l-ph00cIb55exS3Nu8qn6o"
+    base_url = "http://192.168.1.36:8000"
     
     headers = {
         "Authorization": f"Bearer {token}"

@@ -124,7 +124,8 @@ class NotificationService:
                     template_key=rule.message_template_key,
                     project_url=project_url,
                     changed_by_teams_id=changed_by_full.teams_user_id,
-                    client_name=client_name
+                    client_name=client_name,
+                    recipient_name=f"{recipient_user.first_name} {recipient_user.last_name}"
                 )
 
                 # Send to Teams
