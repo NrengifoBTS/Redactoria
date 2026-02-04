@@ -55,6 +55,7 @@ function EditBlogModal({ blog, onClose, onSubmit }) {
     categoria: blog.categoria || "",
     estado: blog.estado,
     prioridad: blog.prioridad,
+    keywords: blog.keywords,
   });
   const [loading, setLoading] = useState(false);
 
@@ -71,158 +72,78 @@ function EditBlogModal({ blog, onClose, onSubmit }) {
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1100,
-      }}
-    >
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "0.75rem",
-          padding: "2rem",
-          minWidth: "500px",
-          maxWidth: "600px",
-        }}
-      >
-        <h2
-          style={{
-            margin: "0 0 1.5rem 0",
-            fontSize: "1.5rem",
-            fontWeight: "700",
-          }}
-        >
-          Editar Blog
-        </h2>
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <h2 className="modal-title">Editar Blog</h2>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="modal-form">
           {/* Título */}
-          <div style={{ marginBottom: "1rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-              }}
-            >
-              Título
-            </label>
+          <div className="form-group">
+            <label>Título del Proyecto</label>
             <input
               type="text"
               value={formData.title}
               onChange={(e) =>
                 setFormData({ ...formData, title: e.target.value })
               }
-              style={{
-                width: "100%",
-                padding: "0.5rem 0.75rem",
-                border: "1px solid #d1d5db",
-                borderRadius: "0.375rem",
-                fontSize: "0.875rem",
-                boxSizing: "border-box",
-              }}
               required
             />
           </div>
 
-          {/* Categoría / Proyecto (SELECTOR ACTUALIZADO) */}
-          <div style={{ marginBottom: "1rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-              }}
-            >
-              Categoría / Proyecto
-            </label>
-            <select
-              value={formData.categoria}
+          {/* Keywords de Apoyo */}
+          <div className="form-group">
+            <label>Keywords (separadas por coma)</label>
+            <textarea
+              value={formData.keywords}
               onChange={(e) =>
-                setFormData({ ...formData, categoria: e.target.value })
+                setFormData({ ...formData, keywords: e.target.value })
               }
-              style={{
-                width: "100%",
-                padding: "0.5rem 0.75rem",
-                border: "1px solid #d1d5db",
-                borderRadius: "0.375rem",
-                fontSize: "0.875rem",
-                backgroundColor: "white",
-                boxSizing: "border-box",
-              }}
-              required
-            >
-              <option value="">Selecciona una categoría</option>
-              <option value="arriendo">Arriendo</option>
-              <option value="viajemos">Viajemos</option>
-              <option value="guia_legal">Guía Legal</option>
-            </select>
+              placeholder="ej: seguros, arriendo, colombia"
+              className="auto-expand"
+              rows="3"
+            />
           </div>
 
-          {/* Estado */}
-          <div style={{ marginBottom: "1rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-              }}
-            >
-              Estado
-            </label>
-            <select
-              value={formData.estado}
-              onChange={(e) =>
-                setFormData({ ...formData, estado: e.target.value })
-              }
-              style={{
-                width: "100%",
-                padding: "0.5rem 0.75rem",
-                border: "1px solid #d1d5db",
-                borderRadius: "0.375rem",
-                boxSizing: "border-box",
-              }}
-            >
-              <option value="draft">Borrador</option>
-              <option value="generated">Estructura Generada</option>
-              <option value="review">En Revisión</option>
-              <option value="approved">Aprobado</option>
-              <option value="published">Publicado</option>
-            </select>
+          {/* Categoría y Estado en fila (Opcional, usando idea-layout o similar) */}
+          <div className="form-row">
+            <div className="form-group flex-1">
+              <label>Categoría / Proyecto</label>
+              <select
+                value={formData.categoria}
+                onChange={(e) =>
+                  setFormData({ ...formData, categoria: e.target.value })
+                }
+                required
+              >
+                <option value="">Selecciona...</option>
+                <option value="arriendo">Arriendo</option>
+                <option value="viajemos">Viajemos</option>
+                <option value="guia_legal">Guía Legal</option>
+              </select>
+            </div>
+
+            <div className="form-group flex-1">
+              <label>Estado</label>
+              <select
+                value={formData.estado}
+                onChange={(e) =>
+                  setFormData({ ...formData, estado: e.target.value })
+                }
+              >
+                <option value="draft">Borrador</option>
+                <option value="generated">Estructura Generada</option>
+                <option value="published">Publicado</option>
+              </select>
+            </div>
           </div>
 
-          {/* Prioridad */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-              }}
-            >
-              Prioridad
-            </label>
+          <div className="form-group">
+            <label>Prioridad</label>
             <select
               value={formData.prioridad}
               onChange={(e) =>
                 setFormData({ ...formData, prioridad: e.target.value })
               }
-              style={{
-                width: "100%",
-                padding: "0.5rem 0.75rem",
-                border: "1px solid #d1d5db",
-                borderRadius: "0.375rem",
-                boxSizing: "border-box",
-              }}
             >
               <option value="Baja">Baja</option>
               <option value="Media">Media</option>
@@ -231,38 +152,16 @@ function EditBlogModal({ blog, onClose, onSubmit }) {
           </div>
 
           {/* Botones de acción */}
-          <div
-            style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}
-          >
+          <div className="modal-actions">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="btn-generate"
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#f63b3b",
-                color: "white",
-                border: "none",
-                borderRadius: "0.375rem",
-                cursor: "pointer",
-              }}
+              className="btn-cancel"
             >
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-generate"
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#3b82f6",
-                color: "white",
-                border: "none",
-                borderRadius: "0.375rem",
-                cursor: "pointer",
-              }}
-            >
+            <button type="submit" disabled={loading} className="btn-generate">
               {loading ? "Guardando..." : "Guardar Cambios"}
             </button>
           </div>

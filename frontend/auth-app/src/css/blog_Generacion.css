@@ -348,30 +348,44 @@ select {
   display: flex;
   gap: 20px;
   padding: 20px;
-  /* CRÍTICO: Asegúrate de que el contenedor padre no restrinja el crecimiento vertical, si no, usa align-items: flex-start; */
-  align-items: stretch; /* Ayuda a que las columnas se alineen sin forzar altura */
+  align-items: flex-start; /* Permite que la derecha crezca y la izquierda flote */
+  min-height: 100vh;
 }
 
 .generadores-izquierda {
   flex: 1 1 50%;
-  height: calc(99vh);
-  overflow-y: auto;
+
+  /* ESTO HACE LA MAGIA */
+  position: sticky;
+  top: 10px; /* Margen superior para que no pegue al borde */
+  height: calc(100vh - 40px); /* Altura fija igual a la pantalla */
+  overflow-y: auto; /* Si el contenido es largo, scrollea aquí dentro */
+
   background-color: #ffffff;
   padding: 20px;
   border-radius: 16px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  z-index: 100;
 }
 
 .generadores-derecha {
   flex: 1 1 50%;
-  height: calc(99vh); /* Ajuste para no chocar con el borde */
-  overflow-y: auto;
-  background-color: #f8fafc; /* Gris ultra claro para diferenciar del fondo */
-  padding: 0; /* Quitamos padding para que la cabecera llegue a los bordes */
+  /* No le ponemos altura para que el scroll principal de la web mande */
+  background-color: #f8fafc;
   border-radius: 16px;
   border: 1px solid #e2e8f0;
 }
 
+/* Opcional: Estilizar la barra de scroll interna para que sea discreta */
+.generadores-izquierda::-webkit-scrollbar {
+  width: 6px;
+}
+.generadores-izquierda::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+
+/* Ajuste para que el título de la derecha no se pierda al subir */
 .idea-generator .card-title.structure-title-with-toggle {
   display: flex;
   justify-content: space-between;
@@ -641,7 +655,6 @@ select {
   text-align: left;
   font-size: 0.95rem;
   line-height: 1.4;
-  word-break: break-word;
 }
 
 .suggestion-bubble:hover {
@@ -788,11 +801,11 @@ select {
 
 .blog-document-window {
   margin: 0 auto;
-  max-width: 800px;
   border: none;
   box-shadow:
     0 20px 25px -5px rgba(0, 0, 0, 0.1),
     0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  flex: 1 1 50%;
 }
 
 /* 1. SOPORTE DE TIPOGRAFÍAS (Quill) */
@@ -823,7 +836,6 @@ select {
 .subsection-h3 {
   color: #1a1a1a;
   font-family: inherit;
-  word-break: break-word;
   font-weight: 700;
   margin-top: 0;
 }
@@ -928,10 +940,6 @@ select {
   transform: scale(1.05);
 }
 
-.blog-view-toggle-container {
-  padding: 30px;
-  background: #f8fafc; /* Fondo neutro para resaltar el papel */
-}
 /* ==========================================================
    BADGES DE CONTEO
    ========================================================== */
@@ -1209,4 +1217,113 @@ select {
   position: sticky;
   top: 0;
   z-index: 100;
+}
+
+/* ==========================================================
+   1. BOTON VOLVWE AL TOP (FIXED)
+   ========================================================== */
+/* Botón Flotante Volver al Inicio */
+.btn-scroll-top {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  background-color: #3498db; /* Puedes cambiarlo al color de tu marca */
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  z-index: 9999; /* Máxima prioridad visual */
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-scroll-top:hover {
+  background-color: #2980b9;
+  transform: scale(1.1) translateY(-5px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.btn-scroll-top i {
+  line-height: 0;
+}
+
+/* Para que no estorbe en pantallas pequeñas */
+@media (max-width: 768px) {
+  .btn-scroll-top {
+    bottom: 20px;
+    right: 20px;
+    width: 45px;
+    height: 45px;
+  }
+}
+
+/* ==========================================================
+   SECCION DE REGGENERACION DE CONTENIDO
+   (BOTONES Y LAYOUT)
+   ========================================================== */
+
+/* Contenedor del selector */
+.select-container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  gap: 8px;
+  background: #fcfcfc;
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px dashed #d1d1d1;
+}
+
+/* Etiqueta del selector */
+.select-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #4a4a4a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* El Select propiamente dicho */
+.select-estrategia {
+  padding: 12px 15px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background-color: #ffffff;
+  font-size: 1rem;
+  color: #333;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.select-estrategia:focus {
+  border-color: #6c5ce7; /* O el color principal de tu app */
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
+}
+
+.select-estrategia optgroup {
+  font-weight: bold;
+  color: #666;
+  background: #f9f9f9;
+}
+
+.select-estrategia option {
+  padding: 10px;
+  font-weight: normal;
+  color: #333;
+}
+
+/* Mejoras para el wrapper de Quill */
+.quill-editor-wrapper {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }

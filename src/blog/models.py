@@ -72,6 +72,7 @@ class BlogUpdate(BaseModel):
     estimated_word_count: Optional[int] = None 
     estructura_blog_json: Optional[Any] = None 
     assigned_to: Optional[UUID] = None
+    keywords: Optional[str] = None
 
 class AssignBlogRequest(BaseModel):
     """Modelo específico para la asignación a un usuario."""

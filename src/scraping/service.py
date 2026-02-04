@@ -795,9 +795,7 @@ class AIService:
         except Exception as e:
             return f"[Error interno inesperado: {e}]"
 
-    
-
-    # PARSEO DE FORMATO JSON DE LA RESPUESTA IA 
+    # LIMPIEZA Y PARSEO DE JSON DEVUELTO POR EL LLM
     def limpieza_extraccion_json(self, json_string: str) -> Dict[str, Any]:
     
         # ------------------------------------------------------------------
@@ -867,7 +865,6 @@ class AIService:
                 f"Inicio del output: {clean_json[:200]}..."
             ) from e
 
-
     #SE ENCARGA DE FORMATEAR LA INFORMACION EXTRAIDA Y UTILIZARLA POR EL LLM 
     def _build_media_text(self, media_info: List[Dict[str, Any]]) -> str:
         if not media_info:
@@ -880,8 +877,6 @@ class AIService:
 
         media_text = "\n".join(media_list)
         return f"\n--- REFERENCIA DE CONTENIDO MULTIMEDIA (USAR SOLO COMO CONTEXTO) ---\n{media_text}\n---\n"
-
-    
 
     # --- ANALISIS DE BLOQUES CON IA ---
     def analizar_bloque_contenido(self, chunk: str, media_info: List[Dict[str, str]], query: str, heading: str, contexto_previo: str = "") -> str:
@@ -949,6 +944,7 @@ class AIService:
 
         return "\n".join(final_output).strip()
         
+    # --- GENERACIÓN DE ESTRUCTURA SEO FINAL ---
     def generar_estructura_seo_final(self, query: str, title_base: str, categoria: str, idioma: str, tecnica: str, acento: str, tono: str, 
                                  consolidated_text: str) -> Dict[str, Any]:
         """
@@ -1115,7 +1111,6 @@ class AIService:
                 "structure_markdown": f"[ERROR DE PARSEO CRÍTICO: {e} - Respuesta IA: {response_json_str[:200]}...]"
             }
         
-
     # --- LOGICA PARA REGENERAR SOLAMENTE UNA UNICA PARTE DE LA ESTRUCTURA EN ESTE CASO TITULOS Y SUBTITULOS--- 
     def regenerar_titulos(self, 
         consolidated_text: str, 
@@ -1198,7 +1193,7 @@ class AIService:
             print("ADVERTENCIA: El LLM no devolvió un array JSON detectable ([...]).")
             return []
 
-    #Regeneracion o generacion principal para los contenidos de los H 
+    # --- LOGICA PARA GENERAR O REGENERAR CONTENIDO DE UNA SECCION ESPECIFICA ---
     def generar_contenido_seccion (self, req: PeticionGeneracionContenido) -> Dict[str,Any]:
         """
         Logica para la regeneracion o generacion de contenido de una seccion especifica 
@@ -1217,7 +1212,6 @@ class AIService:
             # Campos base requeridos desde el frontes(Blog_generacion)
             section_title = req.regenerate_data['section_title']
             section_level = req.regenerate_data['section_level']
-            full_structure_markdown = req.regenerate_data['full_structure_markdown']
             required_keywords: List[str] = req.regenerate_data.get('required_keywords', [])
             content_type: str = req.regenerate_data.get('content_type', 'parrafo_marrativo')
             context_data: Optional[str] = req.regenerate_data.get('context_data', None)
@@ -1231,11 +1225,11 @@ class AIService:
         
         # 2. Construccion de intrucciones dinamicas para el prompt
     
-        # Lógica de Longitud (Texto Plano por defecto)
         length_instruction = (
-            "El contenido debe ser **extremadamente conciso** y **solamente FUNDACIONAL** (a nivel de resumen o introducción). "
-            "Desarrolla el tema de forma sintética, y **TERMINA INMEDIATAMENTE** el texto una vez que el concepto general de la sección haya sido cubierto. "
-            "Bajo NINGUNA circunstancia introduzcas detalles que estén destinados a otras secciones de la estructura. Este es un punto CRÍTICO."
+            "Genera contenido con **sustancia y valor real**, evitando rodeos innecesarios. "
+            "La extensión debe ser la natural para cubrir el tema de forma completa pero eficiente. "
+            "Si la sección requiere detalle técnico o explicativo, proporciónalo; si es un concepto simple, sé directo. "
+            "Mantén un enfoque centrado exclusivamente en el título de la sección para evitar solapamientos (canibalismo)."
         )
 
         # Lógica de Keywords (Original)
@@ -1275,38 +1269,68 @@ class AIService:
             # Ajustamos la instrucción de longitud para el modo Bloque
             length_instruction = "Genera el contenido para todo el bloque, distribuyendo las palabras de manera lógica y coherente a través del H2 y sus H3s. Respeta el límite de palabras estimado del bloque."
 
-        # Se mantiene el resto de la lógica de formatos si no es modo bloque:
+        # --- NUEVA LISTA DE OPCIONES PARA BLOGS ---
+        elif content_type == "introduccion_gancho":
+            format_instruction = "Crea una introducción que use la técnica PAS (Problema, Agitación, Solución) o un gancho narrativo. Debe conectar con el lector y presentar la tesis del artículo."
+            
+        elif content_type == "guia_paso_a_paso":
+            format_instruction = "Formato de tutorial. Usa una lista numerada (1, 2, 3...). Cada paso debe empezar con un verbo de acción y explicar brevemente el 'cómo' y el 'por qué'."
+            
+        elif content_type == "lista_beneficios_valor":
+            format_instruction = "Usa viñetas para listar beneficios o características clave. Cada punto debe iniciar con una frase corta en negrita (simulada con texto) seguida de una explicación de una línea."
+            
+        elif content_type == "comparativa_pros_contras":
+            format_instruction = "Divide el contenido en dos bloques claros: 'Ventajas' y 'Desventajas'. Usa listas para facilitar la lectura rápida (skimming)."
+            
+        elif content_type == "faq_seccion":
+            format_instruction = "Formato Pregunta-Respuesta. Formula 2 o 3 preguntas frecuentes basadas en el título y respóndelas de forma directa y experta."
+            
+        elif content_type == "analisis_experto":
+            format_instruction = "Contenido en párrafos de profundidad media. Usa un tono de autoridad, mencionando implicaciones, consejos prácticos o una visión profesional del tema."
+            
+        elif content_type == "resumen_tl_dr":
+            format_instruction = "Genera un bloque tipo 'TL;DR' (Demasiado largo, no leí). Un resumen ultra-directo en 3 puntos clave para lectores con prisa."
+            
+        elif content_type == "conclusion_llamada_accion":
+            format_instruction = "Resume los puntos principales y finaliza con una 'Llamada a la Acción' (CTA) o una pregunta abierta para fomentar comentarios."
+            
+        elif content_type == "definicion_seo":
+            format_instruction = "Define el concepto principal de forma clara y directa en el primer párrafo (ideal para fragmentos destacados de Google). Luego, expande brevemente."
+        # --- LISTAS ORGANIZADAS ---
         elif content_type == "lista_pasos":
-            format_instruction = "El contenido debe ser una **lista numerada detallada** (1., 2., 3...) de pasos o instrucciones. Cada paso debe ser conciso, claro y estar en una línea separada."
-        elif content_type == "lista_caracteristicas":
-            format_instruction = "El contenido debe presentarse como una **lista con viñetas** (usando `*` o `-`) que enumere y describa brevemente ventajas, desventajas, características o elementos clave."
-        elif content_type == "resumen_conciso":
-            format_instruction = "El contenido debe ser un **párrafo único y conciso** (no más de 4-5 frases) que sirva como un resumen ejecutivo, una conclusión o un punto clave, con un lenguaje directo y persuasivo."
-        elif content_type == "definicion_detallada":
-            format_instruction = "El contenido debe iniciar con el término o frase, seguido de una definición clara y párrafos explicativos que profundicen en el concepto, su historia o su relevancia."
-        elif content_type == "casos_texto":
-            format_instruction = "El contenido debe enfocarse en proporcionar múltiples ejemplos o casos de uso prácticos que ilustren el tema. Cada ejemplo debe estar claramente separado, con su título en texto plano y su descripción en un párrafo."
-        elif content_type == "comparacion_corta":
-            format_instruction = "El contenido debe ser una comparación punto por punto entre 2 o 3 elementos clave (ej. Producto A vs. Producto B). Usa texto plano para los nombres de los elementos y viñetas para contrastar sus características de manera clara."
-        elif content_type == "analisis_critico":
-            format_instruction = "El contenido debe ser un **análisis estructurado en párrafos** con una introducción clara del problema o tema, un desarrollo del argumento central y una proyección o recomendación clara al final. Debe ser objetivo, sintético y basado en hechos."
-        elif content_type == "pro_y_contra":
-            format_instruction = "El contenido debe estar dividido en dos secciones claras: Pros (Ventajas) y Contras (Desventajas). Cada sección debe usar una lista con viñetas para enumerar y describir brevemente cada punto de manera equilibrada y separada. No uses negritas para los títulos de las secciones ni para los puntos."
-        elif content_type == "datos_estadisticos":
-            format_instruction = "El contenido debe enfocarse en presentar datos, cifras y estadísticas relevantes. Cada dato debe ser presentado en una línea separada, comenzando por el valor numérico, seguido de su explicación o contexto. No uses tablas, solo texto y listas."
-        elif content_type == "mito_vs_realidad":
-            format_instruction = "El contenido debe usar un formato de Mito vs. Realidad para desmentir conceptos erróneos. Cada punto debe tener una línea para el Mito y la siguiente línea para la Realidad (en formato de párrafo explicativo)."
-        elif content_type == "linea_tiempo":
-            format_instruction = "El contenido debe ser una línea de tiempo cronológica. Utiliza una lista numerada donde cada punto represente un hito o evento en la secuencia temporal, incluyendo el año o la fecha al inicio de cada punto."
-        elif content_type == "Cronograma":
-            format_instruction = "El contenido debe presentarse como un cronograma detallado. Utiliza una lista numerada donde cada punto represente una actividad o evento programado, incluyendo la hora o el período al inicio de cada punto."
-        elif content_type == "Tabla Comparativa":
-            format_instruction = "El contenido debe estructurarse como una tabla comparativa en formato de texto plano. Cada fila debe representar un criterio de comparación, y cada columna debe representar un elemento a comparar. Usa viñetas para listar las características bajo cada criterio."
-        else: 
-            format_instruction = (
-                "Tu tarea es generar el contenido utilizando el formato que consideres más apropiado (párrafos y listas con viñetas) para el tema de la sección. "
-                "PROHIBIDO: No utilices negritas, cursivas o subrayados. Solo texto plano."
-            )
+            format_instruction = "Genera un tutorial paso a paso utilizando una lista ordenada HTML (<ol>). Cada elemento <li> debe ser una instrucción clara."
+
+        elif content_type == "lista_puntos_clave":
+            format_instruction = "Extrae las ideas más importantes y preséntalas en una lista de viñetas HTML (<ul>). Usa <strong> para resaltar conceptos clave dentro de cada <li>."
+
+        elif content_type == "lista_requisitos":
+            format_instruction = "Identifica qué se necesita para este tema y lístalo en un formato <ul>. Si no hay requisitos explícitos, infiere necesidades lógicas basadas en el scraping."
+
+        elif content_type == "lista_errores":
+            format_instruction = "Crea una lista <ul> de errores comunes o advertencias. Usa un tono preventivo y explica brevemente por qué evitar cada error."
+
+        elif content_type == "lista_faq":
+            format_instruction = "Genera un formato de preguntas y respuestas. Usa <strong> para la pregunta y un párrafo normal para la respuesta. Máximo 3 preguntas."
+
+        # --- TABLAS DE DATOS ---
+        elif content_type == "tabla_tecnica":
+            format_instruction = "Genera una tabla HTML (<table>) con bordes. Columna 1: Característica, Columna 2: Detalle/Valor. Extrae datos técnicos del scraping."
+
+        elif content_type == "tabla_pros_contras":
+            format_instruction = "Genera una tabla HTML (<table>). Columna 1: Ventaja (Pros), Columna 2: Desventaja (Contras). Sé equilibrado y objetivo."
+
+        elif content_type == "tabla_glosario":
+            format_instruction = "Crea una tabla HTML (<table>) de definiciones. Columna 1: Término, Columna 2: Significado sencillo."
+
+        elif content_type == "tabla_comparativa_antes_despues":
+            format_instruction = "Genera una tabla HTML (<table>) comparativa. Columna 1: Situación Inicial (Antes), Columna 2: Resultado Optimizado (Después)."
+
+        elif content_type == "tabla_recomendaciones":
+            format_instruction = "Genera una tabla HTML (<table>). Columna 1: Escenario/Problema, Columna 2: Recomendación del Experto."
+
+        else: # parrafo_narrativo / default
+            format_instruction = "Escribe de 2 a 3 párrafos fluidos y naturales. Evita frases demasiado largas. Usa un estilo narrativo que mantenga el interés." 
+            
 
         # 3. Construcción del Prompt Principal (Ajuste para Modo Bloque)
         
@@ -1329,37 +1353,43 @@ class AIService:
 
         prompt = f"""
         Tu tarea **ÚNICA Y EXCLUSIVA** es generar {target_section_prompt}
-        
-        SOLO DEVUELVE EL TEXTO DEL CONTENIDO DE LA SECCIÓN SOLICITADA, SIN AÑADIR EL TÍTULO DE LA SECCIÓN NI NINGÚN OTRO ENCABEZADO (Aplica estrictamente para el modo Texto Plano).
 
-        --- INSTRUCCIONES CRÍTICAS DE ALTA PRIORIDAD ---
-        1. **ENFOQUE ESTRICTO Y ANTI-CANIBALISMO:** El contenido generado debe ser **DE NIVEL FUNDACIONAL Y SINTÉTICO** (como un resumen ejecutivo).
-        Concéntrate **SOLAMENTE** en el tema específico de '{section_title}'.
-        **ES OBLIGATORIO** que **NO** desarrolles ideas específicas (como ejemplos estatales o listas de pasos) que serán cubiertas en otros títulos de la estructura. 
-        **UTILIZA** la información del bloque [INSTRUCCIÓN CLAVE PARA PREVENCIÓN DE CANIBALISMO] como tu regla principal de exclusión.
-        
-        2. **CONCISIÓN:** {length_instruction}
-        
-        3. **FORMATO:** {format_instruction}
-        --- FIN INSTRUCCIONES CRÍTICAS ---
-        
-        El contenido debe ser en idioma '{req.idioma}' con acento '{req.acento}' y tono '{req.tono}'.
+        SOLO DEVUELVE EL CONTENIDO DE LA SECCIÓN SOLICITADA. 
+        PROHIBIDO: No añadas el título de la sección, ni introducciones tipo "Aquí tienes el contenido", ni conclusiones.
+
+        --- INSTRUCCIONES CRÍTICAS DE FORMATO (HTML) ---
+        1. SOPORTE HTML OBLIGATORIO: Utiliza etiquetas HTML para dar estructura y estilo al texto cuando sea necesario:
+        - Usa `<strong>texto</strong>` para negritas importantes.
+        - Usa `<u>texto</u>` para subrayados.
+        - Usa `<ul><li></li></ul>` para listas.
+        - Si la información es comparativa o técnica, usa `<table>`, `<tr>`, `<td>` para crear tablas estructuradas.
+        2. **NO USAR MARKDOWN:** Está terminantemente prohibido usar asteriscos (**), almohadillas (#) o guiones de markdown. Todo debe ser HTML limpio.
+        3. **LIMPIEZA:** No incluyas etiquetas envolventes como `<html>`, `<body>` o `<!DOCTYPE>`. Solo los fragmentos de contenido.
+
+        --- INSTRUCCIONES DE CONTENIDO ---
+        1. ENFOQUE ANTI-CANIBALISMO: El contenido debe ser fundacional y sintético. 
+        Concéntrate SOLAMENTE en '{section_title}'. No desarrolles temas que pertenecen a otras secciones.
+        Utiliza el bloque [PREVENCIÓN DE CANIBALISMO] como regla de exclusión.
+
+        2. CONCISIÓN: {length_instruction}
+
+        3. ESTILO ESPECÍFICO: {format_instruction}
+
+        --- DATOS DEL ARTÍCULO ---
+        Idioma: '{req.idioma}'
 
         {context_instruction} 
-        
+
         {keyword_instruction}
 
-        --- CONTEXTOS DE REFERENCIA (SOLO PARA INFORMACIÓN FACTUAL Y SEMÁNTICA) ---
-        CONTEXTO DE LA ESTRUCTURA DEL BLOG (usa esto solo para tener el mapa completo):
-        {full_structure_markdown}
-        
-        REFERENCIA DE CONTENIDO DEL SCRAPING (usa esto como fuente primaria de información y para asegurar la factualidad):
+        --- CONTEXTOS DE REFERENCIA ---
+        CONTENIDO SCRAPING (Fuente primaria):
         {req.consolidated_content}
 
         {block_instruction_str}
         --- FIN CONTEXTOS DE REFERENCIA ---
 
-        Asegúrate de que la salida respete estrictamente todas las INSTRUCCIONES CRÍTICAS provistas.
+        Asegúrate de que la salida sea exclusivamente el código HTML del contenido generado.
         """
 
 
@@ -1379,7 +1409,6 @@ class AIService:
             "success": str(True),
             "log": "Contenido generado exitosamente."
         }
-
 
     # -- GENERA EL CONTENIDO DE EL ESQUEMA DEL BLOG
     def generar_contenido_blog_libre(self, db: Session, req: models.AIAnalysisRequest) -> Dict[str, Any]:
@@ -1680,7 +1709,7 @@ class AIService:
             "log": f"Generación finalizada. Se procesaron {len(structured_content)} de {len(headers_for_json)} secciones (Nivel: {section_level})."
         }
 
-# --- AQUI ESTA LA LOGICA DE REGENERACION Y LIMPIEZA DEL JSON QUE DEVUELVE LA IA 
+    # --- LOGICA PARA EL ANALISIS FINAL Y GENERACION DE ESTRUCTURA SEO ---
     def analisis_final_ia(
         self, 
         db: Session, 

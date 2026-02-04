@@ -72,6 +72,8 @@ const GeneracionBlog = () => {
 
   const { user: currentUser, loading: loadingUser } = useCurrentUser();
 
+  const [showButton, setShowButton] = useState(false);
+
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
   // // -----------------------------------------------------------------------
@@ -154,6 +156,7 @@ const GeneracionBlog = () => {
 
     loadBlogData();
   }, [blogId, navigate]);
+
   // =======================================================================
   // // 3. CONSTANTES Y DATOS INICIALES
   // // =======================================================================
@@ -773,7 +776,9 @@ const GeneracionBlog = () => {
                 )}
                 {hasBody && (
                   <div
-                    className="content-block intro-content ql-editor"
+                    /* Añadimos 'ql-snow' para mantener el estilo visual, 
+       pero el CSS se encargará de 'ql-editor' */
+                    className="content-block intro-content ql-editor ql-snow"
                     dangerouslySetInnerHTML={{ __html: item.content }}
                   />
                 )}
@@ -814,7 +819,7 @@ const GeneracionBlog = () => {
                     )}
                     {hasH3Body && (
                       <div
-                        className="content-block ql-editor"
+                        className="content-block ql-editor ql-snow"
                         dangerouslySetInnerHTML={{ __html: h3Item.content }}
                       />
                     )}
@@ -3116,6 +3121,7 @@ const GeneracionBlog = () => {
             )}
 
             {/*BOTONES DE ACCIÓN PRINCIPALES*/}
+
             {(resultadosDisponibles || tablaEstructuraFinal) && (
               <div
                 style={{
@@ -3373,95 +3379,107 @@ const GeneracionBlog = () => {
                 style={{ marginTop: "20px" }}
               >
                 <h2 className="analysis-title">
-                  {/* Aplicamos stripHtml aquí para que no se vean los <p> ni <span> */}
                   Editar Contenido: "{stripHtml(selectedSectionForRegen.text)}"
                   ({selectedSectionForRegen.level.toUpperCase()})
                 </h2>
                 <p className="result-text">
-                  Genera o edita el cuerpo de texto para la sección
-                  seleccionada.
+                  Selecciona el enfoque estratégico para esta sección del blog.
                 </p>
 
-                {/* INICIO: Seleccion de formato */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                    gap: "10px",
-                  }}
-                >
-                  <label htmlFor="content-type" style={{ fontWeight: "bold" }}>
-                    Tipo de Formato:
+                {/* SECCIÓN DEL SELECTOR OPTIMIZADA CON CLASES */}
+                <div className="select-container">
+                  <label htmlFor="content-type" className="select-label">
+                    <i className="uil uil-setting"></i> ¿Qué quieres que haga la
+                    IA en esta sección?
                   </label>
                   <select
                     id="content-type"
+                    className="select-estrategia"
                     value={contentType}
                     onChange={(e) => setContentType(e.target.value)}
                     disabled={cargandoIA}
-                    style={{
-                      padding: "5px",
-                      borderRadius: "4px",
-                      border: "1px solid #ccc",
-                      flexGrow: 1,
-                    }}
                   >
-                    <option value="ia_libre">
-                      IA Libre (Estructura Creativa)
-                    </option>
+                    <optgroup label="TEXTO GENERAL">
+                      <option value="parrafo_narrativo">
+                        Escribir párrafos normales
+                      </option>
+                      <option value="ia_libre">
+                        Darle libertad creativa a la IA
+                      </option>
+                    </optgroup>
 
-                    {/* Opciones Específicas */}
-                    <option value="parrafo_narrativo">
-                      Párrafos / Texto Narrativo
-                    </option>
-                    <option value="lista_pasos">
-                      Lista de Pasos (Guía o Tutorial)
-                    </option>
-                    <option value="lista_caracteristicas">
-                      Lista de Características/Ventajas/Desventajas
-                    </option>
-                    <option value="resumen_conciso">
-                      Resumen Ejecutivo o Conclusión
-                    </option>
-                    <option value="definicion_detallada">
-                      Definición o Concepto Profundo
-                    </option>
-                    <option value="casos_texto">
-                      Casos de Uso o Ejemplos Ilustrativos
-                    </option>
-                    <option value="comparacion_corta">
-                      Comparación Corta / Alternativas
-                    </option>
-                    <option value="analisis_critico">
-                      Análisis Crítico / Proyección
-                    </option>
-                    <option value="pro_y_contra">
-                      Pros y Contras / Vista Balanceada
-                    </option>
-                    <option value="datos_estadisticos">
-                      Datos, Estadísticas y Tendencias
-                    </option>
-                    <option value="mito_vs_realidad">
-                      Mito vs. Realidad / Desmentir Errores
-                    </option>
-                    <option value="linea_tiempo">
-                      Línea de Tiempo / Evolución Histórica
-                    </option>
-                    <option value="tabla_comparativa">Tabla Comparativa</option>
-                    <option value="cronograma">Cronograma</option>
+                    <optgroup label="FORMATOS ESPECIALES">
+                      <option value="guia_paso_a_paso">
+                        Crear una guía paso a paso (1, 2, 3...)
+                      </option>
+                      <option value="lista_beneficios_valor">
+                        Hacer una lista de puntos clave
+                      </option>
+                      <option value="comparativa_pros_contras">
+                        Analizar pros y contras
+                      </option>
+                      <option value="faq_seccion">
+                        Generar preguntas frecuentes (FAQ)
+                      </option>
+                      <option value="mito_vs_realidad">
+                        Desmentir mitos o errores comunes
+                      </option>
+                    </optgroup>
+
+                    <optgroup label="PARTES DEL ARTÍCULO">
+                      <option value="introduccion_gancho">
+                        Escribir una introducción interesante
+                      </option>
+                      <option value="definicion_seo">
+                        Dar una definición clara y directa
+                      </option>
+                      <option value="resumen_tl_dr">
+                        Hacer un resumen muy corto para leer rápido
+                      </option>
+                      <option value="conclusion_llamada_accion">
+                        Escribir un cierre o conclusión
+                      </option>
+                    </optgroup>
+
+                    <optgroup label="LISTAS (HTML)">
+                      <option value="lista_pasos">
+                        Guía Paso a Paso (Tutorial)
+                      </option>
+                      <option value="lista_puntos_clave">
+                        Puntos Clave y Beneficios
+                      </option>
+                      <option value="lista_requisitos">
+                        Lista de Requisitos Necesarios
+                      </option>
+                      <option value="lista_errores">
+                        Errores Comunes y Advertencias
+                      </option>
+                      <option value="lista_faq">
+                        Preguntas Frecuentes (FAQ)
+                      </option>
+                    </optgroup>
+
+                    <optgroup label="TABLAS (HTML)">
+                      <option value="tabla_tecnica">
+                        Tabla de Datos Técnicos
+                      </option>
+                      <option value="tabla_pros_contras">
+                        Tabla de Pros y Contras
+                      </option>
+                      <option value="tabla_glosario">
+                        Tabla de Glosario / Conceptos
+                      </option>
+                      <option value="tabla_comparativa_antes_despues">
+                        Tabla Antes vs. Después
+                      </option>
+                      <option value="tabla_recomendaciones">
+                        Tabla de Recomendaciones
+                      </option>
+                    </optgroup>
                   </select>
                 </div>
-                {/* FIN : Seleccion de formato */}
 
-                <div
-                  className="quill-editor-wrapper"
-                  style={{
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
-                    overflow: "hidden",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                  }}
-                >
+                <div className="quill-editor-wrapper">
                   <ReactQuill
                     theme="snow"
                     value={sectionContentValue || ""}
@@ -3476,7 +3494,7 @@ const GeneracionBlog = () => {
                         ["clean"],
                       ],
                     }}
-                    style={{ height: "300px", marginBottom: "40px" }} // Margen inferior para que no tape los botones
+                    style={{ height: "300px", marginBottom: "40px" }}
                   />
                 </div>
 
@@ -3486,29 +3504,28 @@ const GeneracionBlog = () => {
                       guardarContenidoLocal("content", sectionContentValue)
                     }
                     className="btn-generate"
-                    style={{ flexGrow: 1 }}
                     disabled={cargandoIA}
                   >
                     <i className="uil uil-save"></i> Guardar Contenido Local
                   </button>
                   <button
                     onClick={generarContenidoSeccion}
-                    className="btn btn-generate "
-                    style={{ flexGrow: 1 }}
+                    className="btn btn-generate"
                     disabled={cargandoIA}
                   >
-                    {cargandoIA && (
-                      <i
-                        className="uil uil-spinner uil-spin"
-                        style={{ marginRight: "5px" }}
-                      ></i>
+                    {cargandoIA ? (
+                      <>
+                        <i className="uil uil-spinner uil-spin"></i>{" "}
+                        Generando...
+                      </>
+                    ) : (
+                      <>
+                        <i className="uil uil-robot"></i> Generar Contenido (IA)
+                      </>
                     )}
-                    {cargandoIA
-                      ? "Generando Contenido..."
-                      : "Generar Contenido (IA)"}
                   </button>
                 </div>
-                {/*Botón de Cancelar Edición de Contenido */}
+
                 <button
                   onClick={cancelarEdicionContenido}
                   className="btn btn-cancel"
@@ -3597,19 +3614,37 @@ const GeneracionBlog = () => {
                   )}
                 </div>
               ) : (
-                // VISTA TIPO WORD
-                <div className="blog-view-toggle-container">
-                  <button
-                    onClick={descargarArticuloDocs}
-                    className="btn-download"
-                  >
-                    <i className=" uil-file-download"></i> Descargar Word
-                  </button>
-                  {/* Contenido principal del blog: Renderiza la estructura dinámica */}
-                  {renderizarContenidoDelBlog(structureWithCount)}
+                /* MODO DOCUMENTO: Sin padding interno de tarjeta para que la 'hoja' respire */
+                <div
+                  className="blog-document-window"
+                  style={{ overflowX: "hidden" }}
+                >
+                  {/* Botón de descarga fuera de la hoja blanca para mejor look */}
+                  <div className="download-bar">
+                    <button
+                      onClick={descargarArticuloDocs}
+                      className="btn-download"
+                    >
+                      <i className="uil uil-file-download"></i> Descargar Word
+                    </button>
+                  </div>
+
+                  {/* Esta es la 'Hoja Blanca' definida en el CSS anterior */}
+                  <div className="blog-document-window">
+                    {renderizarContenidoDelBlog(structureWithCount)}
+                  </div>
                 </div>
               )}
             </section>
+
+            {/* BOTÓN FLOTANTE VOLVER AL INICIO */}
+            <button
+              className="btn-scroll-top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Volver al inicio"
+            >
+              <i className="uil uil-arrow-up"></i>
+            </button>
           </div>
         </div>
       </div>
