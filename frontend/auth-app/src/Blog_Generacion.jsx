@@ -3742,7 +3742,7 @@ const GeneracionBlog = () => {
                     </>
                   ) : (
                     <>
-                      <i className="uil uil-save"></i> Guardar Estructura
+                      <i className="uil uil-save"></i>Guardar Estructura
                     </>
                   )}
                 </button>
@@ -4027,7 +4027,7 @@ const GeneracionBlog = () => {
                       </>
                     ) : (
                       <>
-                        <i className="uil uil-robot"></i> Generar Contenido (IA)
+                        <i className="uil uil-robot"></i>Generar Contenido (IA)
                       </>
                     )}
                   </button>
