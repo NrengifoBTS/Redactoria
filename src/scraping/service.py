@@ -37,639 +37,324 @@ from src.entities.blog import Blog
 # =======================================================================
 
 class DocumentService:
-    """
-    Servicio que procesa Markdown con HTML embebido desde la BD.
-    Formato: [H2 - 1] <p>Texto con <span style="color:red">estilos</span></p>
-    """
-    
     def __init__(self):
         pass
-    
+
     def _parse_markdown_with_html(self, markdown_text: str) -> List[Dict[str, Any]]:
-        """
-        Parsea el formato híbrido: Markdown con HTML.
-        Ejemplo: [H2 - 1] <p><strong>Título</strong></p>
-        """
-        if not markdown_text:
-            return []
+        if not markdown_text: return []
         
         sections = []
         current_section = None
+        # Normalizar saltos de línea para evitar problemas con strings largos
         lines = markdown_text.split('\n')
         
         for line in lines:
             line = line.strip()
-            if not line:
-                continue
+            if not line: continue
             
-            # Detectar encabezados: [H1 - 0], [H2 - 1], [H3 - 1.1]
+            # Detectar encabezados: [H1 - 0], [H2 - 1], etc.
             header_match = re.match(r'^\[(H\d+)\s*-\s*([\d.]+)\]\s*(.+)$', line)
             if header_match:
-                # Guardar sección anterior
-                if current_section:
-                    sections.append(current_section)
-                
-                # Nueva sección
-                level = header_match.group(1).lower()  # h1, h2, h3
-                enumeration = header_match.group(2)
-                text_html = header_match.group(3).strip()
+                if current_section: sections.append(current_section)
                 
                 current_section = {
-                    'level': level,
-                    'enumeration': enumeration,
-                    'text': text_html,
+                    'level': header_match.group(1).lower(),
+                    'enumeration': header_match.group(2),
+                    'text': header_match.group(3).strip(),
                     'content': '',
                     'children': []
                 }
                 continue
             
-            # Detectar multimedia
+            # Multimedia
             media_match = re.match(r'^\[MULTIMEDIA:\s*([^|]+)\s*\|\s*(.+)\]$', line)
             if media_match and current_section:
                 current_section['multimedia'] = media_match.group(1).strip()
                 current_section['multimediaDescription'] = media_match.group(2).strip()
                 continue
             
-            # Detectar inicio de contenido
-            if line == '[CONTENIDO]' and current_section:
-                # El contenido comienza en la siguiente línea
-                continue
+            if line == '[CONTENIDO]' or line == '[CONTENIDO]': continue
             
-            # Si hay una sección actual y no es un marcador especial, es contenido
-            if current_section and line != '[CONTENIDO]':
+            if current_section:
                 current_section['content'] += line + '\n'
         
-        # Añadir la última sección
-        if current_section:
-            sections.append(current_section)
-        
+        if current_section: sections.append(current_section)
         return sections
-    def _process_html_to_word(self, html_content: str, paragraph, is_heading: bool = False, doc=None):
-        """Convierte HTML con estilos inline a Word, incluyendo soporte para tablas y listas."""
-        if not html_content or not html_content.strip():
-            return
+
+    def _process_html_to_word(self, html_content: str, paragraph, doc=None):
+        if not html_content or not html_content.strip(): return
         
         try:
+            # 1. Limpieza previa
+            html_content = html_content.replace('&nbsp;', ' ').replace('\u202f', ' ')
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # --- FUNCIÓN INTERNA ORIGINAL (MANTENIDA) ---
+            # 2. Función interna para procesar texto, estilos e HIPERVINCULOS
             def process_node(node, current_paragraph, inherited_styles=None):
-                if inherited_styles is None:
-                    inherited_styles = {}
+                if inherited_styles is None: inherited_styles = {}
                 
+                # Caso Texto Plano
                 if isinstance(node, str):
-                    text = str(node).strip()
-                    if text:
-                        text = text.replace('&nbsp;', ' ').replace('\u202f', ' ')
-                        if text:
-                            run = current_paragraph.add_run(text + " ")
-                            all_styles = inherited_styles.copy()
-                            if hasattr(node, 'parent') and node.parent:
-                                parent_classes = node.parent.get('class', [])
-                                if parent_classes:
-                                    quill_styles = self._extract_quill_styles_from_classes(parent_classes)
-                                    all_styles.update(quill_styles)
-                            self._apply_css_styles(run, all_styles)
+                    if node.strip() or node == ' ':
+                        run = current_paragraph.add_run(node)
+                        self._apply_css_styles(run, inherited_styles)
                     return
-                
+
                 tag_name = getattr(node, 'name', None)
-                if not tag_name: return
-                
+                if not tag_name or tag_name in ['colgroup', 'col']: return
+
+                # --- CORRECCIÓN AQUÍ: Detectar etiqueta <a> ---
+                if tag_name == 'a':
+                    url = node.get('href', '#')
+                    text = node.get_text()
+                    if text.strip():
+                        # Usamos la función que ya definiste abajo
+                        run_link = self._add_hyperlink(current_paragraph, url, text, inherited_styles)
+                        # Aplicamos estilos (por si el link debe ser negrita, etc.)
+                        self._apply_css_styles(run_link, inherited_styles)
+                    return # Importante: no procesar hijos de 'a' para no duplicar texto
+                # ----------------------------------------------
+
+                # Procesar estilos CSS heredados
                 current_styles = inherited_styles.copy()
                 style_attr = node.get('style', '')
                 if style_attr:
-                    for style in style_attr.split(';'):
-                        if ':' in style:
-                            key, value = map(str.strip, style.split(':', 1))
-                            current_styles[key.lower()] = value
-                
-                classes = node.get('class', [])
-                if classes:
-                    quill_styles = self._extract_quill_styles_from_classes(classes)
-                    current_styles.update(quill_styles)
-                
+                    for s in style_attr.split(';'):
+                        if ':' in s:
+                            k, v = map(str.strip, s.split(':', 1))
+                            current_styles[k.lower()] = v
+
+                # Estilos por etiqueta
                 if tag_name in ['strong', 'b']: current_styles['font-weight'] = 'bold'
-                elif tag_name in ['em', 'i']: current_styles['font-style'] = 'italic'
-                elif tag_name == 'u': current_styles['text-decoration'] = 'underline'
-                elif tag_name in ['s', 'strike', 'del']: current_styles['font-strike'] = 'line-through'
+                if tag_name in ['em', 'i']: current_styles['font-style'] = 'italic'
+                if tag_name == 'u': current_styles['text-decoration'] = 'underline'
                 
+                # Seguir procesando hijos (recursión)
                 for child in node.children:
                     process_node(child, current_paragraph, current_styles)
 
-            # --- LÓGICA DE DETECCIÓN DE BLOQUES (NUEVA) ---
-            for child in soup.contents:
-                tag_name = getattr(child, 'name', None)
-                
-                if tag_name in ['ul', 'ol'] and doc:
-                    self._add_list_to_word(child, doc)
-                elif tag_name == 'table' and doc:
-                    self._add_table_to_word(child, doc)
-                else:
-                    # Si es texto normal, párrafos o spans, usar la lógica original
-                    process_node(child, paragraph)
-                    
-        except Exception as e:
-            logging.error(f"Error procesando HTML: {e}")
-            # Fallback simple
-            plain_text = re.sub(r'<[^>]*>', '', html_content)
-            if plain_text.strip():
-                paragraph.add_run(plain_text)
+            # 3. LOOP PRINCIPAL (Tablas, Listas, Párrafos)
+            elements = soup.find_all(['p', 'table', 'ul', 'ol'], recursive=False)
+            if not elements:
+                elements = soup.contents
 
-    # --- MÉTODOS DE APOYO PARA TABLAS Y LISTAS ---
+            for child in elements:
+                name = getattr(child, 'name', None)
+                
+                if name == 'table':
+                    if doc: self._add_table_to_word(child, doc)
+                
+                elif name in ['ul', 'ol']:
+                    if doc: self._add_list_to_word(child, doc)
+                
+                elif name == 'p':
+                    if paragraph:
+                        process_node(child, paragraph)
+                    else:
+                        new_p = doc.add_paragraph() if doc else None
+                        if new_p: process_node(child, new_p)
+                
+                elif name is None:
+                    if str(child).strip():
+                        target = paragraph if paragraph else doc.add_paragraph()
+                        target.add_run(str(child))
+                
+                else:
+                    # Otros tags (span, div, b, i, y ahora la lógica de process_node maneja el <a>)
+                    target = paragraph if paragraph else doc.add_paragraph()
+                    process_node(child, target)
+
+        except Exception as e:
+            logging.error(f"Error crítico en _process_html_to_word: {e}")
+    def _add_table_to_word(self, table_node, doc):
+        try:
+            # Buscamos todas las filas, incluso si están dentro de <tbody> o <thead>
+            rows_nodes = table_node.find_all('tr')
+            if not rows_nodes: return
+            
+            # Determinar el máximo de columnas analizando todas las filas
+            max_cols = 0
+            for r in rows_nodes:
+                cells = r.find_all(['td', 'th'])
+                max_cols = max(max_cols, len(cells))
+            
+            if max_cols == 0: return
+
+            # Crear la tabla en Word
+            table = doc.add_table(rows=0, cols=max_cols)
+            table.style = 'Table Grid'
+            table.autofit = True # Ayuda a que no se vea gigante
+            
+            for row_node in rows_nodes:
+                row_cells = table.add_row().cells
+                # Buscamos celdas (th o td)
+                cols_nodes = row_node.find_all(['td', 'th'], recursive=False)
+                
+                for i, col_node in enumerate(cols_nodes):
+                    if i < max_cols:
+                        cell_p = row_cells[i].paragraphs[0]
+                        
+                        # Limpiamos el contenido de la celda antes de procesarlo
+                        # TipTap mete muchos <p> anidados. Obtenemos el texto con su HTML interno.
+                        inner_html = "".join([str(c) for c in col_node.contents])
+                        
+                        if col_node.name == 'th':
+                            # Estilo visual para encabezados
+                            self._process_html_to_word(inner_html, cell_p)
+                            for run in cell_p.runs:
+                                run.bold = True
+                        else:
+                            self._process_html_to_word(inner_html, cell_p)
+
+        except Exception as e:
+            logging.error(f"Error al construir tabla en Word: {e}")
 
     def _add_list_to_word(self, list_node, doc):
-        """Maneja listas <ul> y <ol>"""
-        is_ordered = list_node.name == 'ol'
-        style = 'List Number' if is_ordered else 'List Bullet'
-        for li in list_node.find_all('li', recursive=False):
-            p = doc.add_paragraph(style=style)
-            # Recursividad para mantener negritas/colores dentro del <li>
-            self._process_html_to_word(li.decode_contents(), p, doc=doc)
-
-    def _add_table_to_word(self, table_node, doc):
-        """Maneja tablas <table>"""
-        rows = table_node.find_all('tr', recursive=False)
-        if not rows: return
-        
-        # Contar columnas
-        max_cols = 0
-        for r in rows:
-            max_cols = max(max_cols, len(r.find_all(['td', 'th'], recursive=False)))
-        
-        table = doc.add_table(rows=0, cols=max_cols)
-        table.style = 'Table Grid'
-        
-        for row_node in rows:
-            row_cells = table.add_row().cells
-            cols = row_node.find_all(['td', 'th'], recursive=False)
-            for i, col in enumerate(cols):
-                if i < max_cols:
-                    # Usar el primer párrafo de la celda
-                    cell_p = row_cells[i].paragraphs[0]
-                    self._process_html_to_word(col.decode_contents(), cell_p, doc=doc)
-
-    def _extract_quill_styles_from_classes(self, classes):
-        """Extrae estilos de clases CSS de Quill."""
-        styles = {}
-        
-        for cls in classes:
-            if cls == 'ql-font-serif':
-                styles['font-family'] = 'serif'
-            elif cls == 'ql-font-monospace':
-                styles['font-family'] = 'monospace'
-            elif cls.startswith('ql-font-'):
-                font_name = cls.replace('ql-font-', '')
-                styles['font-family'] = font_name
+        try:
+            # Determinar el estilo (Viñetas o Números)
+            style = 'List Number' if list_node.name == 'ol' else 'List Bullet'
             
-            elif cls == 'ql-size-small':
-                styles['font-size'] = '12px'
-            elif cls == 'ql-size-large':
-                styles['font-size'] = '18px'
-            elif cls == 'ql-size-huge':
-                styles['font-size'] = '24px'
-            elif cls.startswith('ql-size-'):
-                size_name = cls.replace('ql-size-', '')
-                styles['font-size'] = f'{size_name}px'
-        
-        return styles
-
+            for li in list_node.find_all('li', recursive=False):
+                # Creamos el párrafo con el estilo de lista directamente
+                p = doc.add_paragraph(style=style)
+                
+                # TipTap suele meter un <p> dentro del <li>. 
+                # Si existe, extraemos solo su contenido para evitar el salto de línea.
+                inner_p = li.find('p', recursive=False)
+                if inner_p:
+                    inner_html = inner_p.decode_contents()
+                else:
+                    inner_html = li.decode_contents()
+                
+                # IMPORTANTE: Procesamos el HTML dentro del mismo párrafo 'p'
+                self._process_html_to_word(inner_html, p)
+                
+        except Exception as e:
+            logging.error(f"Error en _add_list_to_word: {e}")
 
     def _apply_css_styles(self, run, styles: Dict[str, str]):
-        """Aplica estilos CSS a un run de Word."""
-        if not styles:
-            return
-        
-        # DEBUG: Mostrar estilos que se están aplicando
-        if 'background-color' in styles:
-            logging.info(f"Aplicando background-color: {styles['background-color']}")
-        
-        # Fuente
-        if 'font-family' in styles:
-            font_family = styles['font-family'].lower()
-            if 'georgia' in font_family:
-                run.font.name = 'Georgia'
-            elif 'times' in font_family or 'serif' in font_family:
-                run.font.name = 'Times New Roman'
-            elif 'courier' in font_family or 'monospace' in font_family:
-                run.font.name = 'Courier New'
-            elif 'arial' in font_family or 'helvetica' in font_family or 'sans-serif' in font_family:
-                run.font.name = 'Arial'
-            elif 'verdana' in font_family:
-                run.font.name = 'Verdana'
-            elif 'tahoma' in font_family:
-                run.font.name = 'Tahoma'
-            elif 'calibri' in font_family:
-                run.font.name = 'Calibri'
-            elif 'cambria' in font_family:
-                run.font.name = 'Cambria'
-        
-        # Color de texto
         if 'color' in styles:
-            color = styles['color']
-            self._apply_color(run, color)
-        
-        # Tamaño de fuente
+            self._apply_color(run, styles['color'])
+        if 'font-weight' in styles and styles['font-weight'] == 'bold':
+            run.bold = True
+        if 'font-style' in styles and styles['font-style'] == 'italic':
+            run.italic = True
+        if 'text-decoration' in styles and 'underline' in styles['text-decoration']:
+            run.underline = True
         if 'font-size' in styles:
             self._apply_font_size(run, styles['font-size'])
-        
-        # Peso de fuente (negrita)
-        if 'font-weight' in styles:
-            weight = styles['font-weight'].lower()
-            if weight in ['bold', '700', '800', '900', 'bolder']:
-                run.bold = True
-            elif weight in ['normal', '400', 'lighter']:
-                run.bold = False
-        
-        # Estilo (cursiva)
-        if 'font-style' in styles:
-            style = styles['font-style'].lower()
-            if style == 'italic':
-                run.italic = True
-            elif style == 'normal':
-                run.italic = False
-        
-        # Subrayado
-        if 'text-decoration' in styles:
-            decoration = styles['text-decoration'].lower()
-            if 'underline' in decoration:
-                run.underline = True
-            elif 'line-through' in decoration or 'strikethrough' in decoration:
-                run.font.strike = True
-            elif 'none' in decoration:
-                run.underline = False
-                run.font.strike = False
-        
-        # Color de fondo (BACKGROUND-COLOR) - ¡ESTO ES LO IMPORTANTE!
-        if 'background-color' in styles:
-            bg_color = styles['background-color']
-            self._apply_background_color(run, bg_color)
-        
-        # También manejar 'background' (propiedad abreviada)
-        elif 'background' in styles:
-            # Intentar extraer color de background shorthand
-            bg_value = styles['background'].lower()
-            # Buscar colores en la propiedad background
-            color_keywords = ['red', 'blue', 'green', 'yellow', 'orange', 
-                            'purple', 'pink', 'black', 'white', 'gray']
-            
-            for keyword in color_keywords:
-                if keyword in bg_value:
-                    self._apply_background_color(run, keyword)
-                    break
-            
-            # Buscar color hex o rgb
-            hex_match = re.search(r'#([0-9a-f]{3,6})', bg_value, re.IGNORECASE)
-            if hex_match:
-                self._apply_background_color(run, f'#{hex_match.group(1)}')
-            
-            rgb_match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)\)', bg_value)
-            if rgb_match:
-                self._apply_background_color(run, f'rgb({rgb_match.group(1)},{rgb_match.group(2)},{rgb_match.group(3)})')
-
-
-
 
     def _apply_color(self, run, color_str: str):
-        """Aplica color de texto."""
         try:
+            color_str = color_str.replace(' ', '')
             if color_str.startswith('#'):
-                hex_color = color_str.lstrip('#')
-                if len(hex_color) == 3:
-                    hex_color = ''.join([c*2 for c in hex_color])
-                rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-                run.font.color.rgb = RGBColor(*rgb)
-            elif color_str.startswith('rgb'):
-                match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)\)', color_str)
-                if match:
-                    r, g, b = map(int, match.groups())
-                    run.font.color.rgb = RGBColor(r, g, b)
-        except:
-            pass
+                hex_c = color_str.lstrip('#')
+                if len(hex_c) == 3: hex_c = ''.join([c*2 for c in hex_c])
+                run.font.color.rgb = RGBColor(*tuple(int(hex_c[i:i+2], 16) for i in (0, 2, 4)))
+            elif 'rgb' in color_str:
+                m = re.search(r'rgb\((\d+),(\d+),(\d+)\)', color_str)
+                if m: run.font.color.rgb = RGBColor(*map(int, m.groups()))
+        except: pass
     
+    def _add_hyperlink(self, paragraph, url, text, styles):
+        """
+        Añade un hipervínculo al párrafo siguiendo la lógica de runs y estilos de la clase.
+        """
+        # Accedemos a la parte del documento para registrar la relación
+        part = paragraph.part
+        r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+
+        # Creamos la estructura XML del hipervínculo
+        from docx.oxml.shared import qn, OxmlElement
+        
+        hyperlink = OxmlElement('w:hyperlink')
+        hyperlink.set(qn('r:id'), r_id)
+
+        # Creamos el 'run' (w:r) que irá dentro del link
+        new_run_element = OxmlElement('w:r')
+        rPr = OxmlElement('w:rPr')
+
+        # Aplicamos estilo visual: Azul y Subrayado (estándar de Word)
+        u = OxmlElement('w:u')
+        u.set(qn('w:val'), 'single')
+        rPr.append(u)
+        
+        color = OxmlElement('w:color')
+        color.set(qn('w:val'), '0563C1')
+        rPr.append(color)
+
+        new_run_element.append(rPr)
+        text_element = OxmlElement('w:t')
+        text_element.text = text
+        new_run_element.append(text_element)
+        
+        hyperlink.append(new_run_element)
+        paragraph._p.append(hyperlink)
+
+        # Retornamos un objeto 'run' compatible para aplicar estilos CSS si fuera necesario
+        from docx.text.run import Run
+        return Run(new_run_element, paragraph)
+
     def _apply_font_size(self, run, size_str: str):
-        """Aplica tamaño de fuente."""
         try:
-            # Extraer número
-            match = re.search(r'(\d+(\.\d+)?)', size_str)
-            if match:
-                size = float(match.group(1))
-                
-                # Convertir unidades
-                if 'px' in size_str:
-                    size = size * 0.75  # px a pt
-                elif 'em' in size_str or 'rem' in size_str:
-                    size = size * 12  # em/rem a pt
-                
-                # Limitar tamaño razonable
-                size = max(8, min(size, 72))
-                run.font.size = Pt(size)
-        except:
-            pass
-    
-    def _apply_background_color(self, run, color_str: str):
-        """Aplica color de fondo como highlight en Word."""
-        try:
-            # Limpiar el color string
-            color_str = color_str.strip().lower()
-            
-            # Mapeo de colores HEX comunes a colores de highlight de Word
-            # Word tiene estos colores disponibles: BLACK, BLUE, CYAN, DARK_BLUE, 
-            # DARK_GREEN, DARK_MAGENTA, DARK_RED, DARK_YELLOW, DARK_GRAY, GREEN, 
-            # LIGHT_GRAY, MAGENTA, RED, WHITE, YELLOW
-            
-            color_map = {
-                # Amarillos/Naranjas
-                '#ffff00': 'YELLOW',          # Amarillo puro
-                '#ffeb3b': 'YELLOW',          # Amarillo claro
-                '#ffc107': 'DARK_YELLOW',     # Ámbar
-                '#ff9800': 'DARK_YELLOW',     # Naranja
-                '#ff5722': 'RED',             # Naranja rojizo
-                
-                # Rojos
-                '#f44336': 'RED',             # Rojo
-                '#e91e63': 'MAGENTA',         # Rosa
-                '#d32f2f': 'DARK_RED',        # Rojo oscuro
-                
-                # Azules
-                '#2196f3': 'BLUE',            # Azul
-                '#03a9f4': 'CYAN',            # Azul claro
-                '#1976d2': 'DARK_BLUE',       # Azul oscuro
-                '#3f51b5': 'DARK_BLUE',       # Azul índigo
-                '#0066cc': 'DARK_BLUE',       # Azul (de tu ejemplo)
-                
-                # Verdes
-                '#4caf50': 'GREEN',           # Verde
-                '#8bc34a': 'GREEN',           # Verde claro
-                '#388e3c': 'DARK_GREEN',      # Verde oscuro
-                '#008a00': 'DARK_GREEN',      # Verde (de tu ejemplo)
-                
-                # Púrpuras
-                '#9c27b0': 'MAGENTA',         # Púrpura
-                '#673ab7': 'DARK_MAGENTA',    # Púrpura oscuro
-                '#9933ff': 'DARK_MAGENTA',    # Violeta (de tu ejemplo)
-                
-                # Grises
-                '#9e9e9e': 'LIGHT_GRAY',      # Gris medio
-                '#607d8b': 'DARK_GRAY',       # Gris azulado
-                '#455a64': 'DARK_GRAY',       # Gris oscuro
-                
-                # Colores básicos de Quill
-                '#000000': 'BLACK',           # Negro
-                '#ffffff': 'WHITE',           # Blanco (poco útil como highlight)
-                '#e60000': 'RED',             # Rojo (de tu ejemplo)
-                '#ff9900': 'DARK_YELLOW',     # Naranja (de tu ejemplo)
-            }
-            
-            # Si es color rgb(), convertirlo a hex
-            if color_str.startswith('rgb'):
-                rgb_match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)\)', color_str)
-                if rgb_match:
-                    r, g, b = map(int, rgb_match.groups())
-                    # Convertir a hex
-                    color_str = f'#{r:02x}{g:02x}{b:02x}'
-            
-            # Buscar coincidencia exacta
-            if color_str in color_map:
-                highlight_color = color_map[color_str]
-                try:
-                    # Asignar el color de highlight
-                    run.font.highlight_color = getattr(run.font, highlight_color)
-                    return
-                except AttributeError:
-                    pass
-            
-            # Si no hay coincidencia exacta, buscar el color más cercano
-            if color_str.startswith('#'):
-                # Extraer componentes RGB
-                hex_color = color_str.lstrip('#')
-                if len(hex_color) == 3:
-                    hex_color = ''.join([c*2 for c in hex_color])
-                
-                try:
-                    r = int(hex_color[0:2], 16)
-                    g = int(hex_color[2:4], 16)
-                    b = int(hex_color[4:6], 16)
-                    
-                    # Determinar color más cercano por distancia euclidiana
-                    closest_color = self._find_closest_highlight_color(r, g, b)
-                    if closest_color:
-                        run.font.highlight_color = getattr(run.font, closest_color)
-                except:
-                    pass
+            m = re.search(r'(\d+)', size_str)
+            if m:
+                val = float(m.group(1))
+                if 'px' in size_str: val = val * 0.75
+                run.font.size = Pt(max(8, min(val, 72)))
+        except: pass
+
+    def _process_section(self, section: Dict[str, Any], doc: Document):
+        level_map = {'h1': 1, 'h2': 2, 'h3': 3, 'h4': 4, 'h5': 5}
+        lvl = level_map.get(section['level'], 2)
         
-        except Exception as e:
-            logging.warning(f"No se pudo aplicar background-color {color_str}: {e}")
-
-    def _find_closest_highlight_color(self, r: int, g: int, b: int) -> Optional[str]:
-        """Encuentra el color de highlight más cercano al RGB dado."""
-        # Colores disponibles en Word con sus valores RGB aproximados
-        highlight_colors = {
-            'YELLOW': (255, 255, 0),      # Amarillo
-            'DARK_YELLOW': (255, 200, 0), # Naranja/Amarillo oscuro
-            'RED': (255, 0, 0),           # Rojo
-            'DARK_RED': (200, 0, 0),      # Rojo oscuro
-            'BLUE': (0, 0, 255),          # Azul
-            'DARK_BLUE': (0, 0, 200),     # Azul oscuro
-            'GREEN': (0, 255, 0),         # Verde
-            'DARK_GREEN': (0, 200, 0),    # Verde oscuro
-            'CYAN': (0, 255, 255),        # Cian
-            'MAGENTA': (255, 0, 255),     # Magenta
-            'DARK_MAGENTA': (200, 0, 200),# Magenta oscuro
-            'BLACK': (0, 0, 0),           # Negro
-            'WHITE': (255, 255, 255),     # Blanco
-            'LIGHT_GRAY': (192, 192, 192),# Gris claro
-            'DARK_GRAY': (128, 128, 128), # Gris oscuro
-        }
+        # 1. Procesar Título
+        h = doc.add_heading(level=lvl)
+        # Pasamos el doc para que si el título tiene formato HTML se procese correctamente
+        self._process_html_to_word(section['text'], h, doc=doc)
         
-        closest = None
-        min_distance = float('inf')
+        # 2. Procesar Contenido (Tablas, Párrafos, Listas)
+        if section.get('content'):
+            # IMPORTANTE: No creamos párrafo aquí. 
+            # Se lo pasamos a la función para que ella cree tablas o párrafos según necesite.
+            self._process_html_to_word(section['content'], None, doc=doc)
+            
+        # 3. Procesar hijos recursivos
+        for child in section.get('children', []):
+            self._process_section(child, doc)
+
+    def generar_documento_word(self, blog_id: UUID, db: Session) -> StreamingResponse:
+        from src.entities.blog import Blog
+        blog = db.query(Blog).filter(Blog.id == blog_id).first()
+        if not blog: raise HTTPException(404, "Blog no encontrado")
         
-        for color_name, (cr, cg, cb) in highlight_colors.items():
-            # Calcular distancia euclidiana
-            distance = ((r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2) ** 0.5
-            
-            if distance < min_distance:
-                min_distance = distance
-                closest = color_name
+        # Obtener y parsear
+        raw_struct = blog.estructura_blog_json
+        sections = self._parse_markdown_with_html(str(raw_struct))
         
-        return closest
-
-   
-    def _process_section(self, section: Dict[str, Any], document: Document):
-        """Procesa una sección completa con HTML en títulos y contenido."""
-        try:
-            level = section.get('level', 'h2')
-            title_html = section.get('text', '')
-            content_html = section.get('content', '')
-            
-            # DEBUG: Ver qué hay en el título
-            logging.info(f"Procesando {level}: Título HTML: {title_html[:100]}...")
-            
-            # 1. Procesar título CON HTML
-            if title_html and title_html.strip():
-                # Limpiar caracteres HTML
-                clean_title_html = title_html.replace('&nbsp;', ' ').replace('\u202f', ' ')
-                
-                # Crear heading vacío
-                level_num = 2  # Default h2
-                level_map = {'h1': 1, 'h2': 2, 'h3': 3, 'h4': 4, 'h5': 5, 'h6': 6}
-                level_num = level_map.get(level, 2)
-                
-                heading = document.add_heading(level=level_num)
-                
-                # Procesar HTML del título
-                self._process_html_to_word(clean_title_html, heading, is_heading=True)
-                
-                # Asegurar estilos mínimos en heading
-                for run in heading.runs:
-                    # Si no tiene tamaño definido, aplicar por nivel
-                    if run.font.size is None or run.font.size.pt == 11:
-                        self._apply_heading_defaults(run, level)
-                    
-                    # Headings siempre en negrita (a menos que HTML lo especifique)
-                    if not run.bold:
-                        run.bold = True
-            
-            # 2. Procesar contenido
-            if content_html and content_html.strip():
-                clean_content = content_html.replace('&nbsp;', ' ').replace('\u202f', ' ')
-                paragraph = document.add_paragraph()
-                self._process_html_to_word(clean_content, paragraph, is_heading=False)
-            
-            # 3. Espacio entre secciones
-            document.add_paragraph()
-            
-            # 4. Procesar hijos (H3s dentro de H2s)
-            children = section.get('children', [])
-            for child in children:
-                self._process_section(child, document)
-                
-        except Exception as e:
-            logging.error(f"Error procesando sección {section.get('level')}: {e}")
-            # Continuar con siguiente sección
-
-
-    def _apply_heading_defaults(self, run, level: str):
-        """Aplica estilos por defecto a headings según nivel."""
-        if level == 'h1':
-            if run.font.size is None or run.font.size.pt <= 11:
-                run.font.size = Pt(24)
-            run.bold = True
-        elif level == 'h2':
-            if run.font.size is None or run.font.size.pt <= 11:
-                run.font.size = Pt(20)
-            run.bold = True
-        elif level == 'h3':
-            if run.font.size is None or run.font.size.pt <= 11:
-                run.font.size = Pt(16)
-            run.bold = True
-        elif level == 'h4':
-            if run.font.size is None or run.font.size.pt <= 11:
-                run.font.size = Pt(14)
-            run.bold = True
-        elif level == 'h5':
-            if run.font.size is None or run.font.size.pt <= 11:
-                run.font.size = Pt(12)
-            run.bold = True
-        elif level == 'h6':
-            if run.font.size is None or run.font.size.pt <= 11:
-                run.font.size = Pt(11)
-            run.bold = True
-
-    def generar_documento_word(
-        self,
-        blog_id: UUID,
-        db: Session
-    ) -> StreamingResponse:
-        """
-        Genera Word desde el Markdown con HTML de la BD.
-        """
-        try:
-            from src.entities.blog import Blog
-            
-            # 1. Obtener blog
-            blog = db.query(Blog).filter(Blog.id == blog_id).first()
-            if not blog:
-                raise HTTPException(404, "Blog no encontrado")
-            
-            # 2. Obtener estructura (string Markdown con HTML)
-            estructura_markdown = blog.estructura_blog_json
-            
-            if not estructura_markdown:
-                raise HTTPException(400, "El blog no tiene estructura generada")
-            
-            logging.info(f"Tipo de estructura: {type(estructura_markdown)}")
-            logging.info(f"Primeros 500 chars: {str(estructura_markdown)[:500]}")
-            
-            # 3. Parsear Markdown con HTML
-            sections = []
-            if isinstance(estructura_markdown, str):
-                sections = self._parse_markdown_with_html(estructura_markdown)
+        # Organizar jerarquía simple
+        organized = []
+        curr_h2 = None
+        for s in sections:
+            if s['level'] == 'h1' or s['level'] == 'h2':
+                organized.append(s)
+                curr_h2 = s if s['level'] == 'h2' else None
+            elif s['level'] == 'h3' and curr_h2:
+                curr_h2['children'].append(s)
             else:
-                # Intentar convertir a string
-                estructura_str = str(estructura_markdown)
-                sections = self._parse_markdown_with_html(estructura_str)
-            
-            logging.info(f"Secciones parseadas: {len(sections)}")
-            
-            if not sections:
-                raise HTTPException(400, "No se pudo parsear la estructura del blog")
-            
-            # 4. Organizar secciones en jerarquía (H2s con H3s como hijos)
-            organized_sections = []
-            current_h2 = None
-            
-            for section in sections:
-                if section['level'] == 'h1':
-                    organized_sections.append(section)
-                    current_h2 = None
-                elif section['level'] == 'h2':
-                    # Nueva sección H2
-                    organized_sections.append(section)
-                    current_h2 = section
-                elif section['level'] == 'h3' and current_h2:
-                    # H3 como hijo del H2 actual
-                    if 'children' not in current_h2:
-                        current_h2['children'] = []
-                    current_h2['children'].append(section)
-                else:
-                    # Sección por defecto
-                    organized_sections.append(section)
-            
-            # 5. Crear documento
-            doc = Document()
-            
-            # Estilo por defecto
-            style = doc.styles['Normal']
-            style.font.name = 'Calibri'
-            style.font.size = Pt(11)
-            
-            # 6. Procesar cada sección
-            for section in organized_sections:
-                self._process_section(section, doc)
-            
-            # 7. Guardar
-            buffer = BytesIO()
-            doc.save(buffer)
-            buffer.seek(0)
-            
-            # 8. Nombre de archivo
-            safe_title = re.sub(r'[^\w\s-]', '', blog.title or 'blog')
-            safe_title = re.sub(r'[-\s]+', '_', safe_title)
-            filename = f"{safe_title}.docx"
-            
-            return StreamingResponse(
-                buffer,
-                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            logging.error(f"Error generando Word: {e}", exc_info=True)
-            raise HTTPException(500, f"Error al generar documento: {str(e)}")
+                organized.append(s)
 
+        doc = Document()
+        for s in organized:
+            self._process_section(s, doc)
+            
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        
+        filename = re.sub(r'\W+', '_', blog.title or 'documento') + ".docx"
+        return StreamingResponse(buffer, media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                 headers={'Content-Disposition': f'attachment; filename="{filename}"'})
 
 # =======================================================================
 # FUNCIONES DE PERSISTENCIA DE LA TABLA SCRAPING Y BLOG

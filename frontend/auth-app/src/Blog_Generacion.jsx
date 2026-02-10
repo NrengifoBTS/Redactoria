@@ -11,31 +11,317 @@ import apiService from "./services/apiService";
 import "./css/blog_Generacion.css";
 import { useCurrentUser } from "./hooks/useApi.js";
 import { isAdminUser, isEditorUser } from "./utils/roles";
-import { useUsers, useFilters, useSearch } from "./hooks/useApi.js";
 
-// Importaciones para el editor de texto enriquecido
-import ReactDOM from "react-dom";
-import ReactQuill, { Quill } from "react-quill-new"; // Importamos desde la nueva librería
-import "react-quill-new/dist/quill.snow.css"; // Los estilos también cambian de ruta
-
-// --- PARCHE DE COMPATIBILIDAD REACT 19 ---
-if (typeof window !== "undefined" && !ReactDOM.findDOMNode) {
-  ReactDOM.findDOMNode = (instance) => {
-    if (instance instanceof HTMLElement) return instance;
-    return null;
-  };
-}
-
-// Configuración de fuentes
-const Font = Quill.import("formats/font");
-Font.whitelist = ["sans-serif", "serif", "monospace"];
-Quill.register(Font, true);
+// --- IMPORTACIONES TIPTAP ---
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
+import { Table } from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
+import { Color } from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { FontFamily } from "@tiptap/extension-font-family";
+import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
+import Placeholder from "@tiptap/extension-placeholder";
 
 // Añade esta pequeña función arriba en tu componente
 const stripHtml = (html) => {
   const tmp = document.createElement("DIV");
   tmp.innerHTML = html;
   return tmp.textContent || tmp.innerText || "";
+};
+
+const MenuBar = ({ editor }) => {
+  const [showPopover, setShowPopover] = useState(false);
+  if (!editor) return null;
+
+  // --- ACCIÓN DE HIPERVÍNCULO ---
+  const setLink = () => {
+    const previousUrl = editor.getAttributes("link").href;
+    const url = window.prompt("URL del enlace:", previousUrl);
+
+    if (url === null) return; // Cancelado
+
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  };
+
+  return (
+    <div className="tiptap-toolbar">
+      {/* --- FORMATO DE TEXTO --- */}
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={editor.isActive("bold") ? "is-active" : ""}
+        title="Negrita"
+      >
+        <i className="uil uil-bold"></i>
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={editor.isActive("italic") ? "is-active" : ""}
+        title="Itálica"
+      >
+        <i className="uil uil-italic"></i>
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        className={editor.isActive("underline") ? "is-active" : ""}
+        title="Subrayar"
+      >
+        <i className="uil uil-underline"></i>
+      </button>
+
+      <div style={{ position: "relative", display: "inline-block" }}>
+        <button
+          type="button"
+          onClick={() => setShowPopover(!showPopover)}
+          className={editor.isActive("link") ? "is-active" : ""}
+        >
+          <i className="uil uil-link"></i>
+        </button>
+
+        {/* SI EL BOTÓN SE ACTIVA, MOSTRAMOS EL POPOVER JUSTO DEBAJO */}
+        {showPopover && (
+          <div
+            style={{ position: "absolute", top: "100%", left: 0, zIndex: 999 }}
+          >
+            <LinkPopover editor={editor} />
+          </div>
+        )}
+      </div>
+
+      {/* Botón para quitar el link rápidamente si ya existe uno */}
+      {editor.isActive("link") && (
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().unsetLink().run()}
+          title="Quitar Enlace"
+        >
+          <i className="uil uil-link-broken"></i>
+        </button>
+      )}
+
+      <div className="toolbar-separator"></div>
+
+      {/* --- COLORES --- */}
+      <input
+        type="color"
+        onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+        value={editor.getAttributes("textStyle").color || "#000000"}
+        title="Color de texto"
+      />
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHighlight().run()}
+        className={editor.isActive("highlight") ? "is-active" : ""}
+        title="Resaltar"
+      >
+        <i className="uil uil-edit-alt"></i>
+      </button>
+
+      <div className="toolbar-separator"></div>
+
+      {/* --- ALINEACIÓN --- */}
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setTextAlign("left").run()}
+        className={editor.isActive({ textAlign: "left" }) ? "is-active" : ""}
+      >
+        <i className="uil uil-align-left"></i>
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setTextAlign("center").run()}
+        className={editor.isActive({ textAlign: "center" }) ? "is-active" : ""}
+      >
+        <i className="uil uil-align-center"></i>
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+        className={editor.isActive({ textAlign: "justify" }) ? "is-active" : ""}
+      >
+        <i className="uil uil-align-justify"></i>
+      </button>
+
+      <div className="toolbar-separator"></div>
+
+      {/* --- LISTAS Y TABLAS --- */}
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={editor.isActive("bulletList") ? "is-active" : ""}
+      >
+        <i className="uil uil-list-ul"></i>
+      </button>
+
+      {/* Solo mostramos el botón de insertar si NO estamos dentro de una tabla */}
+      {!editor.isActive("table") && (
+        <button
+          type="button"
+          onClick={() =>
+            editor
+              .chain()
+              .focus()
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+              .run()
+          }
+          title="Insertar Tabla"
+        >
+          <i className="uil uil-table"></i>
+        </button>
+      )}
+
+      {/* --- MENÚ DINÁMICO: Solo visible dentro de una tabla --- */}
+      {editor.isActive("table") && (
+        <>
+          <div className="toolbar-separator color-sep"></div>
+
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+            title="Añadir Columna"
+          >
+            <i className="uil uil-columns"></i>+
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+            title="Eliminar Columna"
+          >
+            <i className="uil uil-columns"></i>-
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            title="Añadir Fila"
+          >
+            <i className="uil uil-layers"></i>+
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteRow().run()}
+            title="Eliminar Fila"
+          >
+            <i className="uil uil-layers"></i>-
+          </button>
+
+          {/* COLOR DE FONDO DE CELDA (Requiere customTableCell en useEditor) */}
+          <div className="cell-color-wrapper" title="Fondo de celda">
+            <i className="uil uil-paint-tool"></i>
+            <input
+              type="color"
+              onInput={(e) => {
+                const color = e.target.value;
+                // Comando directo al nodo seleccionado
+                editor
+                  .chain()
+                  .focus()
+                  .updateAttributes("tableCell", { backgroundColor: color })
+                  .run();
+              }}
+              // Esto asegura que el input muestre el color actual de la celda
+              value={
+                editor.getAttributes("tableCell").backgroundColor || "#ffffff"
+              }
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteTable().run()}
+            className="btn-delete-table"
+            title="Eliminar toda la tabla"
+          >
+            <i className="uil uil-trash-alt"></i>
+          </button>
+        </>
+      )}
+
+      <div className="toolbar-separator"></div>
+
+      {/* --- UTILIDADES --- */}
+      <button
+        type="button"
+        onClick={() =>
+          editor.chain().focus().unsetAllMarks().clearNodes().run()
+        }
+        title="Borrar formato"
+      >
+        <i className="uil uil-sync-slash"></i>
+      </button>
+    </div>
+  );
+};
+const LinkPopover = ({ editor }) => {
+  const [url, setUrl] = useState("");
+
+  // Sincronizar el input con el link actual del editor
+  useEffect(() => {
+    if (editor) {
+      setUrl(editor.getAttributes("link").href || "");
+    }
+  }, [editor?.getAttributes("link").href]);
+
+  if (!editor) return null;
+
+  const applyLink = () => {
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    } else {
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: url })
+        .run();
+    }
+  };
+
+  const removeLink = () => {
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setUrl("");
+  };
+
+  return (
+    <div className="tiptap-popover-card">
+      <div className="tiptap-input-group">
+        <input
+          className="tiptap-input"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Pegar enlace..."
+          onKeyDown={(e) => e.key === "Enter" && applyLink()}
+        />
+        <button
+          onClick={applyLink}
+          className="tiptap-button-check"
+          title="Aplicar"
+        >
+          <i className="uil uil-check"></i>
+        </button>
+        <button
+          onClick={removeLink}
+          className="tiptap-button-trash"
+          title="Eliminar"
+        >
+          <i className="uil uil-trash-alt"></i>
+        </button>
+      </div>
+    </div>
+  );
 };
 
 const GeneracionBlog = () => {
@@ -70,9 +356,7 @@ const GeneracionBlog = () => {
   const [listaUrls, setListaUrls] = useState(["", "", ""]);
   const [estadosUrls, setEstadosUrls] = useState({});
 
-  const { user: currentUser, loading: loadingUser } = useCurrentUser();
-
-  const [showButton, setShowButton] = useState(false);
+  const { user: currentUser } = useCurrentUser();
 
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
@@ -200,6 +484,187 @@ const GeneracionBlog = () => {
   const [regenTextareaValue, setRegenTextareaValue] = useState("");
   const [seccionRegenerando, setSeccionRegenerando] = useState(null);
   const [sectionContentValue, setSectionContentValue] = useState("");
+
+  // -----------------------------------------------------------------------
+  // EDITORES DE TEXTO ENRIQUECIDO CON TIPTAP
+  // -----------------------------------------------------------------------
+  // Define esto fuera del componente o arriba para no repetir código
+  const customTableCell = TableCell.extend({
+    addAttributes() {
+      return {
+        // Mantenemos los atributos originales (colspan, rowspan, etc.)
+        ...this.parent?.(),
+        backgroundColor: {
+          default: null,
+          // Al leer el HTML, buscamos el color en el estilo
+          parseHTML: (element) => element.style.backgroundColor || null,
+          // Al generar el HTML, forzamos el atributo style
+          renderHTML: (attributes) => {
+            if (!attributes.backgroundColor) {
+              return {};
+            }
+            return {
+              style: `background-color: ${attributes.backgroundColor}; border: 1px solid #ced4da;`,
+            };
+          },
+        },
+      };
+    },
+  });
+
+  // Editor para el TÍTULO
+  const editorTitulo = useEditor({
+    extensions: [
+      StarterKit,
+      TextStyle,
+      Color.configure({ types: [TextStyle.name, "listing"] }),
+      FontFamily,
+      Underline,
+      Link,
+      Table.configure({
+        resizable: true,
+        allowTableNodeSelection: true,
+        lastColumnResizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      customTableCell, // <--- SOLO ESTO, BORRA EL TableCell.extend QUE TENÍAS ADENTRO
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({ types: ["heading", "paragraph", "tableCell"] }),
+      Placeholder.configure({ placeholder: "Escribe aquí..." }),
+    ],
+    content: regenTextareaValue,
+    onUpdate: ({ editor }) => setRegenTextareaValue(editor.getHTML()),
+  });
+
+  // Editor para el CONTENIDO
+  const editorContenido = useEditor({
+    extensions: [
+      StarterKit,
+      TextStyle,
+      Color.configure({ types: [TextStyle.name, "listing"] }),
+      FontFamily,
+      Underline,
+      Link,
+      Table.configure({ resizable: true, allowTableNodeSelection: true }),
+      TableRow,
+      TableHeader,
+      customTableCell, // <--- IGUAL AQUÍ, USA LA VARIABLE EXTERNA
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({ types: ["heading", "paragraph", "tableCell"] }),
+      Placeholder.configure({ placeholder: "Escribe aquí..." }),
+    ],
+    content: sectionContentValue,
+    onUpdate: ({ editor }) => setSectionContentValue(editor.getHTML()),
+  });
+
+  // Sincronizar TipTap cuando el estado de React cambie (por carga de API o IA)
+  useEffect(() => {
+    if (editorTitulo && regenTextareaValue !== editorTitulo.getHTML()) {
+      editorTitulo.commands.setContent(regenTextareaValue || "");
+    }
+  }, [regenTextareaValue, editorTitulo]);
+
+  useEffect(() => {
+    if (editorContenido && sectionContentValue !== editorContenido.getHTML()) {
+      editorContenido.commands.setContent(sectionContentValue || "");
+    }
+  }, [sectionContentValue, editorContenido]);
+  // -----------------------------------------------------------------------
+  // FIN EDITOR DE TEXTO
+  // -----------------------------------------------------------------------
+
+  const copiarContenidoAlPortapapeles = async () => {
+    if (!structureWithCount || structureWithCount.length === 0) return;
+
+    // 1. Construimos el HTML (Incluyendo H4)
+    let htmlContenido = `<html><body style="font-family: Arial, sans-serif; line-height: 1.6;">`;
+
+    structureWithCount.forEach((item) => {
+      // H1, H2
+      if (item.text) {
+        const tag = item.level || "h2";
+        htmlContenido += `<${tag}>${item.text}</${tag}>`;
+      }
+      if (item.content) htmlContenido += `<div>${item.content}</div>`;
+
+      // Hijos (H3)
+      if (item.children && item.children.length > 0) {
+        item.children.forEach((child) => {
+          if (child.text) htmlContenido += `<h3>${child.text}</h3>`;
+          if (child.content) htmlContenido += `<div>${child.content}</div>`;
+
+          // NUEVO: Procesar H4 (Nietos)
+          if (child.children && child.children.length > 0) {
+            child.children.forEach((grandChild) => {
+              if (grandChild.text)
+                htmlContenido += `<h4>${grandChild.text}</h4>`;
+              if (grandChild.content)
+                htmlContenido += `<div>${grandChild.content}</div>`;
+            });
+          }
+        });
+      }
+    });
+    htmlContenido += `</body></html>`;
+
+    // 2. Intentar copiado moderno (Solo funciona en HTTPS)
+    if (navigator.clipboard && window.isSecureContext && window.ClipboardItem) {
+      try {
+        const textoPlano = htmlContenido
+          .replace(/<[^>]*>/g, "")
+          .replace(/\n\s*\n/g, "\n\n");
+        const blobHtml = new Blob([htmlContenido], { type: "text/html" });
+        const blobText = new Blob([textoPlano], { type: "text/plain" });
+
+        const data = [
+          new ClipboardItem({
+            "text/html": blobHtml,
+            "text/plain": blobText,
+          }),
+        ];
+
+        await navigator.clipboard.write(data);
+        showToast("Contenido copiado con formato", "success");
+        return; // Éxito
+      } catch (err) {
+        console.warn("Clipboard API falló, intentando fallback...", err);
+      }
+    }
+
+    // 3. FALLBACK PARA HTTP (Mantiene el formato HTML al pegar en Word/Google Docs)
+    try {
+      const handler = (e) => {
+        e.clipboardData.setData("text/html", htmlContenido);
+        e.clipboardData.setData(
+          "text/plain",
+          htmlContenido.replace(/<[^>]*>/g, ""),
+        );
+        e.preventDefault();
+      };
+
+      document.addEventListener("copy", handler);
+      const textArea = document.createElement("textarea");
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      const exito = document.execCommand("copy");
+      document.removeEventListener("copy", handler);
+      document.body.removeChild(textArea);
+
+      if (exito) {
+        showToast("Copiado con formato (Modo HTTP)", "success");
+      } else {
+        throw new Error("Fallback falló");
+      }
+    } catch (err) {
+      console.error("Error final al copiar:", err);
+      showToast("No se pudo copiar el contenido", "error");
+    }
+  };
 
   // =======================================================================
   // 7. FUNCIONES DE UTILIDAD Y LÓGICA DE DATOS
@@ -382,30 +847,24 @@ const GeneracionBlog = () => {
       const isH1 = item.level === "h1";
 
       if (isH1) {
-        // --- LÓGICA DE H1 ---
-        // Usamos .trim() en el título porque suele ser una sola línea de texto/html
         const h1Line = `[H1 - ${item.enumeration}] ${item.text.trim()}`;
         markdownLines.push(h1Line);
 
         if (item.multimedia && item.multimediaDescription) {
           markdownLines.push(
-            `[MULTIMEDIA: ${
-              item.multimedia
-            } | ${item.multimediaDescription.trim()}]`,
+            `[MULTIMEDIA: ${item.multimedia} | ${item.multimediaDescription.trim()}]`,
           );
         }
 
-        // AGREGAR BLOQUE DE CONTENIDO H1
-        // CAMBIO CLAVE: No usamos .trim() en el contenido para preservar el HTML puro de Quill
         if (item.content) {
           markdownLines.push("[CONTENIDO]");
           markdownLines.push(item.content);
-          markdownLines.push(""); // Línea vacía para separación visual
+          markdownLines.push("");
         }
         return;
       }
 
-      // --- 1. LÓGICA DE H2 (y sus H3s) ---
+      // --- 1. LÓGICA DE H2 ---
       h2Counter++;
       const h2Enumeration = h2Counter.toString();
       const h2Line = `[H2 - ${h2Enumeration}] ${item.text.trim()}`;
@@ -413,14 +872,10 @@ const GeneracionBlog = () => {
 
       if (item.multimedia && item.multimediaDescription) {
         markdownLines.push(
-          `[MULTIMEDIA: ${
-            item.multimedia
-          } | ${item.multimediaDescription.trim()}]`,
+          `[MULTIMEDIA: ${item.multimedia} | ${item.multimediaDescription.trim()}]`,
         );
       }
 
-      // 1.2. AGREGAR BLOQUE DE CONTENIDO H2
-      // CAMBIO CLAVE: Preservamos el contenido tal cual viene del editor
       if (item.content) {
         markdownLines.push("[CONTENIDO]");
         markdownLines.push(item.content);
@@ -439,31 +894,50 @@ const GeneracionBlog = () => {
 
           if (h3Item.multimedia && h3Item.multimediaDescription) {
             markdownLines.push(
-              `[MULTIMEDIA: ${
-                h3Item.multimedia
-              } | ${h3Item.multimediaDescription.trim()}]`,
+              `[MULTIMEDIA: ${h3Item.multimedia} | ${h3Item.multimediaDescription.trim()}]`,
             );
           }
 
-          // 2.2. AGREGAR BLOQUE DE CONTENIDO H3
           if (h3Item.content) {
             markdownLines.push("[CONTENIDO]");
             markdownLines.push(h3Item.content);
             markdownLines.push("");
           }
+
+          // --- 3. NUEVA LÓGICA DE H4 (Hijos del H3) ---
+          let h4Counter = 0;
+          if (h3Item.children && h3Item.children.length > 0) {
+            h3Item.children.forEach((h4Item) => {
+              h4Counter++;
+              const h4Enumeration = `${h3Enumeration}.${h4Counter}`;
+
+              const h4Line = `[H4 - ${h4Enumeration}] ${h4Item.text.trim()}`;
+              markdownLines.push(h4Line);
+
+              if (h4Item.multimedia && h4Item.multimediaDescription) {
+                markdownLines.push(
+                  `[MULTIMEDIA: ${h4Item.multimedia} | ${h4Item.multimediaDescription.trim()}]`,
+                );
+              }
+
+              if (h4Item.content) {
+                markdownLines.push("[CONTENIDO]");
+                markdownLines.push(h4Item.content);
+                markdownLines.push("");
+              }
+            });
+          }
         });
       }
 
-      // 3. Separador final para bloques H2
+      // Separador final para bloques H2
       if (markdownLines[markdownLines.length - 1] !== "") {
         markdownLines.push("");
       }
     });
 
-    // Al final unimos con un solo salto de línea
     return markdownLines.join("\n");
   };
-
   //Funcion para el conteo de palabras por seccion de H
   const contarPalabras = useCallback((texto) => {
     if (!texto || typeof texto !== "string") return 0;
@@ -554,6 +1028,7 @@ const GeneracionBlog = () => {
     const lines = finalStructureString.split("\n");
     const structure = [];
     let lastH2 = null;
+    let lastH3 = null;
     let itemActual = null;
     let isProcessingStructure = false;
 
@@ -601,13 +1076,19 @@ const GeneracionBlog = () => {
         if (level === "h1") {
           structure.push(newItem);
           lastH2 = null;
+          lastH3 = null; // Resetear al cambiar de nivel superior
           itemActual = newItem;
         } else if (level === "h2") {
           structure.push(newItem);
           lastH2 = newItem;
+          lastH3 = null; // Resetear
           itemActual = newItem;
         } else if (level === "h3" && lastH2) {
           lastH2.children.push(newItem);
+          lastH3 = newItem; // <--- ¡ESTO FALTABA! Sin esto, el H4 no sabe dónde entrar
+          itemActual = newItem;
+        } else if (level === "h4" && lastH3) {
+          lastH3.children.push(newItem);
           itemActual = newItem;
         } else {
           itemActual = null;
@@ -618,8 +1099,7 @@ const GeneracionBlog = () => {
         itemActual.multimediaDescription = matchMedia[2].trim();
       } else if (matchContentStart && itemActual) {
         leyendoContenido = true;
-        const capturedContent = matchContentStart[1].trim();
-        itemActual.content = capturedContent;
+        itemActual.content = matchContentStart[1].trim();
       } else if (leyendoContenido && itemActual) {
         itemActual.content += (itemActual.content ? "\n" : "") + line;
       }
@@ -628,45 +1108,58 @@ const GeneracionBlog = () => {
     // Limpieza de contenido
     structure.forEach((item) => {
       if (item.content) item.content = item.content.trim();
-      item.children.forEach((child) => {
-        if (child.content) child.content = child.content.trim();
+      item.children?.forEach((h3) => {
+        if (h3.content) h3.content = h3.content.trim();
+        // Añadir limpieza para H4
+        h3.children?.forEach((h4) => {
+          if (h4.content) h4.content = h4.content.trim();
+        });
       });
     });
 
     if (structure.length > 0) {
       let currentH2Index = 1;
 
-      if (structure[0].level === "h1") {
-        const h1 = structure[0];
-        h1.enumeration = "0";
-        h1.uniqueId = `h1-${h1.enumeration}`;
-      }
+      structure.forEach((item) => {
+        // Limpieza y Enumeración H1
+        if (item.level === "h1") {
+          item.enumeration = "0";
+          item.uniqueId = `h1-0`;
+          if (item.content) item.content = item.content.trim();
+        }
 
-      for (let i = 0; i < structure.length; i++) {
-        const item = structure[i];
-
+        // Limpieza y Enumeración H2
         if (item.level === "h2") {
-          const h2 = item;
+          const h2Enum = `${currentH2Index}`;
+          item.enumeration = h2Enum;
+          item.uniqueId = `h2-${h2Enum}`;
+          if (item.content) item.content = item.content.trim();
 
-          const newH2Enumeration = `${currentH2Index}`;
+          if (item.children) {
+            let currentH3Index = 1;
+            item.children.forEach((h3) => {
+              const h3Enum = `${h2Enum}.${currentH3Index}`;
+              h3.enumeration = h3Enum;
+              h3.uniqueId = `h3-${h3Enum}`;
+              if (h3.content) h3.content = h3.content.trim();
 
-          h2.enumeration = newH2Enumeration;
-          h2.uniqueId = `h2-${newH2Enumeration}`;
-
-          if (h2.children && h2.children.length > 0) {
-            let currentH3MinorIndex = 1;
-            h2.children.forEach((h3) => {
-              const newH3Enumeration = `${newH2Enumeration}.${currentH3MinorIndex}`;
-
-              h3.enumeration = newH3Enumeration;
-              h3.uniqueId = `h3-${newH3Enumeration}`;
-
-              currentH3MinorIndex++;
+              // NUEVO: Enumeración H4
+              if (h3.children) {
+                let currentH4Index = 1;
+                h3.children.forEach((h4) => {
+                  const h4Enum = `${h3Enum}.${currentH4Index}`;
+                  h4.enumeration = h4Enum;
+                  h4.uniqueId = `h4-${h4Enum}`;
+                  if (h4.content) h4.content = h4.content.trim();
+                  currentH4Index++;
+                });
+              }
+              currentH3Index++;
             });
           }
           currentH2Index++;
         }
-      }
+      });
     }
 
     return structure;
@@ -735,7 +1228,6 @@ const GeneracionBlog = () => {
   };
 
   const renderizarContenidoDelBlog = (structure) => {
-    // 1. Si no hay estructura, mostrar placeholder
     if (!structure || structure.length === 0) {
       return (
         <div className="blog-view-placeholder">
@@ -744,7 +1236,6 @@ const GeneracionBlog = () => {
       );
     }
 
-    // Función auxiliar para verificar si un string HTML tiene contenido real
     const hasActualContent = (html) => {
       if (!html) return false;
       const plainText = html
@@ -755,74 +1246,72 @@ const GeneracionBlog = () => {
     };
 
     return (
-      <div className="blog-document-window" style={{ overflowX: "hidden" }}>
+      <div className="tiptap-render">
         {structure.map((item) => {
-          // Solo procesamos el item si tiene texto en el título o tiene contenido
           const hasTitle = hasActualContent(item.text);
           const hasBody = hasActualContent(item.content);
           const hasChildren = item.children && item.children.length > 0;
 
+          // Si el bloque principal (H1/H2) está vacío y no tiene hijos, no renderizamos nada
           if (!hasTitle && !hasBody && !hasChildren) return null;
 
-          // --- MANEJO DEL H1 ---
-          if (item.level === "h1") {
-            return (
-              <React.Fragment key={item.uniqueId || "h1-main"}>
-                {hasTitle && (
-                  <h1
-                    className="blog-title"
-                    dangerouslySetInnerHTML={{ __html: item.text }}
-                  />
-                )}
-                {hasBody && (
-                  <div
-                    /* Añadimos 'ql-snow' para mantener el estilo visual, 
-       pero el CSS se encargará de 'ql-editor' */
-                    className="content-block intro-content ql-editor ql-snow"
-                    dangerouslySetInnerHTML={{ __html: item.content }}
-                  />
-                )}
-              </React.Fragment>
-            );
-          }
-
-          // --- MANEJO DE H2 Y SUS HIJOS (H3) ---
           return (
             <React.Fragment key={item.uniqueId}>
+              {/* --- RENDER H1 o H2 --- */}
               {hasTitle && (
-                <h2
-                  className="section-h2"
+                <div
+                  className={item.level === "h1" ? "blog-title" : "section-h2"}
                   dangerouslySetInnerHTML={{ __html: item.text }}
                 />
               )}
               {hasBody && (
                 <div
-                  className="content-block ql-editor"
+                  className="content-block"
                   dangerouslySetInnerHTML={{ __html: item.content }}
                 />
               )}
 
-              {/* Renderizar hijos (H3) solo si existen y tienen contenido */}
+              {/* --- RENDER H3 (Hijos del H2) --- */}
               {item.children?.map((h3Item) => {
                 const hasH3Title = hasActualContent(h3Item.text);
                 const hasH3Body = hasActualContent(h3Item.content);
+                const hasH4Children =
+                  h3Item.children && h3Item.children.length > 0;
 
-                if (!hasH3Title && !hasH3Body) return null;
+                if (!hasH3Title && !hasH3Body && !hasH4Children) return null;
 
                 return (
                   <React.Fragment key={h3Item.uniqueId}>
                     {hasH3Title && (
-                      <h3
+                      <div
                         className="subsection-h3"
                         dangerouslySetInnerHTML={{ __html: h3Item.text }}
                       />
                     )}
                     {hasH3Body && (
                       <div
-                        className="content-block ql-editor ql-snow"
+                        className="content-block"
                         dangerouslySetInnerHTML={{ __html: h3Item.content }}
                       />
                     )}
+
+                    {/* --- RENDER H4 (Hijos del H3) --- */}
+                    {h3Item.children?.map((h4Item) => (
+                      <React.Fragment key={h4Item.uniqueId}>
+                        {hasActualContent(h4Item.text) && (
+                          <div
+                            className="subsection-h4"
+                            dangerouslySetInnerHTML={{ __html: h4Item.text }}
+                          />
+                        )}
+                        {hasActualContent(h4Item.content) && (
+                          <div
+                            className="content-block"
+                            dangerouslySetInnerHTML={{ __html: h4Item.content }}
+                          />
+                        )}
+                      </React.Fragment>
+                    ))}
                   </React.Fragment>
                 );
               })}
@@ -886,26 +1375,19 @@ const GeneracionBlog = () => {
 
   // Funcion que Maneja la selección del título en el StructureRenderer
   const seleccionarSeccionEdicion = (section, event) => {
-    // 1. Establece la sección seleccionada para activar el panel de edición
     setSelectedSectionForRegen(section);
-
-    // 2. Establecer el texto de edición (Título)
     setRegenTextareaValue(section.text);
 
-    // 3. Establecer el texto de contenido (Contenido)
-    // Se busca el contenido en el Markdown para asegurar la persistencia.
     const fullStructureObject = parseMarkdownStructure(tablaEstructuraFinal);
     const { level, enumeration } = section;
     let contentToEdit = "";
 
-    // === INICIO DE LA MODIFICACIÓN PARA INCLUIR H1 ===
     if (level === "h1") {
-      // Si la sección seleccionada es el H1, buscamos su contenido directamente.
       const h1Item = fullStructureObject.find((item) => item.level === "h1");
       contentToEdit = h1Item?.content || "";
     } else {
-      // Lógica existente para H2 y H3
-      const idH2 = enumeration.split(".")[0];
+      const parts = enumeration.split(".");
+      const idH2 = parts[0];
       const h2Padre = fullStructureObject.find(
         (item) => item.enumeration === idH2,
       );
@@ -914,15 +1396,24 @@ const GeneracionBlog = () => {
         if (level === "h2") {
           contentToEdit = h2Padre.content || "";
         } else if (level === "h3") {
-          const h3Objetivo = h2Padre.children.find(
+          const h3Objetivo = h2Padre.children?.find(
             (item) => item.enumeration === enumeration,
           );
           contentToEdit = h3Objetivo?.content || "";
         }
+        // NUEVA LÓGICA PARA H4
+        else if (level === "h4") {
+          const idH3 = `${parts[0]}.${parts[1]}`;
+          const h3Padre = h2Padre.children?.find(
+            (item) => item.enumeration === idH3,
+          );
+          const h4Objetivo = h3Padre?.children?.find(
+            (item) => item.enumeration === enumeration,
+          );
+          contentToEdit = h4Objetivo?.content || "";
+        }
       }
     }
-    // === FIN DE LA MODIFICACIÓN ===
-
     setSectionContentValue(contentToEdit);
   };
 
@@ -938,16 +1429,17 @@ const GeneracionBlog = () => {
     const newTitle = regenTextareaValue;
     const { level, enumeration } = selectedSectionForRegen;
 
-    // 2. USAMOS TU PARSER (Igual que en guardarContenidoLocal)
-    // Esto asegura que estemos trabajando con el objeto real
+    // 2. Parseamos la estructura actual
     let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
 
-    // 3. Localizamos el item usando tu lógica de IDs
-    const idH2 = enumeration.split(".")[0];
-
+    // 3. Lógica de localización con soporte para H4
+    const parts = enumeration.split(".");
+    const idH2 = parts[0];
     let encontrado = false;
 
-    if (level.toLowerCase() === "h1") {
+    const levelLower = level.toLowerCase();
+
+    if (levelLower === "h1") {
       const h1Item = nuevaEstructura.find(
         (item) => item.level.toLowerCase() === "h1",
       );
@@ -956,17 +1448,33 @@ const GeneracionBlog = () => {
         encontrado = true;
       }
     } else {
+      // Buscamos el H2 padre (es la base para H2, H3 y H4)
       const h2Padre = nuevaEstructura.find((item) => item.enumeration === idH2);
+
       if (h2Padre) {
-        if (level.toLowerCase() === "h2") {
+        if (levelLower === "h2") {
           h2Padre.text = newTitle;
           encontrado = true;
-        } else if (level.toLowerCase() === "h3") {
-          const h3Objetivo = h2Padre.children.find(
+        } else if (levelLower === "h3") {
+          const h3Objetivo = h2Padre.children?.find(
             (item) => item.enumeration === enumeration,
           );
           if (h3Objetivo) {
             h3Objetivo.text = newTitle;
+            encontrado = true;
+          }
+        }
+        // NUEVA LÓGICA PARA H4
+        else if (levelLower === "h4") {
+          const idH3 = `${parts[0]}.${parts[1]}`;
+          const h3Padre = h2Padre.children?.find(
+            (item) => item.enumeration === idH3,
+          );
+          const h4Objetivo = h3Padre?.children?.find(
+            (item) => item.enumeration === enumeration,
+          );
+          if (h4Objetivo) {
+            h4Objetivo.text = newTitle;
             encontrado = true;
           }
         }
@@ -981,14 +1489,15 @@ const GeneracionBlog = () => {
       return;
     }
 
-    // 4. USAMOS TU CONVERSOR (La clave del éxito)
-    // Esto regenera el string de tablaEstructuraFinal exactamente como el sistema espera
+    // 4. Convertimos de vuelta a Markdown y actualizamos estado
     const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
-
     setTablaEstructuraFinal(nuevoMarkdown);
-    markAsChanged();
 
-    // 5. Actualizamos estados de UI
+    if (typeof markAsChanged === "function") markAsChanged();
+
+    setHasUnsavedChanges(true);
+
+    // 5. Actualizamos estados de UI para reflejar el cambio inmediato
     setSelectedSectionForRegen((prevSection) => ({
       ...prevSection,
       text: newTitle,
@@ -1000,24 +1509,14 @@ const GeneracionBlog = () => {
 
   //Funcion para guardar el contenido de los titulos o subtitulos
   const guardarContenidoLocal = (fieldToUpdate, newValue) => {
-    if (!selectedSectionForRegen) {
-      showToast(
-        "ERROR: No hay una sección seleccionada para guardar el contenido.",
-        "error",
-      );
-      return;
-    }
+    if (!selectedSectionForRegen) return;
 
-    // 1. Preparar valor
     const valueToSave = newValue ?? "";
     const propertyToUpdate = fieldToUpdate === "title" ? "text" : "content";
-
-    // 2. Obtener estructura actual
     let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
     const { level, enumeration } = selectedSectionForRegen;
-
-    // 3. Localizar e inyectar el contenido (Tu lógica original de búsqueda)
-    const idH2 = enumeration.split(".")[0];
+    const parts = enumeration.split(".");
+    const idH2 = parts[0];
 
     if (level === "h1") {
       const h1Item = nuevaEstructura.find((item) => item.level === "h1");
@@ -1028,43 +1527,33 @@ const GeneracionBlog = () => {
         if (level === "h2") {
           h2Padre[propertyToUpdate] = valueToSave;
         } else if (level === "h3") {
-          const h3Objetivo = h2Padre.children.find(
+          const h3Objetivo = h2Padre.children?.find(
             (item) => item.enumeration === enumeration,
           );
           if (h3Objetivo) h3Objetivo[propertyToUpdate] = valueToSave;
         }
+        // NUEVA LÓGICA PARA H4
+        else if (level === "h4") {
+          const idH3 = `${parts[0]}.${parts[1]}`;
+          const h3Padre = h2Padre.children?.find(
+            (item) => item.enumeration === idH3,
+          );
+          const h4Objetivo = h3Padre?.children?.find(
+            (item) => item.enumeration === enumeration,
+          );
+          if (h4Objetivo) h4Objetivo[propertyToUpdate] = valueToSave;
+        }
       }
     }
 
-    // 4. RECALCULO DE PALABRAS (Aquí está la clave)
-    // Siempre recalculamos si se actualiza el contenido para que el Header se refresque
+    // Recalcular palabras y guardar
     if (fieldToUpdate === "content") {
-      const nuevoTotalPalabras = recalcularPalabrasGeneradas(nuevaEstructura);
-      // Usamos el nombre exacto de tu estado: setTotalGeneratedWords
-      setTotalGeneratedWords(nuevoTotalPalabras);
+      setTotalGeneratedWords(recalcularPalabrasGeneradas(nuevaEstructura));
     }
-
-    // 5. Convertir a Markdown y actualizar estado principal
-    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
-    setTablaEstructuraFinal(nuevoMarkdown);
-
-    // 6. Persistencia y Limpieza
-    if (typeof markAsChanged === "function") markAsChanged();
-
+    setTablaEstructuraFinal(convertStructureToMarkdown(nuevaEstructura));
+    setHasUnsavedChanges(true);
     setSelectedSectionForRegen(null);
-    setSectionContentValue("");
-    setRegenTextareaValue("");
-
-    // Solo si definiste este estado antes
-    if (typeof setTempContentUpdate === "function") {
-      setTempContentUpdate(null);
-    }
-
-    const fieldName = fieldToUpdate === "title" ? "Título" : "Contenido";
-    showToast(
-      `${fieldName} guardado localmente y conteo actualizado.`,
-      "success",
-    );
+    showToast("Guardado exitosamente", "success");
   };
 
   //  Cancelar Edición de Contenido
@@ -1084,18 +1573,19 @@ const GeneracionBlog = () => {
     const currentStructure = parseMarkdownStructure(tablaEstructuraFinal);
     let newStructure = [...currentStructure];
 
-    const isH2 = sectionToMove.level === "h2" || sectionToMove.level === "h1";
+    const level = sectionToMove.level.toLowerCase();
+    const parts = sectionToMove.enumeration.split(".");
 
-    if (isH2) {
+    // --- CASO 1: MOVER H1 o H2 (Nivel Raíz) ---
+    if (level === "h1" || level === "h2") {
       const currentIndex = newStructure.findIndex(
         (item) => item.uniqueId === sectionToMove.uniqueId,
       );
-      if (currentIndex === -1) return;
-      if (currentIndex === 0) return; // No mover el H1/Primer H2
+      if (currentIndex === -1 || currentIndex === 0) return; // No mover H1 o si no se encuentra
 
       let newIndex = currentIndex;
-      if (direction === "UP" && currentIndex > 0) {
-        if (currentIndex - 1 === 0) return;
+      if (direction === "UP" && currentIndex > 1) {
+        // > 1 para no saltar por encima del H1 (index 0)
         newIndex = currentIndex - 1;
       } else if (
         direction === "DOWN" &&
@@ -1108,48 +1598,74 @@ const GeneracionBlog = () => {
 
       const [movedItem] = newStructure.splice(currentIndex, 1);
       newStructure.splice(newIndex, 0, movedItem);
-    } else {
-      const h2IdMatch = sectionToMove.enumeration.split(".")[0];
+    }
+
+    // --- CASO 2: MOVER H3 (Hijo de H2) ---
+    else if (level === "h3") {
       const parentH2 = newStructure.find(
-        (item) => item.enumeration === h2IdMatch,
+        (item) => item.enumeration === parts[0],
       );
+      if (!parentH2 || !parentH2.children) return;
 
-      if (!parentH2) return;
-
-      const h3Children = parentH2.children;
-      const h3CurrentId = sectionToMove.uniqueId;
-
-      const currentIndex = h3Children.findIndex(
-        (item) => item.uniqueId === h3CurrentId,
+      const currentIndex = parentH2.children.findIndex(
+        (item) => item.uniqueId === sectionToMove.uniqueId,
       );
       if (currentIndex === -1) return;
 
       let newIndex = currentIndex;
       if (direction === "UP" && currentIndex > 0) {
         newIndex = currentIndex - 1;
-      } else if (direction === "DOWN" && currentIndex < h3Children.length - 1) {
+      } else if (
+        direction === "DOWN" &&
+        currentIndex < parentH2.children.length - 1
+      ) {
         newIndex = currentIndex + 1;
       } else {
         return;
       }
 
-      const [movedItem] = h3Children.splice(currentIndex, 1);
-      h3Children.splice(newIndex, 0, movedItem);
-      parentH2.children = [...h3Children];
+      const [movedItem] = parentH2.children.splice(currentIndex, 1);
+      parentH2.children.splice(newIndex, 0, movedItem);
     }
 
-    // ACTUALIZACIÓN SOLO EN EL FRONT (ESTADO LOCAL)
+    // --- CASO 3: MOVER H4 (Hijo de H3) ---
+    else if (level === "h4") {
+      const idH2 = parts[0];
+      const idH3 = `${parts[0]}.${parts[1]}`;
+
+      const h2Padre = newStructure.find((item) => item.enumeration === idH2);
+      const h3Padre = h2Padre?.children?.find(
+        (item) => item.enumeration === idH3,
+      );
+
+      if (!h3Padre || !h3Padre.children) return;
+
+      const currentIndex = h3Padre.children.findIndex(
+        (item) => item.uniqueId === sectionToMove.uniqueId,
+      );
+      if (currentIndex === -1) return;
+
+      let newIndex = currentIndex;
+      if (direction === "UP" && currentIndex > 0) {
+        newIndex = currentIndex - 1;
+      } else if (
+        direction === "DOWN" &&
+        currentIndex < h3Padre.children.length - 1
+      ) {
+        newIndex = currentIndex + 1;
+      } else {
+        return;
+      }
+
+      const [movedItem] = h3Padre.children.splice(currentIndex, 1);
+      h3Padre.children.splice(newIndex, 0, movedItem);
+    }
+
+    // ACTUALIZACIÓN DE ESTADOS
     const newMarkdown = convertStructureToMarkdown(newStructure);
     setTablaEstructuraFinal(newMarkdown);
-
-    // Solo marcamos que hay cambios pendientes para que el usuario guarde manualmente
     markAsChanged();
-
-    // --- SE ELIMINAN LAS LLAMADAS AL API QUE CAUSABAN EL ERROR 404 Y EL AUTOGUARDADO ---
-    // apiService.logBlogEdit(...); <-- ELIMINADO
-    // apiService.updateBlog(...);  <-- ELIMINADO
   };
-
   //Maneja acciones de Mover y Eliminar, mostrando un toast de confirmación
   const gestionarAccionDeSeccion = (action, section, direction = null) => {
     switch (action) {
@@ -1181,7 +1697,7 @@ const GeneracionBlog = () => {
     }
   };
 
-  // ---Funcion para eliminar una seccion
+  // --- Funcion para eliminar una seccion
   const eliminarSeccion = (sectionToDelete) => {
     // Validar si hay algo para eliminar
     if (!sectionToDelete || !tablaEstructuraFinal) {
@@ -1193,35 +1709,48 @@ const GeneracionBlog = () => {
     let parsedStructure = parseMarkdownStructure(tablaEstructuraFinal);
     let newStructure = [];
     const targetId = sectionToDelete.uniqueId;
-    const level = sectionToDelete.level;
+    const level = sectionToDelete.level.toLowerCase();
+    const parts = sectionToDelete.enumeration.split(".");
 
-    if (level === "h2") {
-      // 1. ELIMINAR H2: Simplemente filtramos el array principal para excluir el H2.
-      // Esto elimina automáticamente todos los H3 que estaban anidados dentro.
+    if (level === "h1" || level === "h2") {
+      // 1. ELIMINAR H1/H2: Filtramos el array principal.
+      // Si es H2, elimina automáticamente sus hijos H3 y nietos H4.
       newStructure = parsedStructure.filter(
         (item) => item.uniqueId !== targetId,
       );
     } else if (level === "h3") {
-      // 2. ELIMINAR H3: Debemos encontrar el H2 padre y filtrar solo sus hijos.
+      // 2. ELIMINAR H3: Buscamos el H2 padre y filtramos sus hijos.
+      const parentH2Enum = parts[0];
 
-      // 2a. Obtener la enumeración del H2 padre (Ej: si H3 es "1.2", el padre es "1").
-      const parentH2Enumeration = sectionToDelete.enumeration.split(".")[0];
-
-      // 2b. Mapear la estructura para encontrar y modificar SOLO el H2 padre
       newStructure = parsedStructure.map((h2Item) => {
-        if (h2Item.enumeration === parentH2Enumeration) {
-          // Hemos encontrado el H2 padre:
-
-          // Filtramos su array de hijos para EXCLUIR el H3 que coincide con el ID.
+        if (h2Item.enumeration === parentH2Enum && h2Item.children) {
           const newChildren = h2Item.children.filter(
             (h3Item) => h3Item.uniqueId !== targetId,
           );
-
-          // Retornamos un NUEVO objeto H2 (inmutabilidad) con los hijos filtrados
           return { ...h2Item, children: newChildren };
         }
+        return h2Item;
+      });
+    } else if (level === "h4") {
+      // 3. ELIMINAR H4: Buscamos el H2 (abuelo) y luego el H3 (padre).
+      const parentH2Enum = parts[0];
+      const parentH3Enum = `${parts[0]}.${parts[1]}`;
 
-        // Si no es el H2 padre, lo dejamos sin cambios.
+      newStructure = parsedStructure.map((h2Item) => {
+        // Si es el H2 que contiene al H3 padre
+        if (h2Item.enumeration === parentH2Enum && h2Item.children) {
+          const updatedH3Children = h2Item.children.map((h3Item) => {
+            // Si es el H3 padre del H4 que queremos borrar
+            if (h3Item.enumeration === parentH3Enum && h3Item.children) {
+              const newH4Children = h3Item.children.filter(
+                (h4Item) => h4Item.uniqueId !== targetId,
+              );
+              return { ...h3Item, children: newH4Children };
+            }
+            return h3Item;
+          });
+          return { ...h2Item, children: updatedH3Children };
+        }
         return h2Item;
       });
     } else {
@@ -1229,13 +1758,16 @@ const GeneracionBlog = () => {
       return;
     }
 
-    // 3. Actualizar el estado
+    // 4. Actualizar el estado y re-enumerar
+    // Tu función convertStructureToMarkdown se encargará de arreglar los números (ej: si borras el 2.2, el 2.3 pasa a ser 2.2)
     const newMarkdown = convertStructureToMarkdown(newStructure);
     setTablaEstructuraFinal(newMarkdown);
-    markAsChanged();
+
+    if (typeof markAsChanged === "function") markAsChanged();
+
     setSelectedSectionForRegen(null);
     showToast(
-      `Sección eliminada correctamente. La estructura ha sido re-enumerada.`,
+      `Sección ${level.toUpperCase()} eliminada correctamente.`,
       "success",
     );
   };
@@ -1334,6 +1866,71 @@ const GeneracionBlog = () => {
       "Subsección H3 agregada. Se ha re-enumerado la estructura.",
       "success",
     );
+  };
+
+  const agregarSubseccionH4 = () => {
+    // 1. Validar selección
+    if (!selectedSectionForRegen || !tablaEstructuraFinal) {
+      showToast(
+        "ERROR: Seleccione una subsección H3 para añadir un H4.",
+        "error",
+      );
+      return;
+    }
+
+    let nuevaEstructura = parseMarkdownStructure(tablaEstructuraFinal);
+    const { enumeration } = selectedSectionForRegen;
+    const partes = enumeration.split(".");
+
+    if (partes.length < 2) {
+      showToast(
+        "ERROR: Los H4 solo pueden ir dentro de secciones H3.",
+        "error",
+      );
+      return;
+    }
+
+    // El ID del padre H2 es el primer número, el del H3 es "X.Y"
+    const idH2Padre = partes[0];
+    const idH3Padre = `${partes[0]}.${partes[1]}`;
+
+    // 2. Buscar el H2
+    const h2Padre = nuevaEstructura.find(
+      (item) => item.enumeration === idH2Padre,
+    );
+    if (!h2Padre) return;
+
+    // 3. Buscar el H3 dentro de ese H2
+    const h3Padre = h2Padre.children?.find(
+      (child) => child.enumeration === idH3Padre,
+    );
+
+    if (!h3Padre) {
+      showToast("ERROR: No se encontró la sección H3 padre.", "error");
+      return;
+    }
+
+    // 4. Crear el nuevo H4
+    const newH4 = {
+      level: "h4",
+      uniqueId: `h4-${Date.now()}`,
+      text: "Nueva Sub-subsección H4",
+      multimedia: null,
+      multimediaDescription: null,
+      content: null,
+      children: [], // Por si en el futuro quieres H5
+    };
+
+    // 5. Insertar
+    if (!h3Padre.children) h3Padre.children = [];
+    h3Padre.children.push(newH4);
+
+    // 6. Actualizar
+    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
+    setTablaEstructuraFinal(nuevoMarkdown);
+    markAsChanged();
+
+    showToast("Subsección H4 agregada correctamente.", "success");
   };
 
   const cancelarGeneracionCompleta = () => {
@@ -1629,77 +2226,53 @@ const GeneracionBlog = () => {
   // 10. FUNCIONES DE ANÁLISIS Y REGENERACIÓN DE IA
   // ==============================================================================================================================================
   const actualizarTituloDeSeccion = (newTitle) => {
-    if (
-      !selectedSectionForRegen ||
-      selectedSectionForRegen.level === "content"
-    ) {
-      showToast("Selección inválida para reemplazar título.", "error");
-      return;
-    }
+    if (!selectedSectionForRegen) return;
 
     const estructuraActual = parseMarkdownStructure(tablaEstructuraFinal);
-    let nuevaEstructura = [...estructuraActual];
+    const { level, enumeration } = selectedSectionForRegen;
+    const parts = enumeration.split(".");
     let found = false;
 
-    const { level, enumeration } = selectedSectionForRegen;
-
-    // Casos H1 y H2: Nivel raíz
     if (level === "h1" || level === "h2") {
-      const index = nuevaEstructura.findIndex(
-        (item) => item.level === level && item.enumeration === enumeration,
+      const item = estructuraActual.find(
+        (i) => i.level === level && i.enumeration === enumeration,
       );
-
-      if (index !== -1) {
-        nuevaEstructura[index].text = newTitle;
+      if (item) {
+        item.text = newTitle;
+        found = true;
+      }
+    } else if (level === "h3") {
+      const h2Padre = estructuraActual.find(
+        (i) => i.level === "h2" && i.enumeration === parts[0],
+      );
+      const h3 = h2Padre?.children?.find((c) => c.enumeration === enumeration);
+      if (h3) {
+        h3.text = newTitle;
         found = true;
       }
     }
-    // Caso H3: Corregido para buscar al padre por enumeración, no por objeto .parent
-    else if (level === "h3") {
-      // Extraemos el ID del H2 (ej: de "2.1" obtenemos "2")
-      const parentEnumeration = enumeration.split(".")[0];
-
-      // Buscamos el H2 padre en la raíz [cite: 122]
-      const h2Padre = nuevaEstructura.find(
-        (item) => item.level === "h2" && item.enumeration === parentEnumeration,
+    // NUEVA LÓGICA PARA H4
+    else if (level === "h4") {
+      const h2Padre = estructuraActual.find(
+        (i) => i.level === "h2" && i.enumeration === parts[0],
       );
-
-      if (h2Padre && h2Padre.children) {
-        // Buscamos el H3 dentro de los hijos del H2 encontrado [cite: 124]
-        const h3Index = h2Padre.children.findIndex(
-          (child) => child.level === "h3" && child.enumeration === enumeration,
-        );
-
-        if (h3Index !== -1) {
-          h2Padre.children[h3Index].text = newTitle;
-          found = true;
-        }
+      const h3Padre = h2Padre?.children?.find(
+        (c) => c.enumeration === `${parts[0]}.${parts[1]}`,
+      );
+      const h4 = h3Padre?.children?.find((c) => c.enumeration === enumeration);
+      if (h4) {
+        h4.text = newTitle;
+        found = true;
       }
     }
 
-    if (!found) {
-      console.error(
-        `[FALLO] No se encontró: [${level.toUpperCase()} - ${enumeration}].`,
-      );
-      showToast(
-        "Error al reemplazar el título. No se encontró la sección.",
-        "error",
-      );
-      return;
+    if (found) {
+      setTablaEstructuraFinal(convertStructureToMarkdown(estructuraActual));
+      setSelectedSectionForRegen((prev) => ({ ...prev, text: newTitle }));
+      setRegenTextareaValue(newTitle);
+      showToast("Título actualizado", "success");
     }
-
-    // Convertir y actualizar estados [cite: 135-137]
-    const nuevoMarkdown = convertStructureToMarkdown(nuevaEstructura);
-    setTablaEstructuraFinal(nuevoMarkdown);
-    markAsChanged();
-    setRegenTextareaValue(newTitle);
-
-    // Actualizar la referencia de la sección seleccionada para que la UI refleje el cambio
-    setSelectedSectionForRegen((prev) => ({ ...prev, text: newTitle }));
-
-    showToast("Título actualizado con éxito.", "success");
   };
-
   //Funcion para la generacion de la estructura (H1, H2, H3)
   const generarEsquemaDelArticulo = useCallback(async () => {
     // 1. VALIDACIONES PREVIAS
@@ -2380,10 +2953,6 @@ const GeneracionBlog = () => {
   }) => {
     if (!structure || structure.length === 0) return null;
 
-    /**
-     * Determina si una sección tiene algo que mostrar (Texto, Contenido, SEO o Hijos).
-     * El H1 siempre se retorna true para asegurar que el título principal nunca desaparezca.
-     */
     const hasContentToShow = (item) => {
       if (item.level === "h1") return true;
 
@@ -2410,7 +2979,6 @@ const GeneracionBlog = () => {
     return (
       <ul className="structure-list">
         {structure.map((item) => {
-          // Si no hay nada que mostrar en este nodo, saltamos al siguiente
           if (!hasContentToShow(item)) return null;
 
           const isSelected = selectedSection?.uniqueId === item.uniqueId;
@@ -2423,7 +2991,7 @@ const GeneracionBlog = () => {
                 isSelected ? "structure-item-selected" : ""
               }`}
             >
-              {/* 1. ENCABEZADO: Icono + Título + Botones */}
+              {/* 1. ENCABEZADO */}
               <div className="structure-content-wrapper">
                 <div
                   className="structure-text-area"
@@ -2442,7 +3010,9 @@ const GeneracionBlog = () => {
                           ? "uil-heading"
                           : item.level === "h2"
                             ? "uil-align-left-h"
-                            : "uil-corner-down-right"
+                            : item.level === "h3"
+                              ? "uil-corner-down-right"
+                              : "uil-list-ui-alt" // Icono específico para H4 (más profundo)
                       }`}
                     ></i>
                   </span>
@@ -2451,7 +3021,6 @@ const GeneracionBlog = () => {
                     {item.enumeration}
                   </span>
 
-                  {/* Título de la sección (Soporta HTML de Quill) */}
                   <span
                     dangerouslySetInnerHTML={{
                       __html: item.text || "Sin título",
@@ -2472,7 +3041,7 @@ const GeneracionBlog = () => {
                   )}
                 </div>
 
-                {/* Botones de acción: Solo visibles para H2 y H3 para no romper la raíz */}
+                {/* Botones de acción: Visibles para H2, H3 y H4 */}
                 {!isH1 && (
                   <div className="structure-buttons-group">
                     <button
@@ -2506,7 +3075,7 @@ const GeneracionBlog = () => {
                 )}
               </div>
 
-              {/* 2. PREVISUALIZACIÓN DE CONTENIDO (Visible en H1, H2, H3) */}
+              {/* 2. PREVISUALIZACIÓN DE CONTENIDO (H1, H2, H3, H4) */}
               {item.content &&
                 item.content.replace(/<[^>]*>/g, "").trim().length > 0 && (
                   <div
@@ -2514,10 +3083,11 @@ const GeneracionBlog = () => {
                     style={{
                       marginTop: "10px",
                       padding: "8px 12px",
-                      borderLeft: "4px solid #10a2f4",
+                      borderLeft: `4px solid ${item.level === "h4" ? "#6c757d" : "#10a2f4"}`, // Color distinto si es H4
                       backgroundColor: "#f0f8ff",
                       fontSize: "0.9em",
                       borderRadius: "0 4px 4px 0",
+                      marginLeft: item.level === "h4" ? "10px" : "0", // Un poco más de margen para H4
                     }}
                   >
                     <strong
@@ -2528,7 +3098,7 @@ const GeneracionBlog = () => {
                         marginBottom: "4px",
                       }}
                     >
-                      CONTENIDO:
+                      CONTENIDO {item.level.toUpperCase()}:
                     </strong>
                     <div
                       style={{ color: "#333", lineHeight: "1.4" }}
@@ -2541,7 +3111,7 @@ const GeneracionBlog = () => {
                   </div>
                 )}
 
-              {/* 3. RECOMENDACIÓN SEO / MULTIMEDIA (Visible en H1, H2, H3) */}
+              {/* 3. RECOMENDACIÓN SEO */}
               {(item.multimediaDescription || item.multimedia_description) && (
                 <div
                   className="multimedia-recommendation-seo"
@@ -2551,6 +3121,7 @@ const GeneracionBlog = () => {
                     borderLeft: "4px solid #f29727",
                     backgroundColor: "#fff8f0",
                     borderRadius: "0 4px 4px 0",
+                    marginLeft: item.level === "h4" ? "10px" : "0",
                   }}
                 >
                   <div
@@ -2562,11 +3133,7 @@ const GeneracionBlog = () => {
                     }}
                   >
                     <i
-                      className={`uil ${
-                        item.multimedia?.includes("VIDEO")
-                          ? "uil-video"
-                          : "uil-camera"
-                      }`}
+                      className={`uil ${item.multimedia?.includes("VIDEO") ? "uil-video" : "uil-camera"}`}
                       style={{ color: "#f29727", fontSize: "1.1rem" }}
                     ></i>
                     <strong
@@ -2576,7 +3143,7 @@ const GeneracionBlog = () => {
                         textTransform: "uppercase",
                       }}
                     >
-                      RECOMENDACIÓN SEO ({item.multimedia || "MULTIMEDIA"}):
+                      RECOMENDACIÓN SEO:
                     </strong>
                   </div>
                   <p
@@ -2592,7 +3159,7 @@ const GeneracionBlog = () => {
                 </div>
               )}
 
-              {/* 4. RECURSIVIDAD: Renderiza los hijos (H3 dentro de H2, etc.) */}
+              {/* 4. RECURSIVIDAD (Aquí es donde aparecerán los H4 dentro de los H3) */}
               {item.children && item.children.length > 0 && (
                 <div
                   className="structure-children-container"
@@ -2991,15 +3558,9 @@ const GeneracionBlog = () => {
         {/* ========================================================= */}
 
         <section className="analysis-result info-card">
-          {/* Encabezado Colapsable */}
           <h2
-            className="analysis-title"
+            className="analysis-title collapsable-header"
             onClick={() => tarjetasInformacion("preconfiguracionUnificada")}
-            style={{
-              cursor: "pointer",
-              display: "flex",
-              justifyContent: "space-between",
-            }}
           >
             <div className="structure-buttons-group">
               <i className="uil uil-setting"></i>
@@ -3012,86 +3573,56 @@ const GeneracionBlog = () => {
 
           {cardVisibility.preconfiguracionUnificada && (
             <div className="config-cards-wrapper">
-              {/* GRUPO PRINCIPAL: Título y Keywords */}
-              <div className="config-group">
-                <div className="url-container">
-                  <span className="status-text pending">
-                    <i className="uil uil-tag-alt"></i> TÍTULO DEL PROYECTO
-                  </span>
-                  <p
-                    className="blog-title"
-                    style={{ fontSize: "1.2rem", border: "none" }}
-                  >
-                    {datosFinales?.title || "Sin título definido"}
-                  </p>
-                </div>
-
-                <span className="status-text pending">Keywords de Apoyo:</span>
-                <div
-                  className="suggestions-container"
-                  style={{ flexDirection: "row" }}
-                >
-                  {(datosFinales?.keywords || "")
-                    .split(",")
-                    .map((keyword, index) =>
-                      keyword.trim() ? (
-                        <span key={index} className="keyword-tag">
-                          {keyword.trim()}
-                        </span>
-                      ) : null,
-                    )}
-                </div>
+              {/* Banner del Título */}
+              <div className="project-header-group">
+                <span className="status-text pending">TÍTULO DEL PROYECTO</span>
+                <p className="project-display-title">
+                  {datosFinales?.title || "Sin título definido"}
+                </p>
               </div>
 
-              {/* GRILLA DE METADATOS: Usando tus log-card */}
-              <div className="idea-layout">
-                {/* Columna: Estilo Editorial */}
-                <div className="log-card" style={{ flex: 1 }}>
+              <div className="config-grid-layout">
+                {/* Lado Izquierdo: Keywords */}
+                <div className="log-card">
                   <span className="analysis-title">
-                    <i className="uil uil-palette"></i> Estilo Editorial
+                    <i className="uil uil-key-skeleton"></i> Keywords
                   </span>
-                  <ul className="list-style-none">
-                    <li>
-                      <small>Tono:</small>{" "}
-                      <strong>{datosFinales?.tono || "N/A"}</strong>
-                    </li>
-                    <li>
-                      <small>Acento:</small>{" "}
-                      <strong>{datosFinales?.acento || "N/A"}</strong>
-                    </li>
-                    <li>
-                      <small>Técnica:</small>{" "}
-                      <strong>{datosFinales?.tecnica || "N/A"}</strong>
-                    </li>
-                  </ul>
+                  <div className="keywords-flex-container">
+                    {(datosFinales?.keywords || "").split(",").map(
+                      (k, i) =>
+                        k.trim() && (
+                          <span key={i} className="keyword-tag">
+                            {k.trim()}
+                          </span>
+                        ),
+                    )}
+                  </div>
                 </div>
 
-                {/* Columna: Configuración Regional */}
-                <div className="log-card" style={{ flex: 1 }}>
+                {/* Lado Derecho: Regional */}
+                <div className="log-card">
                   <span className="analysis-title">
-                    <i className="uil uil-globe"></i> Configuración Regional
+                    <i className="uil uil-globe"></i> Regional
                   </span>
-                  <div
-                    className="structure-buttons-group"
-                    style={{
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: "10px",
-                    }}
-                  >
-                    <span className="count-badge remaining">
-                      Idioma: {datosFinales?.idioma || "Español"}
-                    </span>
-                    <span className="count-badge total">
-                      Proyecto: {datosFinales?.categoria || "General"}
-                    </span>
+                  <div className="regional-config-list">
+                    <div className="config-item">
+                      <span className="label">Idioma:</span>
+                      <span className="count-badge remaining">
+                        {datosFinales?.idioma || "Español"}
+                      </span>
+                    </div>
+                    <div className="config-item">
+                      <span className="label">Categoría:</span>
+                      <span className="count-badge total">
+                        {datosFinales?.categoria || "General"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
         </section>
-
         {/* Contenedores Principales (Izquierda y Derecha) */}
         <div className="generadores-container">
           {/* ========================================================= */}
@@ -3172,7 +3703,7 @@ const GeneracionBlog = () => {
                 {/* 3. Borrar Todo el Contenido */}
                 <button
                   onClick={limpiarTodoElContenido}
-                  className="btn-download "
+                  className="btn-estructura"
                   title="Borrar contenido de todas las secciones"
                   style={{ flex: 1, backgroundColor: "#e74c3c" }} // <--- Esto hace que se expanda equitativamente
                 >
@@ -3181,7 +3712,7 @@ const GeneracionBlog = () => {
 
                 {/* --- BOTÓN DE GUARDAR ESTRUCTURA --- */}
                 <button
-                  className={`btn-download ${
+                  className={`btn-estructura ${
                     hasUnsavedChanges &&
                     !isSaving &&
                     localBlogId &&
@@ -3218,23 +3749,16 @@ const GeneracionBlog = () => {
               </div>
             )}
 
-            {/* CONTENEDOR DE BOTONES DE AÑADIR (H2/H3) */}
-            <div
-              className="add-section-controls"
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: "15px",
-                marginBottom: "25px",
-              }}
-            >
+            {/* CONTENEDOR DE BOTONES DE AÑADIR (H2/H3/H4) */}
+            <div className="add-section-controls">
               {/* Botón para Añadir H2 */}
               <button
                 onClick={agregarSeccionH2}
                 className="btn-add-h2"
                 disabled={!tablaEstructuraFinal}
+                title="Agregar una sección principal"
               >
-                <i className="uil uil-plus-circle"></i> Agregar Sección H2
+                <i className="uil uil-plus-circle"></i> Agregar H2
               </button>
 
               {/* Botón para Añadir H3 */}
@@ -3242,8 +3766,21 @@ const GeneracionBlog = () => {
                 onClick={agregarSubseccionH3}
                 className="btn-add-h3"
                 disabled={!selectedSectionForRegen || !tablaEstructuraFinal}
+                title="Selecciona un H2 para agregar un H3"
               >
-                <i className="uil uil-plus-circle"></i> Agregar Subsección H3
+                <i className="uil uil-plus-circle"></i> Agregar H3
+              </button>
+
+              {/* Botón para Añadir H4 */}
+              <button
+                onClick={agregarSubseccionH4}
+                className="btn-add-h4"
+                disabled={
+                  selectedSectionForRegen?.level?.toLowerCase() !== "h3"
+                }
+                title="Selecciona un H3 para agregar un H4"
+              >
+                <i className="uil uil-plus-circle"></i> Agregar H4
               </button>
             </div>
 
@@ -3274,32 +3811,10 @@ const GeneracionBlog = () => {
                   >
                     {/* Edición Directa / Prompt */}
 
-                    <div
-                      className="quill-editor-wrapper"
-                      style={{
-                        border: "1px solid #ddd",
-                        borderRadius: "8px",
-                        overflow: "hidden",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      <ReactQuill
-                        theme="snow"
-                        value={regenTextareaValue || ""}
-                        onChange={(content) => setRegenTextareaValue(content)}
-                        placeholder="Edita el título o selecciona uno nuevo."
-                        modules={{
-                          toolbar: [
-                            [{ font: [] }, { size: [] }],
-                            ["bold", "italic", "underline", "strike"],
-                            [{ color: [] }],
-                            [{ list: "ordered" }, { list: "bullet" }],
-                            ["clean"],
-                          ],
-                        }}
-                        // Estilo más bajo ya que es un título, no necesita 300px
-                        style={{ height: "120px", marginBottom: "45px" }}
-                      />
+                    <div className="tiptap-container titulo-editor">
+                      {/* Solo mostramos la barra si el editorTitulo existe y tiene sus comandos listos */}
+                      {editorTitulo && <MenuBar editor={editorTitulo} />}
+                      <EditorContent editor={editorTitulo} />
                     </div>
 
                     {/* Panel de Sugerencias Generadas*/}
@@ -3479,23 +3994,15 @@ const GeneracionBlog = () => {
                   </select>
                 </div>
 
-                <div className="quill-editor-wrapper">
-                  <ReactQuill
-                    theme="snow"
-                    value={sectionContentValue || ""}
-                    onChange={(content) => setSectionContentValue(content)}
-                    disabled={cargandoIA}
-                    modules={{
-                      toolbar: [
-                        [{ font: [] }, { size: [] }],
-                        ["bold", "italic", "underline", "strike"],
-                        [{ color: [] }],
-                        [{ list: "ordered" }, { list: "bullet" }],
-                        ["clean"],
-                      ],
-                    }}
-                    style={{ height: "300px", marginBottom: "40px" }}
-                  />
+                <div className="tiptap-container contenido-editor">
+                  {/* Toolbar completa con iconos para el contenido */}
+                  <div className="tiptap-container contenido-editor">
+                    <MenuBar editor={editorContenido} />
+                    <EditorContent editor={editorContenido} />
+                  </div>
+
+                  {/* Área de edición de TipTap */}
+                  <EditorContent editor={editorContenido} />
                 </div>
 
                 <div className="idea-buttons">
@@ -3559,21 +4066,43 @@ const GeneracionBlog = () => {
                 )}
 
                 {/* Botón de Alternancia */}
-                <button
-                  className="toggle-view-button"
-                  onClick={vistaEditable}
-                  title={
-                    isEditingStructure
-                      ? "Ver como Documento"
-                      : "Volver a la Estructura Editable"
-                  }
-                >
-                  <i
-                    className={`uil ${
-                      isEditingStructure ? "uil-eye" : "uil-sitemap"
-                    }`}
-                  ></i>
-                </button>
+                <div className="action-buttons-container">
+                  {/* Botón de Alternancia de Vista */}
+                  <button
+                    className="btn-action-square"
+                    onClick={vistaEditable}
+                    title={
+                      isEditingStructure
+                        ? "Ver como Documento"
+                        : "Volver a Estructura"
+                    }
+                  >
+                    <i
+                      className={`uil ${isEditingStructure ? "uil-eye" : "uil-sitemap"}`}
+                    ></i>
+                    <span>{isEditingStructure ? "Ver Doc" : "Estructura"}</span>
+                  </button>
+
+                  {/* Botón de Descarga */}
+                  <button
+                    className="btn-action-square btn-blue"
+                    onClick={descargarArticuloDocs}
+                    title="Descargar Word"
+                  >
+                    <i className="uil uil-file-download"></i>
+                    <span>Descargar</span>
+                  </button>
+
+                  {/* Botón de Copiar */}
+                  <button
+                    className="btn-action-square btn-gray"
+                    onClick={copiarContenidoAlPortapapeles}
+                    title="Copiar al portapapeles"
+                  >
+                    <i className="uil uil-copy"></i>
+                    <span>Copiar</span>
+                  </button>
+                </div>
               </h2>
 
               {/* Mover la tarjeta con el body/contenido DENTRO de la lógica condicional */}
@@ -3615,21 +4144,8 @@ const GeneracionBlog = () => {
                 </div>
               ) : (
                 /* MODO DOCUMENTO: Sin padding interno de tarjeta para que la 'hoja' respire */
-                <div
-                  className="blog-document-window"
-                  style={{ overflowX: "hidden" }}
-                >
-                  {/* Botón de descarga fuera de la hoja blanca para mejor look */}
-                  <div className="download-bar">
-                    <button
-                      onClick={descargarArticuloDocs}
-                      className="btn-download"
-                    >
-                      <i className="uil uil-file-download"></i> Descargar Word
-                    </button>
-                  </div>
-
-                  {/* Esta es la 'Hoja Blanca' definida en el CSS anterior */}
+                <div className="blog-document-container">
+                  {/* Esta es la 'Hoja Blanca' */}
                   <div className="blog-document-window">
                     {renderizarContenidoDelBlog(structureWithCount)}
                   </div>

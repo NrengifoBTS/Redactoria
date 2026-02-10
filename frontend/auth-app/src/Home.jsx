@@ -71,7 +71,7 @@ const Home = () => {
       descripcion: "...",
       imagen:
         "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=300&fit=crop",
-      link: "https://www.youtube.com/shorts/Ay8lynMZ4mE",
+      link: "https://imgs.search.brave.com/6rXksKcPYPmMYDfIUuqh7ouaKmLH7o2ghX6xy5rJ7qs/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9hc3Nl/dHMuc3RpY2twbmcu/Y29tL3RodW1icy81/ODBiNTg1YjJlZGJj/ZTI0YzQ3YjJhMjcu/cG5n",
       estado: "Próximamente",
       tecnologias: [""],
     },

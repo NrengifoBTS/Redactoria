@@ -62,4 +62,10 @@
   "password": "MiguelMia2025"
 }
 
+{
+  "email": "juand@redactoria.com",
+  "first_name": "Juan",
+  "last_name": "Diaz",
+  "password": "JuanDia2025"
+}
 
