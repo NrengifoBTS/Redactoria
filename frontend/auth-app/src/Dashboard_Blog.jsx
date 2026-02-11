@@ -133,6 +133,7 @@ function EditBlogModal({ blog, onClose, onSubmit }) {
                 <option value="draft">Borrador</option>
                 <option value="generated">Estructura Generada</option>
                 <option value="published">Publicado</option>
+                <option value="review">En revision</option>
               </select>
             </div>
           </div>
@@ -754,7 +755,7 @@ export const DashboardBlog = () => {
         label: "Sin Asignar",
       },
       {
-        value: blogs.filter((blog) => blog.estado === "review").length,
+        value: blogs.filter((blog) => blog.estado === "generated").length,
         label: "En progreso",
       },
     ];
