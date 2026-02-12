@@ -144,7 +144,7 @@ function Analytics() {
   };
 
   const handleBack = () => {
-    navigate("/dashboard");
+    navigate(selectedProyectoGeneral ? `/dashboard/${selectedProyectoGeneral}` : "/dashboard");
   };
 
   // Prepare chart data from temporal trends

@@ -232,7 +232,7 @@ const Home = () => {
       {/* Header con Logo */}
       <header className="main-header">
         <div className="header-content">
-          <Link to="/" className="logo-link">
+          <Link to="/home" className="logo-link">
             <div className="logo">
               <dimg 
                 src="https://browsertravelsolutions.com/wp-content/uploads/2022/02/Logo-1.png" 
@@ -358,9 +358,7 @@ const Home = () => {
               Nuestro ecosistema integrado de herramientas está diseñado para maximizar 
               la eficiencia, mejorar la colaboración y potenciar la toma de decisiones basada en datos.
             </p>
-            <Link to="/dashboard" className="about-button">
-              Explorar Dashboard →
-            </Link>
+{/* Dashboard general solo accesible por URL directa - no mostrar link */}
           </div>
 
           <div className="about-features">

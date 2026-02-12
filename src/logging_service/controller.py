@@ -208,6 +208,10 @@ def get_metrics(
 
     generations = gen_query.all()
 
+    # ALWAYS exclude users from EXCLUDED_FROM_ANALYTICS_USER_IDS (regardless of exclude_admins)
+    from src.core.config import settings
+    generations = [g for g in generations if str(g.user_id) not in settings.EXCLUDED_FROM_ANALYTICS_USER_IDS]
+
     # Query edits
     edit_query = db.query(UserEdit)
     if cutoff is not None:
@@ -222,6 +226,9 @@ def get_metrics(
         edit_query = edit_query.filter(UserEdit.user_id == user_id)
 
     edits = edit_query.all()
+
+    # ALWAYS exclude users from EXCLUDED_FROM_ANALYTICS_USER_IDS (regardless of exclude_admins)
+    edits = [e for e in edits if str(e.user_id) not in settings.EXCLUDED_FROM_ANALYTICS_USER_IDS]
 
     # Filter admin edits if requested
     if exclude_admins:
@@ -357,6 +364,8 @@ def get_metrics(
 
     # Combine user stats and get user emails
     all_user_ids = set(user_gen_stats.keys()) | set(user_edit_stats.keys())
+    # Exclude users from analytics
+    all_user_ids = {uid for uid in all_user_ids if str(uid) not in settings.EXCLUDED_FROM_ANALYTICS_USER_IDS}
     user_activity = []
 
     for user_id in all_user_ids:

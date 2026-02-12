@@ -432,7 +432,7 @@ function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {/* Home Button */}
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/home')}
               style={{
                 display: 'flex',
                 alignItems: 'center',

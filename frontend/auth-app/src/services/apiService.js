@@ -28,6 +28,11 @@ class ApiService {
   // Limpiar autenticación y redirigir silenciosamente
   handleAuthError() {
     localStorage.removeItem("token");
+    // Guardar la ubicación actual antes de redirigir para volver después del login
+    if (window.location.pathname !== "/login" && window.location.pathname !== "/home") {
+      const returnUrl = window.location.pathname + window.location.search;
+      localStorage.setItem("returnUrl", returnUrl);
+    }
     // Redirigir sin usar navigate para evitar errores de contexto
     if (window.location.pathname !== "/login") {
       window.location.href = "/login";

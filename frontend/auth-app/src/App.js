@@ -1,6 +1,6 @@
 //redactoria/fronted/auth-app/src/app.js
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./Login";
 import ProtectedPage from "./Protected";
 import Redactor from "./Redactor";
@@ -16,7 +16,8 @@ function App() {
     <AppProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/protected" element={<ProtectedPage />} />
           <Route path="/redactor/:lpId" element={<Redactor />} />

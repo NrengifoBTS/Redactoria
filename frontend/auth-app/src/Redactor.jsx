@@ -603,6 +603,7 @@ export default function Redactor() {
   const [mergedCells, setMergedCells] = useState({});
   const [columnWidths, setColumnWidths] = useState({});
   const [blocksMetadata, setBlocksMetadata] = useState({});
+  const [loadedTemplate, setLoadedTemplate] = useState(null); // Template cargado (activo o inactivo)
 
   const [currentLP, setCurrentLP] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1436,6 +1437,9 @@ export default function Redactor() {
         // Obtener el template completo
         const template = await apiService.getTemplateById(lp.template_id);
 
+        // Guardar el template cargado (activo o inactivo) para usarlo en getCurrentTemplate
+        setLoadedTemplate(template);
+
         // Extraer configuraciones del template
         if (template?.template_config?.blocks_metadata) {
           setBlocksMetadata(template.template_config.blocks_metadata);
@@ -1496,6 +1500,10 @@ export default function Redactor() {
         setAnnotations(existingAnnotations);
       }
 
+      console.log("🔍 currentLP data:", lp);
+      console.log("🔍 currentLP.name:", lp?.name);
+      console.log("🔍 currentLP.title:", lp?.title);
+      console.log("🔍 currentLP keys:", lp ? Object.keys(lp) : "null");
       setCurrentLP(lp);
       setLoading(false);
     };
@@ -2394,6 +2402,21 @@ export default function Redactor() {
   };
 
   const getCurrentTemplate = () => {
+    // Primero intentar usar el template cargado directamente (funciona con activos e inactivos)
+    if (loadedTemplate) {
+      return {
+        id: loadedTemplate.id,
+        name: loadedTemplate.name,
+        description: loadedTemplate.description || "",
+        categoria: loadedTemplate.categoria,
+        proyecto: loadedTemplate.proyecto,
+        dominio: loadedTemplate.dominio,
+        is_active: loadedTemplate.is_active,
+        template_config: loadedTemplate.template_config,
+      };
+    }
+
+    // Fallback: buscar en la lista de templates activos
     if (currentLP?.template_id) {
       const template = getTemplateById(currentLP.template_id);
 
@@ -2406,10 +2429,10 @@ export default function Redactor() {
           proyecto: template.proyecto,
           dominio: template.dominio,
           is_active: template.is_active,
-          template_config: template.template_config, // Incluir toda la configuración
+          template_config: template.template_config,
         };
       } else {
-        console.warn("Template no encontrado");
+        console.warn("Template no encontrado en lista de activos ni cargado");
       }
     }
     return null;
@@ -2528,7 +2551,10 @@ export default function Redactor() {
             editarla.
           </p>
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => {
+              const template = getCurrentTemplate();
+              navigate(template?.proyecto ? `/dashboard/${template.proyecto}` : "/dashboard");
+            }}
             style={{
               padding: "0.75rem 1.5rem",
               backgroundColor: "#3b82f6",
@@ -2770,7 +2796,10 @@ export default function Redactor() {
         <div style={tableStyles.navContent}>
           <div style={tableStyles.navLeft}>
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => {
+                const template = getCurrentTemplate();
+                navigate(template?.proyecto ? `/dashboard/${template.proyecto}` : "/dashboard");
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -2799,14 +2828,14 @@ export default function Redactor() {
               <p
                 style={{
                   margin: "0.25rem 0 0 0",
-                  fontSize: "0.875rem",
-                  color: "#64748b",
+                  fontSize: "1.2rem",
+                  color: "#000000",
                   display: "flex",
                   alignItems: "center",
                   gap: "0.5rem",
                 }}
               >
-                <span>••••••</span>
+                <span>{currentLP.title}</span>
                 {lastSaved && (
                   <>
                     <span>•</span>

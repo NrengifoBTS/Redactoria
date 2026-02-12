@@ -327,6 +327,7 @@ class ContentGenerator:
             f"{restric}\n"
             f"{ejemplos_texto}\n\n"
             f"nuevo tema: {nuevo_tema}, tit: {tit_seo}\n"
+            f"Se centra principalmente en los beneficios y luego en road trip, y justificacion de la compra/alquiler.\n"
             f"reglas a tener en cuenta para desc: cantidad de palabras {vol_h2} minimo a maximo.\n"
             f"ahora genera tu. sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: titulo|\n |desc: redaccion|\n"
         )
@@ -362,6 +363,7 @@ class ContentGenerator:
             f"A continuación te presento {len(ciudades)} ciudades:\n"
             f"{ciudades_texto}\n"
             f"genera solo las descripciones para las ciudades anteriores.\n"
+            f"Se centra principalmente en los beneficios y luego en road trip, y justificacion de la compra/alquiler.\n"
             f"Sigue esta estructura: <think>aquí pondrás tus pensamientos</think>\n |desc_1: tu descripción|\n |desc_2: tu descripción|\n ..."
         )
         return self.llm_client.generate(prompt_city, self.system_message) 
@@ -394,6 +396,8 @@ class ContentGenerator:
         prompt = (
             f"{ejemplos_texto}\n"
             f"nuevo tema: {nuevo_tema}, tit: {tit_seo}\n"
+            f"la intencion es Informativa o Turística, no de venta.\n"
+            f"para definir una lista (solo si aplica y lo ves conveniente) usa ** para iniciar separa cada item de la lista con - y termina de cerrar la lista con **\n"
             f"reglas a tener en cuenta para desc: cantidad de palabras {vol_desc}, para desc_h2: cantidad de palabras {vol_h2}, para desc_h3: cantidad de palabras {vol_h3} mínimo a máximo.\n"
             f"ahora genera el contenido, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: {tit_seo}|\n |desc: redaccion_principal|\n |desc_h2: redaccion_h2|\n |desc_h3: redaccion_h3|\n"
         )

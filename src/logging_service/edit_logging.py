@@ -141,9 +141,19 @@ class EditLoggingService:
 
             attributed_user_id = current_user_uuid
             performed_by_user_id = None
+            is_admin_correction = False  # Track if this is truly an admin correction
 
+            # Check if admin is the assigned user for this LP's project
+            admin_is_assignee = False
             if is_admin:
-                # Admin is editing - find original creator
+                lp = db.query(LandingPage).filter(
+                    LandingPage.id == landing_page_id
+                ).first()
+                if lp and lp.proyecto:
+                    admin_is_assignee = (lp.proyecto.assigned_to == current_user_uuid)
+
+            if is_admin and not admin_is_assignee:
+                # Admin is editing someone else's LP - find original creator
                 original_creator_id = self._find_original_creator(
                     db, landing_page_id, cell_position
                 )
@@ -152,6 +162,7 @@ class EditLoggingService:
                     # Attribute edit to original creator for learning
                     attributed_user_id = original_creator_id
                     performed_by_user_id = current_user_uuid
+                    is_admin_correction = True  # This is a real admin correction
 
                     logging.info(
                         f"[Admin Edit Attribution] Admin {current_user_uuid} edit "
@@ -161,18 +172,21 @@ class EditLoggingService:
                 else:
                     # Admin created this content OR no original creator found
                     # Attribute to project assignee
-                    lp = db.query(LandingPage).filter(
-                        LandingPage.id == landing_page_id
-                    ).first()
-
                     if lp and lp.proyecto:
                         attributed_user_id = lp.proyecto.assigned_to or lp.proyecto.created_by
                         performed_by_user_id = current_user_uuid
+                        is_admin_correction = True  # Still an admin correction
 
                         logging.info(
                             f"[Admin Edit Attribution] Admin {current_user_uuid} created content, "
                             f"attributed to project assignee/creator {attributed_user_id}"
                         )
+            elif is_admin and admin_is_assignee:
+                # Admin is the assignee - this is their own LP, not a correction
+                logging.info(
+                    f"[Admin Edit] Admin {current_user_uuid} is editing their own assigned LP, "
+                    f"not counting as admin correction (cell {cell_position})"
+                )
 
             # Create log entry with ASS and admin attribution fields
             log_entry = UserEdit(
@@ -206,7 +220,7 @@ class EditLoggingService:
                 format_analysis=format_analysis,
                 # Admin attribution fields
                 performed_by_user_id=performed_by_user_id,  # WHO actually did it (for audit)
-                is_admin_edit=is_admin,
+                is_admin_edit=is_admin_correction,  # Only true if admin is correcting someone else's work
                 created_at=datetime.now(timezone.utc)
             )
 

@@ -25,6 +25,11 @@ class Settings:
         '2fd1e540-40be-42cf-9d2b-693b0d3132af'
     ]
 
+    # Users excluded from analytics (logs are kept but not counted in metrics)
+    EXCLUDED_FROM_ANALYTICS_USER_IDS: List[str] = [
+        'b43f1d04-f339-4cf9-8e4e-4f127f12af5a',  # camilac@redactoria.com
+    ]
+
     # Notification settings
     TEAMS_WEBHOOK_URL: str = os.getenv("TEAMS_WEBHOOK_URL", "")
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
