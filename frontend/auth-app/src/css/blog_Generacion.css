@@ -15,6 +15,649 @@ body {
 }
 
 /* ==========================================================
+   MODO NOCTURNO INTEGRAL 
+   ========================================================== */
+
+/* Fondo base de toda la pantalla */
+.blog-generation-page.dark-mode {
+  background-color: #0f172a; /* Fondo ultra oscuro */
+  color: #f1f5f9;
+  min-height: 100vh;
+  transition: background-color 0.3s ease;
+}
+
+/* Header / Navbar */
+.dark-mode .navbar-custom {
+  background-color: #1e293b;
+  border-bottom: 1px solid #334155;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .header-brand h1,
+.dark-mode .header-brand p {
+  color: #f1f5f9;
+}
+
+.dark-mode .nav-link {
+  color: #cbd5e1;
+}
+
+/* Sección de Fuentes y Parámetros (Preconfig) */
+.dark-mode .preconfig,
+.dark-mode .analysis-result.info-card {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .analysis-title {
+  border-bottom-color: #334155 !important;
+  color: #60a5fa !important; /* Azul brillante para títulos */
+}
+
+/* Cards de Log e Inputs */
+.dark-mode .log-card,
+.dark-mode .url-container {
+  background-color: #0f172a;
+  border: 1px solid #334155;
+}
+
+.dark-mode input[type="text"],
+.dark-mode select,
+.dark-mode .auto-expand {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================
+   MODO OSCURO: CARDS DE CONFIGURACIÓN
+   ========================================================== */
+
+/* 1. Fondo de la tarjeta contenedora principal */
+.dark-mode .info-card.analysis-result {
+  background-color: #1e293b; /* Azul grisáceo profundo */
+  border-color: #334155;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* 2. Texto del título del proyecto */
+.dark-mode .project-display-title {
+  color: #f1f5f9; /* Blanco azulado */
+}
+
+/* 3. Tarjetas internas (Log Cards) en modo oscuro */
+.dark-mode .config-grid-layout .log-card {
+  background-color: #0f172a; /* Fondo más oscuro para generar contraste interno */
+  border-color: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 4. Títulos internos y línea divisoria */
+.dark-mode .log-card .analysis-title {
+  color: #60a5fa; /* Azul brillante para resaltar el encabezado */
+  border-bottom-color: #1e293b;
+}
+
+/* 5. Etiquetas de Keywords (Píldoras) */
+.dark-mode .keyword-tag {
+  background: #1e293b;
+  color: #38bdf8; /* Texto celeste */
+  border-color: #334155;
+}
+
+.dark-mode .keyword-tag:hover {
+  border-color: #3b82f6;
+  background: #334155;
+}
+
+/* 6. Configuración Regional: Etiquetas y Badges */
+.dark-mode .config-item .label {
+  color: #94a3b8; /* Gris medio */
+}
+
+/* Colores específicos para badges según su estado/tipo */
+.dark-mode .count-badge.remaining {
+  background-color: #064e3b; /* Verde bosque muy oscuro */
+  color: #4ade80; /* Texto verde neón suave */
+}
+
+.dark-mode .count-badge.total {
+  background-color: #1e3a8a; /* Azul cobalto oscuro */
+  color: #93c5fd; /* Texto azul claro */
+}
+
+/* 7. Iconos de Unicons (si se usan dentro de las cards) */
+.dark-mode .log-card .analysis-title i {
+  color: #60a5fa;
+}
+
+/* --- COLUMNAS PRINCIPALES --- */
+.dark-mode .generadores-izquierda {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+}
+
+.dark-mode .generadores-derecha {
+  background-color: #0f172a; /* Fondo más oscuro para que resalte la hoja */
+  border-color: #334155;
+}
+
+/* Ajuste de Botones para que no brillen tanto */
+.dark-mode .btn-action-square {
+  background-color: #334155;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+}
+
+.dark-mode .user-pill {
+  background: #334155;
+  border: 1px solid #475569;
+}
+
+/*BOTON MODO NOCTURNO*/
+
+.btn-mode-toggle {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  margin-right: 10px;
+}
+
+.btn-mode-toggle:hover {
+  background: #e2e8f0;
+  color: #007bff;
+}
+
+/* Ajuste del botón cuando el Modo Oscuro está activo */
+.dark-mode .btn-mode-toggle {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .btn-mode-toggle:hover {
+  background: #475569;
+  color: #60a5fa;
+}
+
+/* Animación simple para el icono */
+.btn-mode-toggle i {
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-mode-toggle:active i {
+  transform: scale(0.8);
+}
+
+/* Contenedores de tarjetas y secciones de análisis */
+.dark-mode .analysis-result,
+.dark-mode .idea-generator {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .analysis-title {
+  color: #60a5fa; /* Azul brillante para resaltar títulos de sección */
+  border-bottom: 1px solid #334155;
+}
+
+.dark-mode .result-text {
+  color: #94a3b8; /* Gris suave para descripciones */
+}
+
+.dark-mode .select-container {
+  background: #0f172a;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.dark-mode .select-label {
+  color: #38bdf8;
+}
+
+.dark-mode .select-estrategia {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+}
+
+.dark-mode .select-estrategia optgroup {
+  background-color: #0f172a;
+  color: #60a5fa;
+}
+
+.dark-mode .select-estrategia option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+/* Contenedor del Editor */
+.dark-mode .tiptap-container {
+  background-color: #0f172a;
+  border: 1px solid #334155;
+}
+
+/* Barra de herramientas (MenuBar) */
+.dark-mode .tiptap-container .menu-bar {
+  background-color: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+
+.dark-mode .tiptap-container .menu-bar button {
+  color: #94a3b8;
+}
+
+.dark-mode .tiptap-container .menu-bar button.is-active,
+.dark-mode .tiptap-container .menu-bar button:hover {
+  background-color: #334155;
+  color: #60a5fa;
+}
+
+/* Área donde se escribe */
+.dark-mode .ProseMirror {
+  color: #e2e8f0;
+  background-color: #0f172a;
+}
+
+.dark-mode .card-body {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+/* Los items de la estructura (si usas una lista o bubbles) */
+.dark-mode .structure-item {
+  background-color: #334155;
+  border: 1px solid #475569;
+}
+
+.dark-mode .structure-item.selected {
+  border-color: #60a5fa;
+  background-color: #1e293b;
+}
+
+/* Sugerencias de títulos (Bubbles) */
+.dark-mode .suggestion-bubble {
+  background-color: #334155;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+}
+
+.dark-mode .suggestion-bubble:hover {
+  background-color: #475569;
+  border-color: #60a5fa;
+}
+
+/* Botón Borrar (Rojo) en Dark Mode */
+.dark-mode .btn-estructura[style*="background-color: rgb(231, 76, 60)"] {
+  background-color: #991b1b !important; /* Rojo más oscuro para no lastimar la vista */
+}
+
+/* Badge de conteo de palabras */
+.dark-mode .count-badge.generated {
+  background-color: #064e3b;
+  color: #34d399;
+  border: 1px solid #065f46;
+}
+
+/* Botón flotante de scroll */
+.dark-mode .btn-scroll-top {
+  background-color: #3b82f6;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* Botones de navegación */
+.dark-mode .nav-link-home,
+.dark-mode .nav-link-dashboard {
+  color: #cbd5e1 !important;
+  background-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.dark-mode .nav-link-home:hover,
+.dark-mode .nav-link-dashboard:hover {
+  color: #60a5fa !important;
+  background-color: rgba(96, 165, 250, 0.1);
+}
+
+/* El botón activo/actual */
+.dark-mode .nav-link.active {
+  color: #60a5fa !important;
+  border-bottom: 2px solid #60a5fa;
+}
+
+/* Barra de herramientas TipTap */
+.dark-mode .tiptap-toolbar {
+  background-color: #1e293b;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  gap: 5px;
+  padding: 8px;
+}
+
+.dark-mode .tiptap-toolbar button {
+  background: #334155;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  border-radius: 4px;
+}
+
+.dark-mode .tiptap-toolbar button:hover {
+  background: #475569;
+  color: #60a5fa;
+}
+
+/* El título de la derecha que tiene el botón de alternar */
+.dark-mode .card-title.structure-title-with-toggle {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+/* ============================================= */
+/* MODO OSCURO: VISTA DOCUMENTO
+/* ============================================= */
+
+/* El contenedor que simula la hoja en modo oscuro */
+.dark-mode .blog-document-window {
+  background-color: #1e293b; /* Un tono pizarra profundo, no negro total */
+  color: #e2e8f0; /* Texto gris claro suave */
+  border-color: #334155; /* Borde sutil */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); /* Sombra más densa */
+}
+
+/* Título Principal (H1) */
+.dark-mode .blog-title {
+  color: #ffffff;
+  border-bottom-color: #334155;
+  background: rgba(148, 163, 184, 0.05); /* Reflejo sutil */
+}
+
+/* Título de Sección (H2) */
+.dark-mode .section-h2 {
+  color: #f8fafc;
+  border-left-color: #6366f1; /* Un púrpura/azul más vibrante para que resalte */
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* Subtítulos (H3) */
+.dark-mode .subsection-h3 {
+  color: #cbd5e0;
+  border-left-color: #94a3b8; /* Gris azulado medio */
+}
+
+/* Sub-subtítulos (H4) */
+.dark-mode .subsection-h4 {
+  color: #94a3b8;
+  border-left-color: #475569; /* Gris oscuro para menor jerarquía */
+}
+
+/* Bloques de Contenido (Cuerpo del texto) */
+.dark-mode .content-block {
+  color: #cbd5e1; /* Texto con buen contraste pero sin cansar la vista */
+}
+
+/* Estilo para listas */
+.dark-mode .content-block ul li,
+.dark-mode .content-block ol li {
+  color: #cbd5e1;
+}
+
+/* Marcador de posición (Vacío) */
+.dark-mode .content-block:empty::before {
+  color: #475569;
+}
+
+/* Enlaces o elementos interactivos dentro del contenido si los hay */
+.dark-mode .content-block a {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+/* Estilos para negritas dentro del texto */
+.dark-mode .content-block strong,
+.dark-mode .content-block b {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* ==========================================================
+   MODO NOCTURNO: STRUCTURE RENDERER (H1-H4)
+   ========================================================== */
+
+/* 1. Ajuste de textos principales y enumeración */
+.dark-mode .structure-title-text {
+  color: #f1f5f9;
+}
+
+.dark-mode .structure-enumeration {
+  color: #3b82f6; /* Azul vibrante para resaltar el índice */
+}
+
+.dark-mode .structure-word-count {
+  color: #94a3b8;
+}
+
+/* 2. Bloque de Previsualización de Contenido */
+.dark-mode .content-preview-block {
+  background-color: #1e293b; /* Fondo azul grisáceo oscuro */
+  border-left-color: #3b82f6; /* Azul más brillante */
+}
+
+.dark-mode .preview-level-h4 {
+  border-left-color: #475569; /* Gris oscuro para H4 */
+  background-color: #0f172a; /* Aún más profundo para diferenciar H4 */
+}
+
+.dark-mode .preview-content-label {
+  color: #60a5fa; /* Azul claro brillante */
+}
+
+.dark-mode .preview-content-text {
+  color: #cbd5e1; /* Gris claro para lectura descansada */
+}
+
+/* 3. Bloque de Recomendación SEO */
+.dark-mode .multimedia-recommendation-seo {
+  background-color: #2d2315; /* Tono café/naranja muy oscuro */
+  border-left-color: #f29727; /* Mantenemos el naranja SEO */
+}
+
+.dark-mode .seo-level-h4 {
+  background-color: #1a1610; /* Variante más oscura para H4 */
+}
+
+.dark-mode .seo-recommendation-label {
+  color: #fbbf24; /* Amarillo ámbar */
+}
+
+.dark-mode .seo-recommendation-text {
+  color: #d1d5db;
+}
+
+.dark-mode .seo-recommendation-header i {
+  color: #fbbf24;
+}
+
+/* 4. Iconos de la estructura */
+.dark-mode .structure-icon-wrapper i {
+  color: #94a3b8;
+}
+
+/* 5. Estilo para el item seleccionado en modo oscuro */
+.dark-mode .structure-item-selected {
+  background-color: rgba(59, 130, 246, 0.1); /* Resalte azul sutil */
+  border-radius: 8px;
+}
+
+/* 6. Botones de acción en la lista */
+.dark-mode .structure-buttons-group button {
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+}
+
+.dark-mode .structure-buttons-group button:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .structure-buttons-group button[title="Eliminar"]:hover {
+  background: #7f1d1d; /* Rojo oscuro al eliminar */
+  color: #fecaca;
+}
+
+/* ==========================================================
+   HEADER
+   ========================================================== */
+/* Contenedor Principal */
+.navbar-custom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.03);
+
+  /* FONDO CON IMAGEN Y CAPA BLANCA */
+  background-color: #ffffff;
+}
+
+/* Títulos */
+.header-brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-brand h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+}
+
+.header-brand h1 span {
+  color: #3b82f6;
+}
+
+.header-brand p {
+  margin: 0;
+  font-size: 1rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Navegación y Botones */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-link {
+  text-decoration: none !important;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.75rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Botón Home */
+.nav-link-home {
+  color: #475569;
+}
+
+.nav-link-home:hover {
+  background-color: #3b82f6;
+  color: #ffffff !important;
+  border-color: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Botón Dashboard */
+.nav-link-dashboard {
+  color: #66a175;
+}
+
+.nav-link-dashboard:hover {
+  background-color: #3fb21f;
+  color: #ffffff !important;
+  border-color: #3fb21f;
+  box-shadow: 0 0 15px rgba(63, 178, 31, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Sección Usuario */
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.4rem 1rem 0.4rem 0.4rem;
+  background-color: #ffffff;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.user-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 2px solid #fff;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.1;
+}
+
+.user-role {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #2b76ef;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* ==========================================================
    TIPOGRAFÍA Y ESTILOS DE ENTRADA GENERALES (CONSOLIDADO)
    ========================================================== */
 input[type="text"],
@@ -506,23 +1149,6 @@ select {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   border: 1px solid #eef2f6;
-}
-
-/* El encabezado colapsable */
-.collapsable-header {
-  border-bottom: 2px solid #f1f5f9;
-  padding-bottom: 15px;
-  margin-bottom: 25px !important;
-  color: #007bff;
-}
-
-/* Sección del Título del Proyecto */
-.project-header-group {
-  margin-bottom: 25px;
-  padding: 15px 20px;
-  background-color: #fcfdfe;
-  border-radius: 10px;
-  border: 1px solid #f0f4f8;
 }
 
 .project-display-title {
@@ -1242,19 +1868,6 @@ select {
   margin-top: 2px;
 }
 
-/* Ajuste para el Header de Generación */
-.generation-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 2rem;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
 /* ==========================================================
    1. BOTON VOLVWE AL TOP (FIXED)
    ========================================================== */
@@ -1605,6 +2218,107 @@ select {
 .tiptap-button-trash:hover {
   background: #fee2e2;
   color: #991b1b;
+}
+
+/* ==========================================================
+ESTRUCTURA EDITABLE 
+========================================================== */
+/* --- 1. ENCABEZADO Y TEXT AREA --- */
+.structure-list {
+  list-style: none;
+  padding: 0;
+}
+
+.structure-text-area {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+}
+
+.structure-enumeration {
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.structure-word-count {
+  margin-left: 8px;
+  color: #6c757d;
+  font-size: 0.85em;
+  font-style: italic;
+}
+
+/* --- 2. BLOQUE DE PREVISUALIZACIÓN --- */
+.content-preview-block {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: #f0f8ff;
+  font-size: 0.9em;
+  border-radius: 0 4px 4px 0;
+  border-left: 4px solid #10a2f4;
+}
+
+/* Condicional para H4 en Previsualización */
+.preview-level-h4 {
+  border-left-color: #6c757d;
+  margin-left: 10px;
+}
+
+.preview-content-label {
+  color: #007bff;
+  font-size: 0.75rem;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.preview-content-text {
+  color: #333;
+  line-height: 1.4;
+}
+
+/* --- 3. RECOMENDACIÓN SEO --- */
+.multimedia-recommendation-seo {
+  margin-top: 10px;
+  padding: 10px;
+  border-left: 4px solid #f29727;
+  background-color: #fff8f0;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Condicional para H4 en SEO */
+.seo-level-h4 {
+  margin-left: 10px;
+}
+
+.seo-recommendation-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.seo-recommendation-header i {
+  color: #f29727;
+  font-size: 1.1rem;
+}
+
+.seo-recommendation-label {
+  color: #855d10;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.seo-recommendation-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* --- 4. CONTENEDOR DE HIJOS --- */
+.structure-children-container {
+  margin-left: 25px;
+  margin-top: 10px;
 }
 
 /* ==========================================================

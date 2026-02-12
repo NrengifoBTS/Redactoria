@@ -265,6 +265,7 @@ const MenuBar = ({ editor }) => {
     </div>
   );
 };
+
 const LinkPopover = ({ editor }) => {
   const [url, setUrl] = useState("");
 
@@ -357,6 +358,8 @@ const GeneracionBlog = () => {
   const [estadosUrls, setEstadosUrls] = useState({});
 
   const { user: currentUser } = useCurrentUser();
+
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
@@ -466,6 +469,18 @@ const GeneracionBlog = () => {
   const [usarIA] = useState(true);
   const [cancelacionSolicitada, setCancelacionSolicitada] = useState(false);
   const [toast, setToast] = useState(null);
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.style.backgroundColor = "#0f172a";
+      document.body.classList.add("dark-mode-active"); // Opcional por si quieres usar clases en el body
+    } else {
+      document.body.style.backgroundColor = "#f8fafc";
+      document.body.classList.remove("dark-mode-active");
+    }
+  }, [isDarkMode]); // Se ejecuta cada vez que cambies el switch
 
   // =======================================================================
   // 5. ESTADOS DE INTERFAZ DE USUARIO (UI) Y OPCIONES DE CONTENIDO
@@ -694,7 +709,7 @@ const GeneracionBlog = () => {
 
     setIsSaving(true);
     try {
-      // 1. Guardado persistente en la tabla BLOGS (Como ya lo hace)
+      // 1. Guardado persistente en la tabla BLOGS
       const payload = {
         estructura_blog_json: tablaEstructuraFinal,
         estado: blogStatus,
@@ -2996,12 +3011,6 @@ const GeneracionBlog = () => {
                 <div
                   className="structure-text-area"
                   onClick={(e) => onSelect(item, e)}
-                  style={{
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    flexGrow: 1,
-                  }}
                 >
                   <span className="structure-icon-wrapper">
                     <i
@@ -3012,36 +3021,29 @@ const GeneracionBlog = () => {
                             ? "uil-align-left-h"
                             : item.level === "h3"
                               ? "uil-corner-down-right"
-                              : "uil-list-ui-alt" // Icono específico para H4 (más profundo)
+                              : "uil-list-ui-alt"
                       }`}
                     ></i>
                   </span>
 
-                  <span style={{ fontWeight: "bold", marginRight: "8px" }}>
+                  <span className="structure-enumeration">
                     {item.enumeration}
                   </span>
 
                   <span
+                    className="structure-title-text"
                     dangerouslySetInnerHTML={{
                       __html: item.text || "Sin título",
                     }}
                   />
 
                   {item.wordCount > 0 && (
-                    <span
-                      style={{
-                        marginLeft: "8px",
-                        color: "#6c757d",
-                        fontSize: "0.85em",
-                        fontStyle: "italic",
-                      }}
-                    >
+                    <span className="structure-word-count">
                       ({item.wordCount} palabras)
                     </span>
                   )}
                 </div>
 
-                {/* Botones de acción: Visibles para H2, H3 y H4 */}
                 {!isH1 && (
                   <div className="structure-buttons-group">
                     <button
@@ -3075,33 +3077,17 @@ const GeneracionBlog = () => {
                 )}
               </div>
 
-              {/* 2. PREVISUALIZACIÓN DE CONTENIDO (H1, H2, H3, H4) */}
+              {/* 2. PREVISUALIZACIÓN DE CONTENIDO */}
               {item.content &&
                 item.content.replace(/<[^>]*>/g, "").trim().length > 0 && (
                   <div
-                    className="content-preview-block"
-                    style={{
-                      marginTop: "10px",
-                      padding: "8px 12px",
-                      borderLeft: `4px solid ${item.level === "h4" ? "#6c757d" : "#10a2f4"}`, // Color distinto si es H4
-                      backgroundColor: "#f0f8ff",
-                      fontSize: "0.9em",
-                      borderRadius: "0 4px 4px 0",
-                      marginLeft: item.level === "h4" ? "10px" : "0", // Un poco más de margen para H4
-                    }}
+                    className={`content-preview-block preview-level-${item.level}`}
                   >
-                    <strong
-                      style={{
-                        color: "#007bff",
-                        fontSize: "0.75rem",
-                        display: "block",
-                        marginBottom: "4px",
-                      }}
-                    >
+                    <strong className="preview-content-label">
                       CONTENIDO {item.level.toUpperCase()}:
                     </strong>
                     <div
-                      style={{ color: "#333", lineHeight: "1.4" }}
+                      className="preview-content-text"
                       dangerouslySetInnerHTML={{
                         __html:
                           item.content.trim().substring(0, 160) +
@@ -3114,57 +3100,25 @@ const GeneracionBlog = () => {
               {/* 3. RECOMENDACIÓN SEO */}
               {(item.multimediaDescription || item.multimedia_description) && (
                 <div
-                  className="multimedia-recommendation-seo"
-                  style={{
-                    marginTop: "10px",
-                    padding: "10px",
-                    borderLeft: "4px solid #f29727",
-                    backgroundColor: "#fff8f0",
-                    borderRadius: "0 4px 4px 0",
-                    marginLeft: item.level === "h4" ? "10px" : "0",
-                  }}
+                  className={`multimedia-recommendation-seo seo-level-${item.level}`}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      marginBottom: "4px",
-                    }}
-                  >
+                  <div className="seo-recommendation-header">
                     <i
                       className={`uil ${item.multimedia?.includes("VIDEO") ? "uil-video" : "uil-camera"}`}
-                      style={{ color: "#f29727", fontSize: "1.1rem" }}
                     ></i>
-                    <strong
-                      style={{
-                        color: "#855d10",
-                        fontSize: "0.8rem",
-                        textTransform: "uppercase",
-                      }}
-                    >
+                    <strong className="seo-recommendation-label">
                       RECOMENDACIÓN SEO:
                     </strong>
                   </div>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.9rem",
-                      color: "#555",
-                      lineHeight: "1.5",
-                    }}
-                  >
+                  <p className="seo-recommendation-text">
                     {item.multimediaDescription || item.multimedia_description}
                   </p>
                 </div>
               )}
 
-              {/* 4. RECURSIVIDAD (Aquí es donde aparecerán los H4 dentro de los H3) */}
+              {/* 4. RECURSIVIDAD */}
               {item.children && item.children.length > 0 && (
-                <div
-                  className="structure-children-container"
-                  style={{ marginLeft: "25px", marginTop: "10px" }}
-                >
+                <div className="structure-children-container">
                   <StructureRenderer
                     structure={item.children}
                     onSelect={onSelect}
@@ -3240,87 +3194,21 @@ const GeneracionBlog = () => {
   return (
     <>
       <ToastNotification toast={toast} /> {/* Renderizar la notificación */}
-      <div className="blog-generation-page">
+      <div className={`blog-generation-page ${isDarkMode ? "dark-mode" : ""}`}>
         {/* Header */}
-        <header
-          className="navbar"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "0.75rem 2rem",
-            backgroundColor: "#ffffff",
-            borderBottom: "1px solid #e2e8f0",
-            boxShadow:
-              "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
-            position: "sticky",
-            top: 0,
-            zIndex: 100,
-          }}
-        >
+        <header className="navbar-custom">
           {/* Sección Izquierda: Título */}
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "1.80rem",
-                fontWeight: "800",
-                color: "#0f172a",
-                letterSpacing: "-0.025em",
-              }}
-            >
-              Generación <span style={{ color: "#3b82f6" }}>Blogs</span>
+          <div className="header-brand">
+            <h1>
+              Generación <span>Blogs</span>
             </h1>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "1.00rem",
-                color: "#64748b",
-                fontWeight: "500",
-              }}
-            >
-              Sistema de gestión de contenido
-            </p>
+            <p>Sistema de gestión de contenido</p>
           </div>
 
           {/* Sección Derecha: Nav y Usuario */}
-          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+          <div className="header-actions">
             <nav>
-              <a
-                href="/"
-                style={{
-                  textDecoration: "none",
-                  fontSize: "0.85rem",
-                  color: "#475569",
-                  fontWeight: "700",
-                  padding: "0.6rem 1.2rem",
-                  borderRadius: "0.75rem",
-                  backgroundColor: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                }}
-                // Efectos dinámicos con JS para el hover
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = "#3b82f6";
-                  e.currentTarget.style.color = "#ffffff";
-                  e.currentTarget.style.borderColor = "#3b82f6";
-                  e.currentTarget.style.boxShadow =
-                    "0 0 15px rgba(59, 130, 246, 0.5)"; // Efecto de iluminación
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = "#f8fafc";
-                  e.currentTarget.style.color = "#475569";
-                  e.currentTarget.style.borderColor = "#e2e8f0";
-                  e.currentTarget.style.boxShadow =
-                    "0 1px 2px rgba(0,0,0,0.05)";
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-              >
+              <a href="/" className="nav-link nav-link-home">
                 <i
                   className="uil uil-estate"
                   style={{ fontSize: "1.1rem" }}
@@ -3330,42 +3218,7 @@ const GeneracionBlog = () => {
             </nav>
 
             <nav>
-              {/*BOTON DE Dashboard */}
-              <a
-                href="/dashboard_blog"
-                style={{
-                  textDecoration: "none",
-                  fontSize: "0.85rem",
-                  color: "#66a175",
-                  fontWeight: "700",
-                  padding: "0.6rem 1.2rem",
-                  borderRadius: "0.75rem",
-                  backgroundColor: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                }}
-                // Efectos dinámicos con JS para el hover
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = "#3fb21f";
-                  e.currentTarget.style.color = "#ffffff";
-                  e.currentTarget.style.borderColor = "#3bf64e";
-                  e.currentTarget.style.boxShadow =
-                    "0 0 15px rgba(59, 130, 246, 0.5)"; // Efecto de iluminación
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = "#f8fafc";
-                  e.currentTarget.style.color = "#475569";
-                  e.currentTarget.style.borderColor = "#e2e8f0";
-                  e.currentTarget.style.boxShadow =
-                    "0 1px 2px rgba(0,0,0,0.05)";
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-              >
+              <a href="/dashboard_blog" className="nav-link nav-link-dashboard">
                 <i
                   className="uil uil-dashboard"
                   style={{ fontSize: "1.1rem" }}
@@ -3374,68 +3227,32 @@ const GeneracionBlog = () => {
               </a>
             </nav>
 
-            {/* SECCIÓN DEL USUARIO MEJORADA */}
+            {/* BOTÓN MODO OSCURO */}
+            <button
+              onClick={toggleDarkMode}
+              className="btn-mode-toggle"
+              title={
+                isDarkMode ? "Cambiar a Modo Claro" : "Cambiar a Modo Oscuro"
+              }
+            >
+              <i className={`uil ${isDarkMode ? "uil-sun" : "uil-moon"}`}></i>
+            </button>
+
+            {/* SECCIÓN DEL USUARIO */}
             {currentUser && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.85rem",
-                  padding: "0.4rem",
-                  paddingRight: "1rem",
-                  backgroundColor: "#ffffff",
-                  borderRadius: "9999px", // Estilo píldora
-                  border: "1px solid #e2e8f0",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                {/* Avatar con gradiente y borde */}
-                <div
-                  style={{
-                    width: "2.5rem",
-                    height: "2.5rem",
-                    background:
-                      "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                    fontSize: "0.9rem",
-                    fontWeight: "700",
-                    boxShadow: "0 2px 4px rgba(37, 99, 235, 0.2)",
-                    border: "2px solid #fff",
-                  }}
-                >
+              <div className="user-pill">
+                <div className="user-avatar">
                   {currentUser.avatar ||
                     (currentUser.first_name || currentUser.last_name
                       ? `${(currentUser.first_name?.[0] || "").toUpperCase()}${(currentUser.last_name?.[0] || "").toUpperCase()}`
                       : (currentUser.email?.[0] || "").toUpperCase())}
                 </div>
 
-                {/* Textos: Nombre y Rol */}
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: "700",
-                      color: "#1e293b",
-                      lineHeight: "1.1",
-                    }}
-                  >
+                <div className="user-info">
+                  <span className="user-name">
                     {currentUser.name || currentUser.first_name}
                   </span>
-                  <span
-                    style={{
-                      fontSize: "0.7rem",
-                      fontWeight: "600",
-                      color: "#2b76ef", // Color del rol para resaltar
-                      textTransform: "uppercase",
-                      letterSpacing: "0.025em",
-                      marginTop: "2px",
-                    }}
-                  >
+                  <span className="user-role">
                     {isAdminUser(currentUser.id)
                       ? "Administrador"
                       : isEditorUser(currentUser.id)
@@ -3573,7 +3390,7 @@ const GeneracionBlog = () => {
 
           {cardVisibility.preconfiguracionUnificada && (
             <div className="config-cards-wrapper">
-              {/* Banner del Título */}
+              {/* Banner Superior */}
               <div className="project-header-group">
                 <span className="status-text pending">TÍTULO DEL PROYECTO</span>
                 <p className="project-display-title">
@@ -3581,8 +3398,9 @@ const GeneracionBlog = () => {
                 </p>
               </div>
 
+              {/* Grilla Inferior */}
               <div className="config-grid-layout">
-                {/* Lado Izquierdo: Keywords */}
+                {/* Keywords */}
                 <div className="log-card">
                   <span className="analysis-title">
                     <i className="uil uil-key-skeleton"></i> Keywords
@@ -3599,7 +3417,7 @@ const GeneracionBlog = () => {
                   </div>
                 </div>
 
-                {/* Lado Derecho: Regional */}
+                {/* Regional */}
                 <div className="log-card">
                   <span className="analysis-title">
                     <i className="uil uil-globe"></i> Regional
