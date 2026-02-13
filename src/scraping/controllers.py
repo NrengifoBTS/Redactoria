@@ -197,3 +197,16 @@ def download_blog_document(
         import logging
         logging.error(f"Error en download_blog_document: {str(e)}", exc_info=True)
         raise HTTPException(500, f"Error al generar documento: {str(e)}")
+    
+
+@router.post("/generate-faqs-from-structure") # Esto queda como /scraping/generate-faqs-from-structure
+def generate_faqs_from_structure(req: models.FAQStructureRequest):
+    try:
+        return service.AIService.generar_faqs_con_estructura(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+
+
