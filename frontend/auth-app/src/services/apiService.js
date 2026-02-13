@@ -1035,6 +1035,26 @@ class ApiService {
       return null;
     }
   }
+  /**
+   * Generar FAQs basadas en la estructura completa del blog
+   */
+  async generateFaqsFromStructure(blogId, fullStructureText, keyword = "") {
+    try {
+      const payload = {
+        blog_id: blogId,
+        full_structure_text: fullStructureText,
+        keyword: keyword,
+      };
+
+      return await this.makeRequest("/scraping/generate-faqs-from-structure", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error("Error generating FAQs from structure:", error);
+      throw error;
+    }
+  }
 }
 
 // Crear instancia singleton

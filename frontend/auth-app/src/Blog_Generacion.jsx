@@ -39,21 +39,6 @@ const MenuBar = ({ editor }) => {
   const [showPopover, setShowPopover] = useState(false);
   if (!editor) return null;
 
-  // --- ACCIÓN DE HIPERVÍNCULO ---
-  const setLink = () => {
-    const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("URL del enlace:", previousUrl);
-
-    if (url === null) return; // Cancelado
-
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  };
-
   return (
     <div className="tiptap-toolbar">
       {/* --- FORMATO DE TEXTO --- */}
@@ -359,7 +344,7 @@ const GeneracionBlog = () => {
 
   const { user: currentUser } = useCurrentUser();
 
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
@@ -499,6 +484,22 @@ const GeneracionBlog = () => {
   const [regenTextareaValue, setRegenTextareaValue] = useState("");
   const [seccionRegenerando, setSeccionRegenerando] = useState(null);
   const [sectionContentValue, setSectionContentValue] = useState("");
+
+  // =======================================================================
+  // ESTADOS PARA PREGUNTAS FRECUENTES
+  // =======================================================================
+  const [faqKeyword, setFaqKeyword] = useState("");
+  const [googleFaqs, setGoogleFaqs] = useState([]);
+  const [loadingFaqs, setLoadingFaqs] = useState(false);
+
+  // CORRECCIÓN: Usar datosFinales que es tu estado real
+  useEffect(() => {
+    // Verificamos que datosFinales tenga el título y que faqKeyword esté vacío
+    // para no borrar lo que el usuario escriba manualmente después
+    if (datosFinales?.title && !faqKeyword) {
+      setFaqKeyword(datosFinales.title);
+    }
+  }, [datosFinales, faqKeyword]);
 
   // -----------------------------------------------------------------------
   // EDITORES DE TEXTO ENRIQUECIDO CON TIPTAP
@@ -1681,6 +1682,7 @@ const GeneracionBlog = () => {
     setTablaEstructuraFinal(newMarkdown);
     markAsChanged();
   };
+
   //Maneja acciones de Mover y Eliminar, mostrando un toast de confirmación
   const gestionarAccionDeSeccion = (action, section, direction = null) => {
     switch (action) {
@@ -2954,6 +2956,44 @@ const GeneracionBlog = () => {
     showToast("Generación finalizada.", "info");
   };
 
+  const generarFaqsDesdeEstructura = async () => {
+    setLoadingFaqs(true);
+    try {
+      // Función recursiva para aplanar toda la estructura y su contenido
+      const extraerContenidoRecursivo = (items) => {
+        return items
+          .map((item) => {
+            const textoLimpio = item.content ? stripHtml(item.content) : "";
+            const seccion = `[${item.level.toUpperCase()}]: ${item.text}\nCONTENIDO: ${textoLimpio}`;
+            const hijos =
+              item.children && item.children.length > 0
+                ? extraerContenidoRecursivo(item.children)
+                : "";
+            return `${seccion}\n${hijos}`;
+          })
+          .join("\n\n");
+      };
+
+      const textoEstructuraCompleta =
+        extraerContenidoRecursivo(structureWithCount);
+
+      // Llamada siguiendo tu lógica de apiService
+      const data = await apiService.generateFaqsFromStructure(
+        blogId,
+        textoEstructuraCompleta,
+        faqKeyword, // Esta variable ya la tienes en tu estado
+      );
+
+      if (data && data.faqs) {
+        setGoogleFaqs(data.faqs);
+      }
+    } catch (error) {
+      console.error("Error al generar FAQs:", error);
+    } finally {
+      setLoadingFaqs(false);
+    }
+  };
+
   // =======================================================================
   // 5. COMPONENTE StructureRenderer
   // =======================================================================
@@ -3194,7 +3234,9 @@ const GeneracionBlog = () => {
   return (
     <>
       <ToastNotification toast={toast} /> {/* Renderizar la notificación */}
-      <div className={`blog-generation-page ${isDarkMode ? "dark-mode" : ""}`}>
+      <div
+        className={`blog-generation-page ${isDarkMode ? "dark-mode" : "True"}`}
+      >
         {/* Header */}
         <header className="navbar-custom">
           {/* Sección Izquierda: Título */}
@@ -3602,6 +3644,35 @@ const GeneracionBlog = () => {
               </button>
             </div>
 
+            {/* ---------------------------------------------------- */}
+            {/* --- COMPONENTE DE PREGUNTAS FRECUENTES (IA)      --- */}
+            {/* ---------------------------------------------------- */}
+            {tablaEstructuraFinal && (
+              <section
+                className="analysis-result fade-in"
+                style={{ marginTop: "20px" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "15px",
+                  }}
+                >
+                  <h2 className="analysis-title">
+                    Preguntas Frecuentes Sugeridas
+                  </h2>
+                  <button
+                    className="btn-generate"
+                    onClick={generarFaqsDesdeEstructura}
+                    disabled={loadingFaqs}
+                    style={{ width: "auto" }}
+                  >
+                    {loadingFaqs ? "Generando..." : "Generar con IA"}
+                  </button>
+                </div>
+              </section>
+            )}
             {/* ---------------------------------------------------- */}
             {/* --- EDITOR / REGENERACIÓN DE TÍTULOS  --- */}
             {/* ---------------------------------------------------- */}
