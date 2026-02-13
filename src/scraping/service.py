@@ -22,7 +22,6 @@ import cloudscraper
 from fake_useragent import UserAgent
 import trafilatura
 
-
 from io import BytesIO
 
 from docx import Document
@@ -32,9 +31,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # Importación necesaria para la persistencia
 from src.entities.scraping import Scraping
 from src.entities.blog import Blog
-
-
-
 
 # =======================================================================
 # GENERACION DE DOCUMENTO WORD 
@@ -1398,58 +1394,6 @@ class AIService:
             "log": f"Generación finalizada. Se procesaron {len(structured_content)} de {len(headers_for_json)} secciones (Nivel: {section_level})."
         }
 
-    # En src/scraping/service.py
-
-    def generar_faqs_con_estructura(req: models.FAQStructureRequest):
-        """
-        Toma el texto plano de la estructura completa y genera FAQs.
-        """
-        # En lugar de llamar a un método inexistente de AIService, 
-        # creamos el prompt y usamos la función analisis_final_ia que ya tienes en el archivo
-        
-        prompt = f"""
-        Genera una lista de 5 a 8 preguntas frecuentes (FAQs) con sus respuestas basadas en el siguiente contenido.
-        
-        CONTENIDO DEL BLOG:
-        {req.full_structure_text}
-        
-        REQUISITOS:
-        - Idioma: El mismo del contenido.
-        - Formato: JSON puro (un array de objetos).
-        - Estructura: [{"pregunta": "...", "respuesta": "..."}]
-        """
-        
-        try:
-            # Llamamos a la función que ya existe en tu service.py
-            # Le pasamos el prompt como 'analisis_previo' o el campo que use tu IA
-            resultado_raw = analisis_final_ia(prompt) 
-            
-            # Limpieza de seguridad por si la IA devuelve texto extra
-            if isinstance(resultado_raw, str):
-                start_idx = resultado_raw.find('[')
-                end_idx = resultado_raw.rfind(']') + 1
-                if start_idx != -1 and end_idx != 0:
-                    clean_json = resultado_raw[start_idx:end_idx]
-                    faqs = json.loads(clean_json)
-                else:
-                    # Si no hay corchetes, intentamos cargar directo
-                    faqs = json.loads(resultado_raw)
-            else:
-                faqs = resultado_raw # Si ya es un objeto/lista
-
-            return {"faqs": faqs}
-            
-        except Exception as e:
-            print(f"Error procesando FAQs: {str(e)}")
-            # Fallback manual en caso de error de parseo
-            return {"faqs": [
-                {"pregunta": "Error", "respuesta": "No se pudieron generar las FAQs en este momento."}
-            ]}
-
-
-
-
-   
     # --- LOGICA PARA EL ANALISIS FINAL Y GENERACION DE ESTRUCTURA SEO ---
     def analisis_final_ia(
         self, 
@@ -2128,7 +2072,6 @@ class AnalysisOrchestrator:
 
         return [{"heading": article_heading, "content": fallback_text, "media_elements": []}]
 
-    
     def execute_scraping(self, req: models.ScrapeRequest) -> Generator[str, None, None]:
         """
         Ejecuta el flujo completo de scraping y envía eventos de progreso al frontend.
