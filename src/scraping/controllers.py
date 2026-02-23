@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 from src.database.core import DbSession
+from fastapi.responses import FileResponse
 from uuid import UUID
 from . import models,service
 from src.entities.blog import Blog
@@ -197,3 +198,28 @@ def download_blog_document(
         import logging
         logging.error(f"Error en download_blog_document: {str(e)}", exc_info=True)
         raise HTTPException(500, f"Error al generar documento: {str(e)}")
+@router_ai.get("/download_blog_doc/{blog_id}", response_class=StreamingResponse)
+def download_blog_document(blog_id: UUID, db: DbSession):
+    """
+    Endpoint para descargar la estructura final del blog en formato Word (.docx).
+    """
+    try:
+        # Llama a la función de servicio
+        return service.generar_documento_word(blog_id, db)
+    except HTTPException as http_e:
+        # Si service.py lanza un 404, se propaga correctamente
+        raise http_e
+    except Exception as e:
+        # Si hay un error de docx o interno, devuelve un 500 JSON
+        raise HTTPException(status_code=500, detail=f"Fallo al generar el documento de Word: {str(e)}")
+
+
+
+
+
+
+
+
+
+
+

@@ -5,7 +5,7 @@ def create_template():
     """Crear template para Ciudad"""
     
     # TOKEN - REEMPLAZA CON TU TOKEN
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjMwNzA0NzN9.9sppy0WBnd65hoajuni78Yl9ZtBKT8QJkSyvwsSH2n0"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3Njk3MDc0ODB9.0MTcfCjwPJ0UpKr0cjrr2YWCB1J66O8kzOJXFRvY6d8"
     
     # URL de tu API
     base_url = "http://192.168.1.129:8000"  
@@ -391,16 +391,16 @@ def create_template():
             "name": "Bloque 8",
             "type": "locationscarrusel",
             "startRow": 56,
-            "endRow": 83,
+            "endRow": 89,
             "titleRow": 56,
             "descRow": 57,
             "contentMapping": {
-                "desc": "57-3",    
-                "desc_1": "59-3",         
-                "desc_2": "61-3",         
-                "desc_3": "63-3",         
-                "desc_4": "65-3",         
-                "desc_5": "67-3",         
+                "desc": "57-3",
+                "desc_1": "59-3",
+                "desc_2": "61-3",
+                "desc_3": "63-3",
+                "desc_4": "65-3",
+                "desc_5": "67-3",
                 "desc_6": "69-3",
                 "desc_7": "71-3",
                 "desc_8": "73-3",
@@ -408,7 +408,10 @@ def create_template():
                 "desc_10": "77-3",
                 "desc_11": "79-3",
                 "desc_12": "81-3",
-                "desc_13": "83-3"                   
+                "desc_13": "83-3",
+                "desc_14": "85-3",
+                "desc_15": "87-3",
+                "desc_16": "89-3"
             }
         },
         "9": {

@@ -28,7 +28,14 @@ function Login() {
       setLoading(false);
 
       if (result.success) {
-        navigate('/dashboard');
+        // Verificar si hay una URL de retorno guardada (por expiración de token)
+        const returnUrl = localStorage.getItem("returnUrl");
+        if (returnUrl) {
+          localStorage.removeItem("returnUrl");
+          navigate(returnUrl);
+        } else {
+          navigate('/home');
+        }
       } else {
         setError(result.error || 'Authentication failed!');
       }

@@ -13,7 +13,8 @@ class EstadoProyecto(str, Enum):
     APPROVED = "approved"
     REV_KWS = "rev_kws"
     CARGUE = "cargue"
-    TEST = "test"    
+    EN_IT = "en_it"
+    TEST = "test"
     PUBLISHED = "published"
 
 class PrioridadProyecto(str, Enum):

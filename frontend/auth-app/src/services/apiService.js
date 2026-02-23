@@ -28,6 +28,14 @@ class ApiService {
   // Limpiar autenticación y redirigir silenciosamente
   handleAuthError() {
     localStorage.removeItem("token");
+    // Guardar la ubicación actual antes de redirigir para volver después del login
+    if (
+      window.location.pathname !== "/login" &&
+      window.location.pathname !== "/home"
+    ) {
+      const returnUrl = window.location.pathname + window.location.search;
+      localStorage.setItem("returnUrl", returnUrl);
+    }
     // Redirigir sin usar navigate para evitar errores de contexto
     if (window.location.pathname !== "/login") {
       window.location.href = "/login";
@@ -118,6 +126,37 @@ class ApiService {
     } else {
       localStorage.removeItem("token");
     }
+  }
+
+  // Métodos genéricos HTTP para uso directo
+  async get(url, options = {}) {
+    return this.makeRequest(url, {
+      method: "GET",
+      ...options,
+    });
+  }
+
+  async post(url, data, options = {}) {
+    return this.makeRequest(url, {
+      method: "POST",
+      body: JSON.stringify(data),
+      ...options,
+    });
+  }
+
+  async put(url, data, options = {}) {
+    return this.makeRequest(url, {
+      method: "PUT",
+      body: JSON.stringify(data),
+      ...options,
+    });
+  }
+
+  async delete(url, options = {}) {
+    return this.makeRequest(url, {
+      method: "DELETE",
+      ...options,
+    });
   }
 
   // ENDPOINTS DE PROYECTOS
@@ -533,6 +572,7 @@ class ApiService {
       approved: "approved",
       rev_kws: "rev_kws",
       cargue: "cargue",
+      en_it: "en_it",
       test: "test",
     };
     return mapping[frontendStatus] || "draft";
@@ -549,6 +589,7 @@ class ApiService {
       approved: "approved",
       rev_kws: "rev_kws",
       cargue: "cargue",
+      en_it: "en_it",
       test: "test",
     };
     return mapping[backendStatus] || "draft";

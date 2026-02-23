@@ -131,13 +131,14 @@ class IAService:
                 
             
                 
-            elif block_type == "reviews":
-                # Bloque reviews: tit, desc
+            elif block_type == "reviews" or block_type == "rentcompanies":
+                # Bloque reviews/rentcompanies: tit, desc
                 result["structured_content"]= {
                     "titulo": extracted_fields.get("tit", ""),
+                    "desc": extracted_fields.get("desc", ""),
                     "desc_h2": extracted_fields.get("desc", "")
                 }
-                
+
             elif block_type == "agencies":
                 # Bloque 3: tit, desc_h2, desc_h3
                 result["structured_content"] = {
@@ -146,8 +147,8 @@ class IAService:
                     "desc_h3": extracted_fields.get("desc_h3", "")
                 }
                 
-            elif block_type == "faqs" or "questions":
-                # Bloque 4: desc 
+            elif block_type == "faqs" or block_type == "questions":
+                # Bloque 4: desc
                 result["structured_content"] = {
                     "desc": extracted_fields.get("desc", "")
                 }
@@ -160,7 +161,7 @@ class IAService:
                     if faq_key in extracted_fields:
                         result["structured_content"][faq_key] = extracted_fields[faq_key]
                 
-            elif block_type == "car_rental" or "fleetcarrusel":
+            elif block_type == "car_rental" or block_type == "fleetcarrusel":
                 # Bloque 5: desc
                 result["structured_content"] = {
                     "desc": extracted_fields.get("desc", "")
@@ -188,19 +189,20 @@ class IAService:
                     if desc_key in extracted_fields:
                         result["structured_content"][desc_key] = extracted_fields[desc_key]
                 
-            elif block_type == "fav_city" or "locationscarrusel":
+            elif block_type == "fav_city" or block_type == "locationscarrusel":
                 # Bloque 6: tit, desc
                 result["structured_content"] = {
                     "titulo": extracted_fields.get("tit", ""),
                     "desc": extracted_fields.get("desc", "")
                 }
                 
-            elif block_type == "fav_city_additional":
+            elif block_type == "fav_city_additional" or block_type == "locationscarrusel_additional":
+                # Procesar descripciones de ciudades/ubicaciones
                 result["structured_content"] = {}
-                for i in range(1, 8):  
-                    fav_key = f"fav_{i}"
-                    if fav_key in extracted_fields:
-                        result["structured_content"][fav_key] = extracted_fields[fav_key]
+                for i in range(1, 20):  # Soporta hasta 19 ciudades (desc_1 a desc_19)
+                    desc_key = f"desc_{i}"
+                    if desc_key in extracted_fields:
+                        result["structured_content"][desc_key] = extracted_fields[desc_key]
             
             # Agregar información adicional útil para el frontend
             result["frontend_ready"] = {
@@ -317,6 +319,10 @@ class IAService:
             titulo_limpio = titulo_limpio.strip()
             logging.info(f"BACKEND RAW - blockType del request: '{request.blockType}'")
             logging.info(f"BACKEND RAW - blockNumber del request: {request.blockNumber}")
+            # Debug: verificar si el frontend envía datos del template
+            logging.info(f"BACKEND RAW - template_proyecto: '{request.template_proyecto}'")
+            logging.info(f"BACKEND RAW - template_dominio: '{request.template_dominio}'")
+            logging.info(f"BACKEND RAW - template_categoria: '{request.template_categoria}'")
             if len(titulo_limpio) > 100:
                 titulo_limpio = titulo_limpio[:100] + "..."
                  

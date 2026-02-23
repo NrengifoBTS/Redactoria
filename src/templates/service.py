@@ -180,3 +180,23 @@ def get_active_templates_public(db: Session) -> List[Template]:
     templates = db.query(Template).filter(Template.is_active == True).order_by(Template.created_at.desc()).all()
     logging.info(f"Retrieved {len(templates)} active public templates")
     return templates
+
+def get_all_templates_for_analytics(db: Session) -> List[Template]:
+    """
+    Obtener todos los templates del sistema (activos e inactivos)
+    Para uso en Analytics/Dashboard donde necesitamos ver todas las LPs con sus templates
+    """
+    templates = db.query(Template).order_by(Template.created_at.desc()).all()
+    logging.info(f"Retrieved {len(templates)} templates for analytics")
+    return templates
+
+def get_unique_proyectos(db: Session) -> List[str]:
+    """
+    Get unique proyecto values from templates (e.g., 'viajemos', 'mcr')
+
+    Returns list of unique proyecto names for filtering in Analytics dashboard
+    """
+    from sqlalchemy import distinct
+    proyectos = db.query(distinct(Template.proyecto)).order_by(Template.proyecto).all()
+    # Extract strings from tuples and capitalize first letter
+    return [p[0].capitalize() for p in proyectos if p[0]]

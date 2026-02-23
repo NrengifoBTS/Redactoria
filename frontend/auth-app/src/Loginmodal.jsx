@@ -53,7 +53,7 @@ function LoginModal({ isOpen, onClose }) {
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className="modal-content">
+      <div className="modal-contentlp">
         {/* Botón de cerrar */}
         <button className="modal-close" onClick={onClose} aria-label="Cerrar">
           ✕

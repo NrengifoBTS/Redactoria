@@ -6,11 +6,12 @@ export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [landingPages, setLandingPages] = useState([]);
   const [users, setUsers] = useState([]);
+  const [proyectos, setProyectos] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Configuración base de la API
-  const API_BASE = "http://192.168.1.129:8000";
+  const API_BASE = process.env.REACT_APP_API_URL || "http://192.168.1.129:8000";
 
   // Funciones de utilidad para headers de API
   const getAuthHeaders = () => {
@@ -37,8 +38,12 @@ export function AppProvider({ children }) {
             setCurrentUser(userData);
             setIsAuthenticated(true);
 
-            // Cargar usuarios y landing pages iniciales
-            await Promise.all([loadUsers(), loadLandingPages()]);
+            // Cargar usuarios, landing pages y proyectos iniciales
+            await Promise.all([
+              loadUsers(),
+              loadLandingPages(),
+              loadProyectos(),
+            ]);
           } else {
             // Token inválido, limpiar
             localStorage.removeItem("token");
@@ -90,14 +95,32 @@ export function AppProvider({ children }) {
     return [];
   };
 
+  // Cargar proyectos desde la API
+  const loadProyectos = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/proyectos`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (response.ok) {
+        const proyectosData = await response.json();
+        setProyectos(proyectosData);
+        return proyectosData;
+      }
+    } catch (error) {
+      console.error("Error cargando proyectos:", error);
+    }
+    return [];
+  };
+
   // Actualizar landing page localmente
   const updateLandingPage = (id, updates) => {
     setLandingPages((prev) =>
       prev.map((lp) =>
         lp.id === id
           ? { ...lp, ...updates, lastModified: new Date().toISOString() }
-          : lp
-      )
+          : lp,
+      ),
     );
   };
 
@@ -136,7 +159,7 @@ export function AppProvider({ children }) {
         `${API_BASE}/landing-pages/by-proyecto/${proyectoId}`,
         {
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (response.ok) {
@@ -157,7 +180,7 @@ export function AppProvider({ children }) {
   const saveRedactorProgress = async (
     landingPageId,
     tableData,
-    annotations = {}
+    annotations = {},
   ) => {
     try {
       // Preparar todas las secciones (con y sin contenido)
@@ -177,7 +200,7 @@ export function AppProvider({ children }) {
           method: "POST",
           headers: getAuthHeaders(),
           body: JSON.stringify({ sections }),
-        }
+        },
       );
 
       if (response.ok) {
@@ -212,7 +235,7 @@ export function AppProvider({ children }) {
 
     const totalCells = Object.keys(tableData).length;
     const filledCells = Object.values(tableData).filter(
-      (cell) => cell.content && cell.content.trim() !== ""
+      (cell) => cell.content && cell.content.trim() !== "",
     ).length;
 
     return Math.round((filledCells / totalCells) * 100);
@@ -225,7 +248,7 @@ export function AppProvider({ children }) {
         `${API_BASE}/secciones-lp/landing-page/${landingPageId}`,
         {
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (response.ok) {
@@ -257,7 +280,7 @@ export function AppProvider({ children }) {
         `${API_BASE}/anotaciones/landing-page/${landingPageId}/panel`,
         {
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (response.ok) {
@@ -279,7 +302,7 @@ export function AppProvider({ children }) {
               }),
               id: anotacion.id,
             }));
-          }
+          },
         );
 
         return annotations;
@@ -305,7 +328,7 @@ export function AppProvider({ children }) {
             cell_position: cellPosition,
             text: text,
           }),
-        }
+        },
       );
 
       if (response.ok) {
@@ -352,6 +375,29 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Eliminar todas las anotaciones de una celda
+  const deleteAllAnnotationsFromCell = async (landingPageId, cellPosition) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/anotaciones/landing-page/${landingPageId}/cell/${cellPosition}`,
+        {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        },
+      );
+
+      if (response.ok) {
+        return true;
+      } else {
+        const error = await response.text();
+        throw new Error(`Error ${response.status}: ${error}`);
+      }
+    } catch (error) {
+      console.error("Error eliminando anotaciones de la celda:", error);
+      throw error;
+    }
+  };
+
   // Funciones de autenticación
   const login = async (credentials) => {
     try {
@@ -388,7 +434,7 @@ export function AppProvider({ children }) {
           setIsAuthenticated(true);
 
           // Cargar datos iniciales
-          await Promise.all([loadUsers(), loadLandingPages()]);
+          await Promise.all([loadUsers(), loadLandingPages(), loadProyectos()]);
 
           return { success: true, user, token: access_token };
         } else {
@@ -411,12 +457,13 @@ export function AppProvider({ children }) {
     setIsAuthenticated(false);
     setUsers([]);
     setLandingPages([]);
+    setProyectos([]);
   };
 
   // Funciones de refrescado de datos
   const refreshData = async () => {
     try {
-      await Promise.all([loadUsers(), loadLandingPages()]);
+      await Promise.all([loadUsers(), loadLandingPages(), loadProyectos()]);
     } catch (error) {
       console.error("Error refrescando datos:", error);
     }
@@ -427,9 +474,7 @@ export function AppProvider({ children }) {
 
   const loadTemplates = async () => {
     try {
-      const response = await fetch(
-        "http://192.168.1.129:8000/templates/public/active"
-      );
+      const response = await fetch(`${API_BASE}/templates/public/active`);
       if (response.ok) {
         const templatesData = await response.json();
 
@@ -455,6 +500,7 @@ export function AppProvider({ children }) {
     currentUser,
     landingPages,
     users,
+    proyectos,
     isAuthenticated,
     loading,
 
@@ -474,6 +520,7 @@ export function AppProvider({ children }) {
     loadLandingPageAnnotations,
     saveAnnotationToDB,
     deleteAnnotationFromDB,
+    deleteAllAnnotationsFromCell,
 
     // Funciones Auth
     login,
@@ -482,6 +529,7 @@ export function AppProvider({ children }) {
     // Funciones de datos
     loadUsers,
     loadLandingPages,
+    loadProyectos,
     refreshData,
 
     // Utilidades

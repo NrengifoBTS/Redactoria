@@ -21,6 +21,12 @@ import tableStyles, { getContainerStyle, getCellStyle } from "./tableStyles";
 import { isAdminUser, isEditorUser } from "./utils/roles";
 import apiService from "./services/apiService";
 
+// --- IMPORTACIONES TIPTAP  ---
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
+
 function AnnotationMarker({ cellKey, onClick }) {
   return (
     <span
@@ -94,7 +100,7 @@ const AnnotationPanel = React.memo(
           handleSaveAnnotation();
         }
       },
-      [handleSaveAnnotation]
+      [handleSaveAnnotation],
     );
 
     if (!showAnnotationPanel) return null;
@@ -147,7 +153,7 @@ const AnnotationPanel = React.memo(
             {currentAnnotationCell
               ?.split("-")
               .map((n, i) =>
-                i === 0 ? parseInt(n) + 1 : getColumnLabel(parseInt(n))
+                i === 0 ? parseInt(n) + 1 : getColumnLabel(parseInt(n)),
               )
               .reverse()
               .join("")}
@@ -459,10 +465,190 @@ const AnnotationPanel = React.memo(
     }
 
     return true; // No re-renderizar en otros casos
-  }
+  },
 );
 
 export { AnnotationPanel };
+
+const TiptapCellEditor = ({
+  content,
+  onBlur,
+  onCancel,
+  onSelection,
+  editorRef,
+  editingContentRef, // <--- Asegúrate de que este nombre coincida exactamente
+}) => {
+  const editor = useEditor({
+    extensions: [StarterKit, TextStyle, Color],
+    content: content,
+    onSelectionUpdate: ({ editor }) => {
+      onSelection();
+    },
+    editorProps: {
+      attributes: {
+        class: "cell-editor",
+        style: `width: 100%; height: 100%; min-height: 40px; padding: 8px; border: 2px solid #3b82f6; outline: none; background-color: white;`,
+      },
+      handleKeyDown: (view, event) => {
+        if (event.key === "Enter" && event.shiftKey) {
+          event.preventDefault();
+          // Validación de seguridad antes de asignar
+          if (editingContentRef) {
+            editingContentRef.current = view.dom.innerHTML;
+          }
+          onBlur();
+          return true;
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onCancel();
+          return true;
+        }
+        return false;
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (editor) {
+      editorRef.current = editor;
+    }
+    return () => {
+      editorRef.current = null;
+    };
+  }, [editor, editorRef]);
+
+  return (
+    <div
+      onBlurCapture={() => {
+        // Aquí estaba el error. Añadimos validación:
+        if (editor && editingContentRef) {
+          editingContentRef.current = editor.getHTML();
+        }
+      }}
+      style={{ width: "100%", height: "100%" }}
+    >
+      <EditorContent editor={editor} />
+    </div>
+  );
+};
+// Componente de progreso para generación masiva
+const BulkGenerationProgress = React.memo(function BulkGenerationProgress({
+  isVisible,
+  progress,
+}) {
+  if (!isVisible) return null;
+
+  const percentage =
+    progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        zIndex: 2000,
+        backgroundColor: "white",
+        border: "2px solid #8b5cf6",
+        borderRadius: "12px",
+        padding: "24px",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+        minWidth: "400px",
+        maxWidth: "500px",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          marginBottom: "16px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "24px",
+            animation: "spin 1s linear infinite",
+          }}
+        >
+          🔄
+        </div>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: "18px",
+            fontWeight: "600",
+            color: "#1f2937",
+          }}
+        >
+          Generando contenido...
+        </h3>
+      </div>
+
+      {/* Status message */}
+      <p
+        style={{
+          margin: "0 0 16px 0",
+          fontSize: "14px",
+          color: "#6b7280",
+          fontWeight: "500",
+        }}
+      >
+        {progress.status}
+      </p>
+
+      {/* Progress bar */}
+      <div
+        style={{
+          width: "100%",
+          height: "12px",
+          backgroundColor: "#e5e7eb",
+          borderRadius: "6px",
+          overflow: "hidden",
+          marginBottom: "8px",
+        }}
+      >
+        <div
+          style={{
+            width: `${percentage}%`,
+            height: "100%",
+            backgroundColor: "#8b5cf6",
+            transition: "width 0.3s ease",
+            borderRadius: "6px",
+          }}
+        />
+      </div>
+
+      {/* Counter */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: "12px",
+          color: "#9ca3af",
+          fontWeight: "500",
+        }}
+      >
+        <span>
+          {progress.current} de {progress.total}
+        </span>
+        <span>{Math.round(percentage)}%</span>
+      </div>
+
+      <style>
+        {`
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}
+      </style>
+    </div>
+  );
+});
 
 export default function Redactor() {
   const { lpId } = useParams();
@@ -473,6 +659,7 @@ export default function Redactor() {
     loadLandingPageAnnotations,
     saveAnnotationToDB,
     deleteAnnotationFromDB,
+    deleteAllAnnotationsFromCell,
     saveRedactorProgress,
     currentUser,
     loading: appLoading,
@@ -486,9 +673,14 @@ export default function Redactor() {
   const [mergedCells, setMergedCells] = useState({});
   const [columnWidths, setColumnWidths] = useState({});
   const [blocksMetadata, setBlocksMetadata] = useState({});
+  const [loadedTemplate, setLoadedTemplate] = useState(null); // Template cargado (activo o inactivo)
 
   const [currentLP, setCurrentLP] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Edit tracking states
+  const [editStartTimes, setEditStartTimes] = useState({});
+  const [editContextCache, setEditContextCache] = useState({});
 
   const cleanHtml = (html) => {
     if (!html || html.trim() === "") return "";
@@ -508,28 +700,98 @@ export default function Redactor() {
   };
 
   const saveEditingCell = useCallback(() => {
-    if (editingCell && inputRef.current && !isUpdatingContent.current) {
+    // 1. Verificamos si hay un editor de Tiptap activo o el ref de contenido
+    if (editingCell && !isUpdatingContent.current) {
       setShowColorToolbar(false);
       setTextSelection(null);
 
-      const htmlContent = inputRef.current.innerHTML;
+      // 2. OBTENCIÓN DEL CONTENIDO:
+      // Si tenemos la instancia de Tiptap, sacamos el HTML de ahí.
+      // Si no (fallback), usamos el ref que veníamos llenando.
+      let htmlContent = "";
+      if (tiptapEditorRef.current) {
+        htmlContent = tiptapEditorRef.current.getHTML();
+      } else {
+        htmlContent = editingContentRef.current;
+      }
+
       const cleanedContent = cleanHtml(htmlContent);
 
       // Solo actualizar si el contenido realmente cambió
       const currentContent = tableData[editingCell]?.content || "";
-      if (cleanedContent !== currentContent && cleanedContent !== "") {
+
+      // Validamos que no sea solo un párrafo vacío que Tiptap suele poner "<p></p>"
+      const isEmptyTiptap =
+        cleanedContent === "<p></p>" || cleanedContent === "";
+
+      if (cleanedContent !== currentContent && !isEmptyTiptap) {
         setTableData((prev) => ({
           ...prev,
           [editingCell]: {
             content: cleanedContent,
           },
         }));
+
+        // --- INICIO LÓGICA DE LOGS (Mantenida igual) ---
+        if (
+          currentLP?.id &&
+          currentLP?.proyecto_id &&
+          editStartTimes[editingCell]
+        ) {
+          const editStartTime = editStartTimes[editingCell];
+          const editContext = editContextCache[editingCell] || {};
+
+          apiService
+            .post("/logs/edit", {
+              landing_page_id: currentLP.id,
+              proyecto_id: currentLP.proyecto_id,
+              cell_position: editingCell,
+              content_before: currentContent,
+              content_after: cleanedContent,
+              edit_context: {
+                block_type: editContext.block_type || "unknown",
+                row: editContext.row,
+                col: editContext.col,
+              },
+              edit_start_time: editStartTime,
+              edit_end_time: new Date().toISOString(),
+            })
+            .then(() => {
+              console.log(
+                `[Edit Tracking] Logged edit for cell ${editingCell}`,
+              );
+            })
+            .catch((error) => {
+              console.warn("[Edit Tracking] Failed to log edit:", error);
+            });
+
+          setEditStartTimes((prev) => {
+            const updated = { ...prev };
+            delete updated[editingCell];
+            return updated;
+          });
+          setEditContextCache((prev) => {
+            const updated = { ...prev };
+            delete updated[editingCell];
+            return updated;
+          });
+        }
+        // --- FIN LÓGICA DE LOGS ---
       }
 
       setEditingCell(null);
       editingContentRef.current = "";
+      // Limpiamos el ref del editor al terminar
+      tiptapEditorRef.current = null;
     }
-  }, [editingCell, tableData, cleanHtml]);
+  }, [
+    editingCell,
+    tableData,
+    cleanHtml,
+    currentLP,
+    editStartTimes,
+    editContextCache,
+  ]);
 
   const getThemeFromTable = (tableData) => {
     const themeCellKey = "0-0";
@@ -856,7 +1118,9 @@ export default function Redactor() {
       };
 
       // Llamar al endpoint
-      const response = await fetch("http://192.168.1.129:8000/export/excel", {
+      const API_BASE =
+        process.env.REACT_APP_API_URL || "http://192.168.1.129:8080";
+      const response = await fetch(`${API_BASE}/export/excel`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -868,7 +1132,7 @@ export default function Redactor() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.detail || `Error en la exportación: ${response.status}`
+          errorData.detail || `Error en la exportación: ${response.status}`,
         );
       }
 
@@ -962,7 +1226,7 @@ export default function Redactor() {
     targetLanguage,
     cellKey,
     blockTitle,
-    tema
+    tema,
   ) => {
     return await apiService.translateContent(
       currentLP.id,
@@ -970,9 +1234,311 @@ export default function Redactor() {
       targetLanguage,
       cellKey,
       blockTitle,
-      tema
+      tema,
     );
   };
+
+  // Función para generar toda la fila en español (todos los bloques)
+  const generateAllRowsSpanish = async () => {
+    if (!blocksMetadata || Object.keys(blocksMetadata).length === 0) {
+      alert("No se encontró información de bloques");
+      return;
+    }
+
+    if (!currentLP?.title) {
+      alert("No se encontró información de la landing page");
+      return;
+    }
+
+    console.log("🚀 Iniciando generación de todos los bloques...");
+    console.log("📦 Bloques disponibles:", blocksMetadata);
+
+    const tema = currentLP.title;
+    const currentTemplate = getCurrentTemplate();
+
+    // Recopilar todas las celdas de todos los bloques
+    const allBlocks = Object.entries(blocksMetadata).map(
+      ([blockId, blockData]) => ({
+        number: parseInt(blockId),
+        name: blockData.name,
+        type: blockData.type,
+        contentMapping: blockData.contentMapping || {},
+        titleRow: blockData.titleRow,
+        descRow: blockData.descRow,
+        startRow: blockData.startRow,
+        endRow: blockData.endRow,
+      }),
+    );
+
+    console.log("📋 Bloques procesados:", allBlocks);
+
+    // Contar solo las celdas desc (no contar cada faq/fav_city individual)
+    let totalBlocks = allBlocks.length;
+
+    setIsBulkGenerating(true);
+    setBulkProgress({
+      current: 0,
+      total: totalBlocks,
+      status: "Iniciando generación...",
+    });
+
+    let currentBlockIndex = 0;
+
+    // Procesar cada bloque
+    for (const block of allBlocks) {
+      currentBlockIndex++;
+
+      console.log(
+        `\n🔄 Procesando bloque ${currentBlockIndex}/${totalBlocks}:`,
+        block.name,
+      );
+
+      setBulkProgress({
+        current: currentBlockIndex,
+        total: totalBlocks,
+        status: `Generando bloque ${currentBlockIndex} de ${totalBlocks}: ${block.name}...`,
+      });
+
+      try {
+        // Obtener la celda de descripción principal del bloque
+        const descCellKey = `${block.descRow}-3`;
+
+        console.log(`  📝 Celda desc: ${descCellKey}`);
+
+        // Obtener información del título para este bloque
+        const titleInfo = getTitleForIAGeneration(
+          descCellKey,
+          block,
+          tableData,
+        );
+        const blockTitle = titleInfo.title;
+
+        console.log(`  📌 Título del bloque: "${blockTitle}"`);
+        console.log(`  ❓ FAQs:`, titleInfo.faqQuestions);
+        console.log(`  🏙️ Ciudades:`, titleInfo.favCityQuestions);
+        console.log(`  🚗 Autos:`, titleInfo.carTypes);
+
+        if (!blockTitle || blockTitle.trim() === "") {
+          console.log(`  ⚠️ Saltando bloque ${block.name} - sin título`);
+          continue;
+        }
+
+        const generatedContent = await callIAEndpoint({
+          blockNumber: block.number,
+          blockTitle: blockTitle,
+          cellKey: descCellKey,
+          tema: tema,
+          faqQuestions: titleInfo.faqQuestions || [],
+          favCityQuestions: titleInfo.favCityQuestions || [],
+          carTypes: titleInfo.carTypes || [],
+          blockType: block.type,
+          templateInfo: currentTemplate,
+        });
+
+        console.log(`  ✅ Contenido generado:`, generatedContent);
+
+        // Actualizar tableData con el contenido generado
+        if (generatedContent?.structured_content) {
+          setTableData((prev) => {
+            const updates = { ...prev };
+            Object.entries(block.contentMapping).forEach(
+              ([contentField, contentCellKey]) => {
+                let contentValue =
+                  generatedContent.structured_content[contentField];
+
+                if (contentValue !== undefined) {
+                  console.log(
+                    `    ➕ Actualizando ${contentCellKey} con campo ${contentField}`,
+                  );
+                  updates[contentCellKey] = { content: contentValue };
+                }
+              },
+            );
+            return updates;
+          });
+        }
+
+        // Pequeña pausa para que el usuario vea el progreso
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`❌ Error generando bloque ${block.name}:`, error);
+        alert(`Error generando bloque ${block.name}: ${error.message}`);
+      }
+    }
+
+    console.log("✅ Generación completada!");
+
+    setBulkProgress({
+      current: totalBlocks,
+      total: totalBlocks,
+      status: "¡Completado!",
+    });
+    setTimeout(() => {
+      setIsBulkGenerating(false);
+      setBulkProgress({ current: 0, total: 0, status: "" });
+    }, 2000);
+  };
+
+  // Función para traducir todas las filas a inglés y portugués (todos los bloques)
+  const translateAllRows = async () => {
+    if (!blocksMetadata || Object.keys(blocksMetadata).length === 0) {
+      alert("No se encontró información de bloques");
+      return;
+    }
+
+    console.log("🌐 Iniciando traducción de todos los bloques...");
+
+    const tema = currentLP.title;
+
+    // Recopilar todas las celdas de todos los bloques
+    const allBlocks = Object.entries(blocksMetadata).map(
+      ([blockId, blockData]) => ({
+        number: parseInt(blockId),
+        name: blockData.name,
+        type: blockData.type,
+        startRow: blockData.startRow,
+        endRow: blockData.endRow,
+      }),
+    );
+
+    console.log("📋 Bloques a traducir:", allBlocks);
+
+    // Recopilar TODAS las celdas de español (columna 3) en cada bloque
+    const allSpanishCells = [];
+
+    allBlocks.forEach((block) => {
+      // Iterar por todas las filas del bloque
+      for (let row = block.startRow; row <= block.endRow; row++) {
+        const spanishCellKey = `${row}-3`;
+        const spanishContent = tableData[spanishCellKey]?.content || "";
+
+        // Solo agregar si tiene contenido
+        if (spanishContent && spanishContent.trim() !== "") {
+          allSpanishCells.push({
+            cellKey: spanishCellKey,
+            row: row,
+            blockName: block.name,
+            content: spanishContent,
+          });
+        }
+      }
+    });
+
+    console.log(
+      `📝 Total de celdas con contenido español: ${allSpanishCells.length}`,
+    );
+
+    const totalSteps = allSpanishCells.length * 2; // x2 para inglés y portugués
+    let currentStep = 0;
+
+    setIsBulkGenerating(true);
+    setBulkProgress({
+      current: 0,
+      total: totalSteps,
+      status: "Iniciando traducción...",
+    });
+
+    // Paso 1: Traducir todo a inglés
+    console.log("\n🇬🇧 Fase 1: Traduciendo a inglés...");
+
+    for (let i = 0; i < allSpanishCells.length; i++) {
+      const cell = allSpanishCells[i];
+      const englishCellKey = `${cell.row}-4`;
+      currentStep++;
+
+      setBulkProgress({
+        current: currentStep,
+        total: totalSteps,
+        status: `[EN] [${cell.blockName}] Traduciendo ${i + 1} de ${allSpanishCells.length}...`,
+      });
+
+      console.log(
+        `  🔄 [EN] Traduciendo celda ${cell.cellKey} -> ${englishCellKey}`,
+      );
+
+      try {
+        const translatedContent = await callTranslationEndpoint(
+          cell.content,
+          "en",
+          englishCellKey,
+          null,
+          tema,
+        );
+
+        if (translatedContent) {
+          setTableData((prev) => ({
+            ...prev,
+            [englishCellKey]: { content: translatedContent },
+          }));
+          console.log(`    ✅ Traducido exitosamente`);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      } catch (error) {
+        console.error(
+          `    ❌ Error traduciendo a inglés celda ${englishCellKey}:`,
+          error,
+        );
+      }
+    }
+
+    // Paso 2: Traducir todo a portugués
+    console.log("\n🇧🇷 Fase 2: Traduciendo a portugués...");
+
+    for (let i = 0; i < allSpanishCells.length; i++) {
+      const cell = allSpanishCells[i];
+      const portugueseCellKey = `${cell.row}-5`;
+      currentStep++;
+
+      setBulkProgress({
+        current: currentStep,
+        total: totalSteps,
+        status: `[PT] [${cell.blockName}] Traduciendo ${i + 1} de ${allSpanishCells.length}...`,
+      });
+
+      console.log(
+        `  🔄 [PT] Traduciendo celda ${cell.cellKey} -> ${portugueseCellKey}`,
+      );
+
+      try {
+        const translatedContent = await callTranslationEndpoint(
+          cell.content,
+          "pt",
+          portugueseCellKey,
+          null,
+          tema,
+        );
+
+        if (translatedContent) {
+          setTableData((prev) => ({
+            ...prev,
+            [portugueseCellKey]: { content: translatedContent },
+          }));
+          console.log(`    ✅ Traducido exitosamente`);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      } catch (error) {
+        console.error(
+          `    ❌ Error traduciendo a portugués celda ${portugueseCellKey}:`,
+          error,
+        );
+      }
+    }
+
+    console.log("✅ Traducción completada!");
+
+    setBulkProgress({
+      current: totalSteps,
+      total: totalSteps,
+      status: "¡Completado!",
+    });
+    setTimeout(() => {
+      setIsBulkGenerating(false);
+      setBulkProgress({ current: 0, total: 0, status: "" });
+    }, 2000);
+  };
+
   const getBlockFromRow = (row) => {
     console.log("🔍 getBlockFromRow - Analizando fila:", row);
     console.log("🔍 blocksMetadata disponible:", blocksMetadata);
@@ -1011,17 +1577,20 @@ export default function Redactor() {
         // Obtener el template completo
         const template = await apiService.getTemplateById(lp.template_id);
 
+        // Guardar el template cargado (activo o inactivo) para usarlo en getCurrentTemplate
+        setLoadedTemplate(template);
+
         // Extraer configuraciones del template
         if (template?.template_config?.blocks_metadata) {
           setBlocksMetadata(template.template_config.blocks_metadata);
         }
         console.log(
           "🔍 TEMPLATE blocks_metadata:",
-          template?.template_config?.blocks_metadata
+          template?.template_config?.blocks_metadata,
         );
         console.log(
           "🔍 Bloque 5 específico:",
-          template?.template_config?.blocks_metadata?.["5"]
+          template?.template_config?.blocks_metadata?.["5"],
         );
 
         if (template?.template_config?.mergedCells) {
@@ -1045,6 +1614,8 @@ export default function Redactor() {
         const templateData = template?.template_config?.templateData || {};
 
         const mergedTableData = {};
+
+        // Primero iterar sobre el templateData
         Object.keys(templateData).forEach((key) => {
           const templateCell = templateData[key];
           const existingCell = existingSections[key];
@@ -1056,10 +1627,23 @@ export default function Redactor() {
           };
         });
 
+        // Luego agregar cualquier celda guardada que no esté en templateData
+        Object.keys(existingSections).forEach((key) => {
+          if (!mergedTableData[key]) {
+            mergedTableData[key] = {
+              content: existingSections[key].content,
+            };
+          }
+        });
+
         setTableData(mergedTableData);
         setAnnotations(existingAnnotations);
       }
 
+      console.log("🔍 currentLP data:", lp);
+      console.log("🔍 currentLP.name:", lp?.name);
+      console.log("🔍 currentLP.title:", lp?.title);
+      console.log("🔍 currentLP keys:", lp ? Object.keys(lp) : "null");
       setCurrentLP(lp);
       setLoading(false);
     };
@@ -1097,6 +1681,14 @@ export default function Redactor() {
 
   const [isResizing, setIsResizing] = useState(false);
   const [resizeData, setResizeData] = useState(null);
+
+  // Estados para generación masiva
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({
+    current: 0,
+    total: 0,
+    status: "",
+  });
 
   const inputRef = useRef(null);
   const tableRef = useRef(null);
@@ -1283,7 +1875,7 @@ export default function Redactor() {
         }
       }, 100); // Throttle de 100ms
     },
-    [editingCell, rowHeights]
+    [editingCell, rowHeights],
   );
 
   const addOrEditAnnotation = (cellKey) => {
@@ -1328,7 +1920,7 @@ export default function Redactor() {
         const savedAnnotation = await saveAnnotationToDB(
           currentLP.id,
           currentAnnotationCell,
-          textToSave
+          textToSave,
         );
 
         setAnnotations((prev) => {
@@ -1348,7 +1940,12 @@ export default function Redactor() {
         alert("Error al guardar la anotación: " + error.message);
       }
     },
-    [currentAnnotationCell, currentLP, saveAnnotationToDB, closeAnnotationPanel]
+    [
+      currentAnnotationCell,
+      currentLP,
+      saveAnnotationToDB,
+      closeAnnotationPanel,
+    ],
   );
 
   const deleteAnnotationLocal = useCallback(
@@ -1361,7 +1958,7 @@ export default function Redactor() {
         setAnnotations((prev) => {
           const cellAnnotations = prev[cellKey] || [];
           const updatedAnnotations = cellAnnotations.filter(
-            (ann) => ann.id !== annotationId
+            (ann) => ann.id !== annotationId,
           );
 
           if (updatedAnnotations.length === 0) {
@@ -1380,19 +1977,29 @@ export default function Redactor() {
         alert("Error al eliminar la anotación: " + error.message);
       }
     },
-    [deleteAnnotationFromDB]
+    [deleteAnnotationFromDB],
   );
 
   const deleteAllAnnotations = useCallback(
-    (cellKey) => {
-      setAnnotations((prev) => {
-        const newAnnotations = { ...prev };
-        delete newAnnotations[cellKey];
-        return newAnnotations;
-      });
-      closeAnnotationPanel();
+    async (cellKey) => {
+      try {
+        // Eliminar de BD
+        await deleteAllAnnotationsFromCell(currentLP.id, cellKey);
+
+        // Actualizar estado local
+        setAnnotations((prev) => {
+          const newAnnotations = { ...prev };
+          delete newAnnotations[cellKey];
+          return newAnnotations;
+        });
+
+        closeAnnotationPanel();
+      } catch (error) {
+        console.error("Error al eliminar todas las anotaciones:", error);
+        alert("Error al eliminar todas las anotaciones: " + error.message);
+      }
     },
-    [closeAnnotationPanel]
+    [currentLP, deleteAllAnnotationsFromCell, closeAnnotationPanel],
   );
 
   const showAnnotation = (cellKey, event) => {
@@ -1458,114 +2065,10 @@ export default function Redactor() {
   };
 
   const applyColorToSelection = (color) => {
-    if (!editingCell || !inputRef.current || !textSelection) return;
-
-    const { range } = textSelection;
-    if (!range) return;
-
-    try {
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range.cloneRange());
-
-      const selectedText = selection.toString();
-      if (!selectedText) return;
-
-      // Convertir hex a RGB
-      const hexToRgb = (hex) => {
-        hex = hex.replace("#", "");
-        return {
-          r: parseInt(hex.substring(0, 2), 16),
-          g: parseInt(hex.substring(2, 4), 16),
-          b: parseInt(hex.substring(4, 6), 16),
-        };
-      };
-
-      const fragment = range.extractContents();
-
-      const extractTextAndFormat = (node) => {
-        const result = [];
-
-        const walker = document.createTreeWalker(
-          node,
-          NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-          null
-        );
-
-        let currentNode;
-        while ((currentNode = walker.nextNode())) {
-          if (currentNode.nodeType === Node.TEXT_NODE) {
-            const text = currentNode.textContent;
-            if (text) {
-              // Verificar si está dentro de bold o italic
-              let parent = currentNode.parentElement;
-              let isBold = false;
-              let isItalic = false;
-
-              while (parent && parent !== node) {
-                if (parent.tagName === "B" || parent.tagName === "STRONG") {
-                  isBold = true;
-                }
-                if (parent.tagName === "I" || parent.tagName === "EM") {
-                  isItalic = true;
-                }
-                parent = parent.parentElement;
-              }
-
-              result.push({ text, isBold, isItalic });
-            }
-          }
-        }
-
-        return result;
-      };
-
-      const textParts = extractTextAndFormat(fragment);
-
-      const span = document.createElement("span");
-      const rgb = hexToRgb(color);
-      span.style.color = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
-
-      textParts.forEach((part) => {
-        if (part.isBold && part.isItalic) {
-          const strong = document.createElement("strong");
-          const em = document.createElement("em");
-          em.textContent = part.text;
-          strong.appendChild(em);
-          span.appendChild(strong);
-        } else if (part.isBold) {
-          const strong = document.createElement("strong");
-          strong.textContent = part.text;
-          span.appendChild(strong);
-        } else if (part.isItalic) {
-          const em = document.createElement("em");
-          em.textContent = part.text;
-          span.appendChild(em);
-        } else {
-          span.appendChild(document.createTextNode(part.text));
-        }
-      });
-
-      range.insertNode(span);
-
-      console.log("✅ Color aplicado sin anidación:", span.outerHTML);
-
-      // Limpiar selección
-      selection.removeAllRanges();
-      setShowColorToolbar(false);
-      setTextSelection(null);
-
-      // Restaurar foco
-      if (inputRef.current) {
-        inputRef.current.focus();
-        const newRange = document.createRange();
-        newRange.setStartAfter(span);
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-      }
-    } catch (error) {
-      console.error("Error aplicando color:", error);
+    if (tiptapEditorRef.current) {
+      // Esto hace EXACTAMENTE lo mismo que tu función larga de 80 líneas
+      // pero de forma segura para Tiptap.
+      tiptapEditorRef.current.chain().focus().setColor(color).run();
       setShowColorToolbar(false);
       setTextSelection(null);
     }
@@ -1624,19 +2127,16 @@ export default function Redactor() {
     return temp.innerHTML;
   };
 
-  const applyFormatToSelection = (format) => {
-    const selection = window.getSelection();
-    if (!selection.rangeCount || selection.isCollapsed) return;
+  const tiptapEditorRef = useRef(null);
 
-    try {
-      // Usar execCommand que maneja correctamente los formatos anidados
-      if (format === "bold") {
-        document.execCommand("bold", false, null);
-      } else if (format === "italic") {
-        document.execCommand("italic", false, null);
-      }
-    } catch (error) {
-      console.error("Error al aplicar formato:", error);
+  const applyFormatToSelection = (format) => {
+    if (tiptapEditorRef.current) {
+      const editor = tiptapEditorRef.current;
+      if (format === "bold") editor.chain().focus().toggleBold().run();
+      if (format === "italic") editor.chain().focus().toggleItalic().run();
+    } else {
+      // Tu lógica vieja por si acaso
+      document.execCommand(format, false, null);
     }
   };
 
@@ -1720,7 +2220,7 @@ export default function Redactor() {
     invalidTags.forEach((tag) => {
       cleaned = cleaned.replace(
         new RegExp(`<${tag}(\\s[^>]*)?>`, "gi"),
-        "<span>"
+        "<span>",
       );
       cleaned = cleaned.replace(new RegExp(`</${tag}>`, "gi"), "</span>");
     });
@@ -1736,52 +2236,30 @@ export default function Redactor() {
     return cleanLegacyHTML(inputRef.current.innerHTML);
   };
 
-  const handleTextSelection = useCallback(
-    debounce((e) => {
-      if (!editingCell || !inputRef.current) return;
+  const handleTextSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      setShowColorToolbar(false);
+      return;
+    }
 
-      setTimeout(() => {
-        const selection = window.getSelection();
-        const selectedText = selection.toString().trim();
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
 
-        if (selectedText.length > 0 && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
+    // Guardamos la selección para que tus funciones applyColor funcionen
+    setTextSelection({
+      range: range.cloneRange(),
+      text: selection.toString(),
+    });
 
-          const isWithinEditor =
-            inputRef.current.contains(range.commonAncestorContainer) ||
-            inputRef.current.contains(range.startContainer) ||
-            inputRef.current.contains(range.endContainer) ||
-            range.commonAncestorContainer === inputRef.current;
+    // Posicionamos la barra sobre la selección
+    setToolbarPosition({
+      x: rect.left + window.scrollX,
+      y: rect.top + window.scrollY - 40, // 40px arriba del texto
+    });
 
-          if (isWithinEditor) {
-            setTextSelection({
-              selectedText: selectedText,
-              range: range,
-            });
-
-            const rect = range.getBoundingClientRect();
-            const scrollX =
-              window.pageXOffset || document.documentElement.scrollLeft;
-            const scrollY =
-              window.pageYOffset || document.documentElement.scrollTop;
-
-            setToolbarPosition({
-              x: rect.left + scrollX + rect.width / 2,
-              y: rect.top + scrollY - 60,
-            });
-            setShowColorToolbar(true);
-          } else {
-            setShowColorToolbar(false);
-            setTextSelection(null);
-          }
-        } else {
-          setShowColorToolbar(false);
-          setTextSelection(null);
-        }
-      }, 50);
-    }, 100),
-    [editingCell]
-  );
+    setShowColorToolbar(true);
+  };
 
   const handleCellDoubleClick = useCallback(
     (row, col) => {
@@ -1829,8 +2307,25 @@ export default function Redactor() {
       autoResizeTextarea,
       showAnnotationPanel,
       closeAnnotationPanel,
-    ]
+    ],
   );
+
+  // Helper function to determine block type for a cell
+  const getBlockTypeForCell = (row, col) => {
+    const cellKey = `${row}-${col}`;
+
+    // Search through blocksMetadata to find which block this cell belongs to
+    for (const [blockId, blockData] of Object.entries(blocksMetadata)) {
+      if (blockData.contentMapping) {
+        const cellsInBlock = Object.values(blockData.contentMapping);
+        if (cellsInBlock.includes(cellKey)) {
+          return blockData.type || "unknown";
+        }
+      }
+    }
+
+    return "free_text"; // Default for cells not in a structured block
+  };
 
   const handleCellClick = (row, col, isRangeSelect = false) => {
     const cellKey = `${row}-${col}`;
@@ -1848,6 +2343,24 @@ export default function Redactor() {
     } else {
       setSelectedCell(cellKey);
       setSelectedRange(null);
+
+      // Capture edit start timestamp and context for tracking
+      setEditStartTimes((prev) => ({
+        ...prev,
+        [cellKey]: new Date().toISOString(),
+      }));
+
+      // Capture edit context (adjacent cells, block type, etc.)
+      const blockType = getBlockTypeForCell(row, col);
+      setEditContextCache((prev) => ({
+        ...prev,
+        [cellKey]: {
+          block_type: blockType,
+          row,
+          col,
+          timestamp: new Date().toISOString(),
+        },
+      }));
     }
 
     if (editingCell && editingCell !== cellKey) {
@@ -1909,6 +2422,21 @@ export default function Redactor() {
   };
 
   const getCurrentTemplate = () => {
+    // Primero intentar usar el template cargado directamente (funciona con activos e inactivos)
+    if (loadedTemplate) {
+      return {
+        id: loadedTemplate.id,
+        name: loadedTemplate.name,
+        description: loadedTemplate.description || "",
+        categoria: loadedTemplate.categoria,
+        proyecto: loadedTemplate.proyecto,
+        dominio: loadedTemplate.dominio,
+        is_active: loadedTemplate.is_active,
+        template_config: loadedTemplate.template_config,
+      };
+    }
+
+    // Fallback: buscar en la lista de templates activos
     if (currentLP?.template_id) {
       const template = getTemplateById(currentLP.template_id);
 
@@ -1921,10 +2449,10 @@ export default function Redactor() {
           proyecto: template.proyecto,
           dominio: template.dominio,
           is_active: template.is_active,
-          template_config: template.template_config, // Incluir toda la configuración
+          template_config: template.template_config,
         };
       } else {
-        console.warn("Template no encontrado");
+        console.warn("Template no encontrado en lista de activos ni cargado");
       }
     }
     return null;
@@ -2043,7 +2571,14 @@ export default function Redactor() {
             editarla.
           </p>
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => {
+              const template = getCurrentTemplate();
+              navigate(
+                template?.proyecto
+                  ? `/dashboard/${template.proyecto}`
+                  : "/dashboard",
+              );
+            }}
             style={{
               padding: "0.75rem 1.5rem",
               backgroundColor: "#3b82f6",
@@ -2266,6 +2801,12 @@ export default function Redactor() {
         getColumnLabel={getColumnLabel}
       />
 
+      {/* Indicador de progreso para generación masiva */}
+      <BulkGenerationProgress
+        isVisible={isBulkGenerating}
+        progress={bulkProgress}
+      />
+
       {/* Navbar */}
       <nav
         style={{
@@ -2279,7 +2820,14 @@ export default function Redactor() {
         <div style={tableStyles.navContent}>
           <div style={tableStyles.navLeft}>
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => {
+                const template = getCurrentTemplate();
+                navigate(
+                  template?.proyecto
+                    ? `/dashboard/${template.proyecto}`
+                    : "/dashboard",
+                );
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -2308,14 +2856,14 @@ export default function Redactor() {
               <p
                 style={{
                   margin: "0.25rem 0 0 0",
-                  fontSize: "0.875rem",
-                  color: "#64748b",
+                  fontSize: "1.2rem",
+                  color: "#000000",
                   display: "flex",
                   alignItems: "center",
                   gap: "0.5rem",
                 }}
               >
-                <span>••••••</span>
+                <span>{currentLP.title}</span>
                 {lastSaved && (
                   <>
                     <span>•</span>
@@ -2335,20 +2883,20 @@ export default function Redactor() {
                     saveStatus === "saved"
                       ? "#10b981"
                       : saveStatus === "error"
-                      ? "#ef4444"
-                      : saveStatus === "saving"
-                      ? "#6b7280"
-                      : "#3b82f6",
+                        ? "#ef4444"
+                        : saveStatus === "saving"
+                          ? "#6b7280"
+                          : "#3b82f6",
                   cursor: saveStatus === "saving" ? "not-allowed" : "pointer",
                 }}
                 title={
                   saveStatus === "saved"
                     ? "Progreso guardado"
                     : saveStatus === "error"
-                    ? "Error al guardar"
-                    : saveStatus === "saving"
-                    ? "Guardando..."
-                    : "Guardar progreso"
+                      ? "Error al guardar"
+                      : saveStatus === "saving"
+                        ? "Guardando..."
+                        : "Guardar progreso"
                 }
               >
                 {saveStatus === "saving" ? (
@@ -2478,8 +3026,8 @@ export default function Redactor() {
                 {isAdminUser && isAdminUser(currentUser.id)
                   ? "Administrador"
                   : isEditorUser && isEditorUser(currentUser.id)
-                  ? "Editor"
-                  : "Visualizador"}
+                    ? "Editor"
+                    : "Visualizador"}
               </p>
             </div>
           </div>
@@ -2498,8 +3046,8 @@ export default function Redactor() {
               saveStatus === "saved"
                 ? "#10b981"
                 : saveStatus === "error"
-                ? "#ef4444"
-                : "#3b82f6",
+                  ? "#ef4444"
+                  : "#3b82f6",
             color: "white",
             padding: "0.75rem 1rem",
             borderRadius: "0.5rem",
@@ -2572,13 +3120,17 @@ export default function Redactor() {
                 }}
                 onClick={async (event) => {
                   if (!selectedCell) return;
+
+                  // Auto-retry logic: try up to 3 times
+                  const MAX_RETRIES = 3;
+
                   try {
                     const tema = currentLP.title;
                     // Obtener el título correcto según el contexto
                     const titleInfo = getTitleForIAGeneration(
                       selectedCell,
                       block,
-                      tableData
+                      tableData,
                     );
                     const blockTitle = titleInfo.title;
                     const currentTemplate = getCurrentTemplate();
@@ -2586,13 +3138,13 @@ export default function Redactor() {
                     if (!blockTitle || blockTitle.trim() === "") {
                       if (titleInfo.type === "faq_answer_empty") {
                         alert(
-                          `No se puede generar respuesta FAQ porque no hay pregunta en la fila anterior. Por favor, agrega primero la pregunta en la celda H3 FAQ.`
+                          `No se puede generar respuesta FAQ porque no hay pregunta en la fila anterior. Por favor, agrega primero la pregunta en la celda H3 FAQ.`,
                         );
                         return;
                       }
 
                       alert(
-                        `Para generar contenido con IA, primero debes agregar un título o pregunta.`
+                        `Para generar contenido con IA, primero debes agregar un título o pregunta.`,
                       );
                       return;
                     }
@@ -2611,7 +3163,7 @@ export default function Redactor() {
                                 carTypes.push(typeContent.trim());
                               }
                             }
-                          }
+                          },
                         );
                       }
                     }
@@ -2623,7 +3175,7 @@ export default function Redactor() {
                         titleInfo.favCityQuestions.length === 0
                       ) {
                         alert(
-                          "No hay preguntas/títulos de ciudad escritos en este bloque. Primero agrega los títulos en las celdas H3 correspondientes."
+                          "No hay preguntas/títulos de ciudad escritos en este bloque. Primero agrega los títulos en las celdas H3 correspondientes.",
                         );
                         // Restaurar botón
                         button.innerHTML = originalHTML;
@@ -2640,7 +3192,7 @@ export default function Redactor() {
                         titleInfo.faqQuestions.length === 0
                       ) {
                         alert(
-                          "No hay preguntas FAQ escritas en este bloque. Primero agrega las preguntas en las celdas H3 FAQ correspondientes."
+                          "No hay preguntas FAQ escritas en este bloque. Primero agrega las preguntas en las celdas H3 FAQ correspondientes.",
                         );
                         // Restaurar botón
                         button.innerHTML = originalHTML;
@@ -2656,17 +3208,79 @@ export default function Redactor() {
                     button.innerHTML =
                       "<span>🔄</span><span>Generando...</span>";
                     button.disabled = true;
-                    const generatedContent = await callIAEndpoint({
-                      blockNumber: block.number,
-                      blockTitle: blockTitle,
-                      cellKey: selectedCell,
-                      tema: tema,
-                      faqQuestions: titleInfo.faqQuestions || [],
-                      favCityQuestions: titleInfo.favCityQuestions || [],
-                      carTypes: titleInfo.carTypes || [],
-                      blockType: block.type,
-                      templateInfo: currentTemplate,
-                    });
+
+                    let generatedContent = null;
+                    let lastError = null;
+
+                    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                      try {
+                        if (attempt > 1) {
+                          button.innerHTML = `<span>🔄</span><span>Reintentando... (${attempt}/${MAX_RETRIES})</span>`;
+                        }
+
+                        generatedContent = await callIAEndpoint({
+                          blockNumber: block.number,
+                          blockTitle: blockTitle,
+                          cellKey: selectedCell,
+                          tema: tema,
+                          faqQuestions: titleInfo.faqQuestions || [],
+                          favCityQuestions: titleInfo.favCityQuestions || [],
+                          carTypes: titleInfo.carTypes || [],
+                          blockType: block.type,
+                          templateInfo: currentTemplate,
+                        });
+
+                        // Check if generation produced valid content
+                        if (
+                          !generatedContent ||
+                          !generatedContent.structured_content ||
+                          Object.keys(generatedContent.structured_content)
+                            .length === 0
+                        ) {
+                          throw new Error("La IA no generó contenido válido");
+                        }
+
+                        // Success! Break out of retry loop
+                        break;
+                      } catch (error) {
+                        lastError = error;
+                        console.error(
+                          `[Intento ${attempt}/${MAX_RETRIES}] Error generando contenido:`,
+                          error,
+                        );
+
+                        // Log failure to backend for each attempt
+                        if (currentLP?.id && selectedCell) {
+                          apiService
+                            .post("/logs/generation-failure", {
+                              landing_page_id: currentLP.id,
+                              cell_position: selectedCell,
+                              failure_reason: `Intento ${attempt}/${MAX_RETRIES}: ${error.message || "Unknown error"}`,
+                            })
+                            .catch((err) => {
+                              console.debug(
+                                "[Generation Failure] Failed to log failure:",
+                                err,
+                              );
+                            });
+                        }
+
+                        // If this wasn't the last attempt, wait before retrying
+                        if (attempt < MAX_RETRIES) {
+                          await new Promise((resolve) =>
+                            setTimeout(resolve, 1000 * attempt),
+                          ); // Exponential backoff
+                        }
+                      }
+                    }
+
+                    // If all retries failed, throw the last error
+                    if (!generatedContent) {
+                      throw (
+                        lastError ||
+                        new Error("Falló después de todos los reintentos")
+                      );
+                    }
 
                     // Obtener la celda donde debe ir la descripción
                     const descriptionCellKey = getDescriptionCellKey(block);
@@ -2676,7 +3290,7 @@ export default function Redactor() {
 
                     if (existingContent.trim() !== "") {
                       const confirmReplace = window.confirm(
-                        `Ya existe contenido en esta celda.\n\n¿Quieres reemplazarlo con nuevo contenido generado por IA?`
+                        `Ya existe contenido en esta celda.\n\n¿Quieres reemplazarlo con nuevo contenido generado por IA?`,
                       );
                       if (!confirmReplace) {
                         return;
@@ -2706,11 +3320,11 @@ export default function Redactor() {
                     const updateTableDataByBlock = (blockNumber, content) => {
                       console.log(
                         "🔍 updateTableDataByBlock recibió:",
-                        content
+                        content,
                       );
                       console.log(
                         "🔍 structured_content KEYS:",
-                        Object.keys(content?.structured_content || {})
+                        Object.keys(content?.structured_content || {}),
                       );
 
                       setTableData((prev) => {
@@ -2720,12 +3334,12 @@ export default function Redactor() {
 
                         console.log(
                           "🔍 contentMapping KEYS:",
-                          Object.keys(meta?.contentMapping || {})
+                          Object.keys(meta?.contentMapping || {}),
                         );
 
                         if (!meta || !meta.contentMapping) {
                           console.warn(
-                            `❌ No hay metadata o contentMapping para el bloque ${blockNumber}`
+                            `❌ No hay metadata o contentMapping para el bloque ${blockNumber}`,
                           );
                           return updates;
                         }
@@ -2745,7 +3359,7 @@ export default function Redactor() {
                                   content.structured_content[altField];
                                 if (contentValue !== undefined) {
                                   console.log(
-                                    `✅ Campo '${field}' no encontrado, pero sí '${altField}'`
+                                    `✅ Campo '${field}' no encontrado, pero sí '${altField}'`,
                                   );
                                 }
                               } else if (field.startsWith("faq_")) {
@@ -2755,7 +3369,7 @@ export default function Redactor() {
                                   content.structured_content[altField];
                                 if (contentValue !== undefined) {
                                   console.log(
-                                    `✅ Campo '${field}' no encontrado, pero sí '${altField}'`
+                                    `✅ Campo '${field}' no encontrado, pero sí '${altField}'`,
                                   );
                                 }
                               }
@@ -2767,7 +3381,7 @@ export default function Redactor() {
                                     content.structured_content["desc_h2"];
                                   if (contentValue !== undefined) {
                                     console.log(
-                                      `✅ Campo '${field}' no encontrado, usando 'desc_h2'`
+                                      `✅ Campo '${field}' no encontrado, usando 'desc_h2'`,
                                     );
                                   }
                                 } else if (field === "desc_2") {
@@ -2775,7 +3389,7 @@ export default function Redactor() {
                                     content.structured_content["desc_h3"];
                                   if (contentValue !== undefined) {
                                     console.log(
-                                      `✅ Campo '${field}' no encontrado, usando 'desc_h3'`
+                                      `✅ Campo '${field}' no encontrado, usando 'desc_h3'`,
                                     );
                                   }
                                 }
@@ -2784,15 +3398,15 @@ export default function Redactor() {
 
                             if (contentValue !== undefined) {
                               console.log(
-                                `✅ Actualizando celda ${cellKey} con contenido`
+                                `✅ Actualizando celda ${cellKey} con contenido`,
                               );
                               updates[cellKey] = { content: contentValue };
                             } else {
                               console.log(
-                                `❌ Campo '${field}' NO encontrado en structured_content`
+                                `❌ Campo '${field}' NO encontrado en structured_content`,
                               );
                             }
-                          }
+                          },
                         );
 
                         return updates;
@@ -2805,11 +3419,14 @@ export default function Redactor() {
                     button.disabled = false;
                     button.style.cursor = "pointer";
                   } catch (error) {
-                    console.error("Error generando contenido IA:", error);
+                    console.error(
+                      "Error final generando contenido IA después de reintentos:",
+                      error,
+                    );
 
                     // Mostrar error al usuario
                     alert(
-                      "Error al generar contenido con IA: " + error.message
+                      `Error al generar contenido con IA después de ${MAX_RETRIES} intentos:\n\n${error.message}`,
                     );
 
                     // Restaurar botón en caso de error
@@ -2883,7 +3500,7 @@ export default function Redactor() {
                       languageCode,
                       selectedCell,
                       null,
-                      null
+                      null,
                     );
 
                     // Actualizar la celda con el contenido traducido
@@ -2915,6 +3532,66 @@ export default function Redactor() {
               </button>
             );
           })()}
+
+          {/* Botón para generar todas las filas en español */}
+          <button
+            style={{
+              ...tableStyles.mergeButton,
+              backgroundColor: isBulkGenerating ? "#9ca3af" : "#6366f1",
+              color: "white",
+              cursor: isBulkGenerating ? "not-allowed" : "pointer",
+              marginRight: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontWeight: "600",
+            }}
+            onClick={async () => {
+              if (isBulkGenerating) return;
+
+              const confirm = window.confirm(
+                `¿Generar TODO el contenido en español de TODOS los bloques?\n\nEsto procesará todos los bloques de la tabla.\nPuede tomar varios minutos.`,
+              );
+              if (!confirm) return;
+
+              await generateAllRowsSpanish();
+            }}
+            disabled={isBulkGenerating}
+            title="Generar todo el contenido en español (todos los bloques)"
+          >
+            <span>⚡</span>
+            <span>Generar Todo (ES)</span>
+          </button>
+
+          {/* Botón para traducir todas las filas */}
+          <button
+            style={{
+              ...tableStyles.mergeButton,
+              backgroundColor: isBulkGenerating ? "#9ca3af" : "#ec4899",
+              color: "white",
+              cursor: isBulkGenerating ? "not-allowed" : "pointer",
+              marginRight: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontWeight: "600",
+            }}
+            onClick={async () => {
+              if (isBulkGenerating) return;
+
+              const confirm = window.confirm(
+                `¿Traducir TODO el contenido a inglés y portugués?\n\nEsto traducirá el contenido español existente de todos los bloques.\nPuede tomar varios minutos.`,
+              );
+              if (!confirm) return;
+
+              await translateAllRows();
+            }}
+            disabled={isBulkGenerating}
+            title="Traducir todo el contenido a inglés y portugués (todos los bloques)"
+          >
+            <span>🌐</span>
+            <span>Traducir Todo (EN+PT)</span>
+          </button>
 
           <button
             style={{
@@ -3016,7 +3693,7 @@ export default function Redactor() {
                         isSelected,
                         isInRange,
                         columnWidths[col],
-                        rowHeights[row]
+                        rowHeights[row],
                       );
 
                       return (
@@ -3063,106 +3740,38 @@ export default function Redactor() {
                             )}
 
                           {isEditing ? (
-                            <div
-                              ref={inputRef}
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              onInput={(e) => {
-                                if (!isUpdatingContent.current) {
-                                  // Solo actualizar el ref, no el estado
-                                  editingContentRef.current =
-                                    e.target.innerHTML;
-                                  // Throttled resize
-                                  autoResizeTextarea(e.target);
-                                }
+                            <TiptapCellEditor
+                              editorRef={tiptapEditorRef}
+                              content={tableData[cellKey]?.content || ""}
+                              editingContentRef={editingContentRef}
+                              onChange={(newHtml) => {
+                                editingContentRef.current = newHtml;
                               }}
                               onBlur={saveEditingCell}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && e.shiftKey) {
-                                  e.preventDefault();
-                                  saveEditingCell();
-                                  return;
-                                } else if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  setEditingCell(null);
-                                  setShowColorToolbar(false);
-                                  setTextSelection(null);
-                                  return;
-                                }
-
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                  e.preventDefault();
-                                  const selection = window.getSelection();
-                                  if (selection.rangeCount > 0) {
-                                    const range = selection.getRangeAt(0);
-                                    const br = document.createElement("br");
-                                    range.deleteContents();
-                                    range.insertNode(br);
-                                    range.setStartAfter(br);
-                                    range.collapse(true);
-                                    selection.removeAllRanges();
-                                    selection.addRange(range);
-                                  }
-                                  autoResizeTextarea(e.target);
-                                }
+                              onCancel={() => {
+                                setEditingCell(null);
+                                setShowColorToolbar(false);
+                                setTextSelection(null);
                               }}
-                              onMouseUp={handleTextSelection}
-                              onKeyUp={(e) => {
-                                if (
-                                  ![
-                                    "ArrowLeft",
-                                    "ArrowRight",
-                                    "ArrowUp",
-                                    "ArrowDown",
-                                    "Tab",
-                                    "Shift",
-                                    "Control",
-                                    "Alt",
-                                  ].includes(e.key)
-                                ) {
-                                  handleTextSelection(e);
-                                }
-                              }}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                minHeight: "40px",
-                                padding: "8px",
-                                border: "2px solid #3b82f6",
-                                borderRadius: "4px",
-                                outline: "none",
-                                fontFamily: "inherit",
-                                fontSize: "14px",
-                                lineHeight: "1.4",
-                                whiteSpace: "pre-wrap",
-                                overflowWrap: "break-word",
-                                backgroundColor: "white",
-                                boxSizing: "border-box",
-                                resize: "none",
-                                direction: "ltr",
-                                textAlign: "left",
-                                transform: "none",
-                                writingMode: "horizontal-tb",
-                              }}
-                              className="cell-editor"
-                              data-placeholder="Escribe texto... (selecciona palabras para cambiar color)"
+                              onSelection={handleTextSelection}
                             />
                           ) : (
                             <div
                               style={{
-                                width: "100%",
                                 height: "100%",
-                                minHeight: "40px",
-                                padding: "8px",
                                 fontSize: "14px",
                                 lineHeight: "1.4",
-                                whiteSpace: "pre-wrap",
                                 wordWrap: "break-word",
                                 boxSizing: "border-box",
                                 direction: "ltr",
                                 textAlign: "left",
-                                transform: "none",
-                                writingMode: "horizontal-tb",
+                                all: "unset", // Opcional: evita que estilos globales de la tabla interfieran
+                                display: "block",
+                                width: "100%",
+                                minHeight: "40px",
+                                padding: "8px",
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
                               }}
                               dangerouslySetInnerHTML={{
                                 __html: cellData.content || "",
@@ -3198,7 +3807,7 @@ export default function Redactor() {
               {selectedCell
                 .split("-")
                 .map((n, i) =>
-                  i === 0 ? parseInt(n) + 1 : getColumnLabel(parseInt(n))
+                  i === 0 ? parseInt(n) + 1 : getColumnLabel(parseInt(n)),
                 )
                 .reverse()
                 .join(" ")}

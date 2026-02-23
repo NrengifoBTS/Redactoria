@@ -3,6 +3,7 @@
   "first_name": "Jancarlo",
   "last_name": "Palomino",
   "password": "JancarloPIA2025"
+  "id": "452ce522-78cb-4a44-a17a-57f61abe9084"
 }
 
 {
@@ -10,6 +11,7 @@
   "first_name": "Gisell",
   "last_name": "Hernandez",
   "password": "GisellHIA2025"
+  "id": "c7c17838-074d-44fa-9248-8dc87c15edd5"
 }
 
 {
@@ -17,6 +19,7 @@
   "first_name": "Camila",
   "last_name": "Cardenas",
   "password": "CamilaCIA2025"
+  "id": "b43f1d04-f339-4cf9-8e4e-4f127f12af5a"
 }
 
 
@@ -25,6 +28,7 @@
   "first_name": "Maria",
   "last_name": "Bravo",
   "password": "MariaBIA2025"
+  "id": "093f0e21-abcb-4726-9d65-a3e0bf973934"
 }
 
 {
@@ -32,6 +36,7 @@
   "first_name": "Felipe",
   "last_name": "Niño",
   "password": "FelipeNIA2025"
+  "id": "f49cda9b-2138-435e-a497-fda85be87e63"
 }
 
 {
@@ -39,6 +44,7 @@
   "first_name": "Daniel",
   "last_name": "Sandoval",
   "password": "DanielSIA2025"
+  "id": "a1116359-0fd7-43b4-b4eb-231bc2a14a21"
 }
 
 {
@@ -46,6 +52,7 @@
   "first_name": "Angie",
   "last_name": "Garzon",
   "password": "AngieGIA2025"
+  "id": "4e7a5222-8bd5-45c5-bdcd-e4dc1dbfe27d"
 }
 
 {
@@ -60,6 +67,7 @@
   "first_name": "Miguel",
   "last_name": "Martinez",
   "password": "MiguelMia2025"
+  "id": "9c7e4bf6-e645-4a59-8a56-d8a47e8c184b"
 }
 
 {
@@ -68,4 +76,179 @@
   "last_name": "Diaz",
   "password": "JuanDia2025"
 }
+
+
+{
+  "email": "tamarar@redactoria.com",
+  "first_name": "Tamara",
+  "last_name": "Rengifo",
+  "password": "TamaraRen2025"
+}
+
+
+
+
+JSON ID LOGIN
+
+
+{
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "Angie Garzon",
+    "givenName": "Angie",
+    "jobTitle": null,
+    "mail": "agarzon@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Garzon",
+    "userPrincipalName": "agarzon@viajemos.com",
+    "id": "11fed41b-d4fa-41f5-ade8-bd7b99a4d573"
+}
+
+
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users/$entity",
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "Camila Cardenas",
+    "givenName": "Camila",
+    "jobTitle": null,
+    "mail": "ccardenas@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Cardenas",
+    "userPrincipalName": "ccardenas@viajemos.com",
+    "id": "3e2f78e7-a218-47fe-b9ac-3812b42be1a9"
+}
+
+
+
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users/$entity",
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "Daniel Sandoval",
+    "givenName": "Daniel",
+    "jobTitle": null,
+    "mail": "dsandoval@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Sandoval",
+    "userPrincipalName": "dsandoval@viajemos.com",
+    "id": "e3941eb1-00cb-4fe8-aed4-79950c11c163"
+}
+
+
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users/$entity",
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "Felipe Niño",
+    "givenName": "Felipe",
+    "jobTitle": null,
+    "mail": "fnino@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Niño",
+    "userPrincipalName": "fnino@viajemos.com",
+    "id": "dbf8b0f6-de91-44fa-88d6-498748447b84"
+}
+
+
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users/$entity",
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "Gisell Hernandez",
+    "givenName": "Gisell",
+    "jobTitle": null,
+    "mail": "ghernandez@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Hernandez",
+    "userPrincipalName": "ghernandez@viajemos.com",
+    "id": "39d90404-21f3-4c53-93f9-4fbfb21750ca"
+}
+
+
+
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users/$entity",
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "JanCarlo Palomino",
+    "givenName": "JanCarlo",
+    "jobTitle": null,
+    "mail": "jpalomino@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Palomino",
+    "userPrincipalName": "jpalomino@viajemos.com",
+    "id": "1c62be28-b01f-460c-9cc1-83824af5b958"
+}
+
+
+
+
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users/$entity",
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "Johan Mendoza",
+    "givenName": "Johan",
+    "jobTitle": null,
+    "mail": "jmendoza@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Mendoza",
+    "userPrincipalName": "jmendoza@viajemos.com",
+    "id": "90e00d49-42bd-4e76-822e-1e3000c8cfc0"
+}
+
+
+
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users/$entity",
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "Miguel Martinez",
+    "givenName": "Miguel",
+    "jobTitle": null,
+    "mail": "mmartinez@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Martinez",
+    "userPrincipalName": "mmartinez@viajemos.com",
+    "id": "b013a3ff-47ef-4193-a156-8610f145037e"
+}
+
+
+
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users/$entity",
+    "@microsoft.graph.tips": "This request only returns a subset of the resource's properties. Your app will need to use $select to return non-default properties. To find out what other properties are available for this resource see https://learn.microsoft.com/graph/api/resources/user",
+    "businessPhones": [],
+    "displayName": "Tamara Rengifo",
+    "givenName": "Tamara",
+    "jobTitle": null,
+    "mail": "trengifo@viajemos.com",
+    "mobilePhone": null,
+    "officeLocation": null,
+    "preferredLanguage": null,
+    "surname": "Rengifo",
+    "userPrincipalName": "trengifo@viajemos.com",
+    "id": "2dfdfcb3-d765-47b3-ad37-d0ec810b8bcf"
+}
+
+
+
+-------------------------------------------------------
 

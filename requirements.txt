@@ -24,3 +24,5 @@ es_core_news_sm
 cloudscraper
 fake-useragent
 trafilatura
+html-to-docx
+

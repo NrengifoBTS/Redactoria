@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Query
+from fastapi import APIRouter, status, Query, BackgroundTasks
 from typing import List, Optional
 from uuid import UUID
 
@@ -35,9 +35,15 @@ def get_proyecto(db: DbSession, proyecto_id: UUID, current_user: CurrentUser):
     return service.get_proyecto_by_id(current_user, db, proyecto_id)
 
 @router.put("/{proyecto_id}", response_model=models.ProyectoResponse)
-def update_proyecto(db: DbSession, proyecto_id: UUID, proyecto_update: models.ProyectoUpdate, current_user: CurrentUser):
+def update_proyecto(
+    db: DbSession,
+    proyecto_id: UUID,
+    proyecto_update: models.ProyectoUpdate,
+    current_user: CurrentUser,
+    background_tasks: BackgroundTasks
+):
     """Actualizar un proyecto"""
-    return service.update_proyecto(current_user, db, proyecto_id, proyecto_update)
+    return service.update_proyecto(current_user, db, proyecto_id, proyecto_update, background_tasks)
 
 @router.delete("/{proyecto_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_proyecto(db: DbSession, proyecto_id: UUID, current_user: CurrentUser):
@@ -51,9 +57,15 @@ def assign_proyecto(db: DbSession, proyecto_id: UUID, assign_request: models.Ass
     return service.assign_proyecto(current_user, db, proyecto_id, assign_request.assigned_to)
 
 @router.post("/{proyecto_id}/estado", response_model=models.ProyectoResponse)
-def update_estado_proyecto(db: DbSession, proyecto_id: UUID, estado_request: models.UpdateEstadoRequest, current_user: CurrentUser):
+def update_estado_proyecto(
+    db: DbSession,
+    proyecto_id: UUID,
+    estado_request: models.UpdateEstadoRequest,
+    current_user: CurrentUser,
+    background_tasks: BackgroundTasks
+):
     """Cambiar estado del proyecto"""
-    return service.update_estado_proyecto(current_user, db, proyecto_id, estado_request.estado)
+    return service.update_estado_proyecto(current_user, db, proyecto_id, estado_request.estado, background_tasks)
 
 @router.get("/user/{user_id}", response_model=List[models.ProyectoResponse])
 def get_proyectos_by_user(db: DbSession, user_id: UUID, current_user: CurrentUser):

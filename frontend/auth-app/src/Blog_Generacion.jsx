@@ -27,6 +27,7 @@ import { FontFamily } from "@tiptap/extension-font-family";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
 
 // Añade esta pequeña función arriba en tu componente
 const stripHtml = (html) => {
@@ -38,21 +39,6 @@ const stripHtml = (html) => {
 const MenuBar = ({ editor }) => {
   const [showPopover, setShowPopover] = useState(false);
   if (!editor) return null;
-
-  // --- ACCIÓN DE HIPERVÍNCULO ---
-  const setLink = () => {
-    const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("URL del enlace:", previousUrl);
-
-    if (url === null) return; // Cancelado
-
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  };
 
   return (
     <div className="tiptap-toolbar">
@@ -359,7 +345,7 @@ const GeneracionBlog = () => {
 
   const { user: currentUser } = useCurrentUser();
 
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // -----------------------------------------------------------------------
   // // ESTADOS AÑADIDOS PARA CARGA DE DATOS DESDE EL BACKEND
@@ -448,16 +434,16 @@ const GeneracionBlog = () => {
   // // 3. CONSTANTES Y DATOS INICIALES
   // // =======================================================================
   // //--- URLs de la API del backend ---
-  const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
-  const URL_CONTENIDO_SECCION = "http://192.168.1.129:8000/ai/generate_content";
-  const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
-  const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/";
+  const URL_API_SCRAPING = "http://192.168.1.129:8080/scraping/stream";
+  const URL_CONTENIDO_SECCION = "http://192.168.1.129:8080/ai/generate_content";
+  const URL_API_IA = "http://192.168.1.129:8080/ai/generate_structure";
+  const URL_API_BASE_BLOGS = "http://192.168.1.129:8080/blogs/";
   const URL_API_IA_COMPLETO =
-    "http://192.168.1.129:8000/ai/generate_full_content";
+    "http://192.168.1.129:8080/ai/generate_full_content";
 
-  const URL_API_IA_DOWNLOAD = "http://192.168.1.129:8000/ai/download_blog_doc";
+  const URL_API_IA_DOWNLOAD = "http://192.168.1.129:8080/ai/download_blog_doc";
 
-  const URL_API_IA_REGEN = "http://192.168.1.129:8000/ai/regenerate_titles";
+  const URL_API_IA_REGEN = "http://192.168.1.129:8080/ai/regenerate_titles";
 
   const mainTitle = datosFinales?.title || "Generación de Blog"; // <-- ¡Lee directo de datosFinales!
   // =======================================================================
@@ -500,6 +486,22 @@ const GeneracionBlog = () => {
   const [seccionRegenerando, setSeccionRegenerando] = useState(null);
   const [sectionContentValue, setSectionContentValue] = useState("");
 
+  // =======================================================================
+  // ESTADOS PARA PREGUNTAS FRECUENTES
+  // =======================================================================
+  const [faqKeyword, setFaqKeyword] = useState("");
+  const [googleFaqs, setGoogleFaqs] = useState([]);
+  const [loadingFaqs, setLoadingFaqs] = useState(false);
+
+  // CORRECCIÓN: Usar datosFinales que es tu estado real
+  useEffect(() => {
+    // Verificamos que datosFinales tenga el título y que faqKeyword esté vacío
+    // para no borrar lo que el usuario escriba manualmente después
+    if (datosFinales?.title && !faqKeyword) {
+      setFaqKeyword(datosFinales.title);
+    }
+  }, [datosFinales, faqKeyword]);
+
   // -----------------------------------------------------------------------
   // EDITORES DE TEXTO ENRIQUECIDO CON TIPTAP
   // -----------------------------------------------------------------------
@@ -528,50 +530,116 @@ const GeneracionBlog = () => {
   });
 
   // Editor para el TÍTULO
-  const editorTitulo = useEditor({
-    extensions: [
-      StarterKit,
-      TextStyle,
-      Color.configure({ types: [TextStyle.name, "listing"] }),
-      FontFamily,
-      Underline,
-      Link,
-      Table.configure({
-        resizable: true,
-        allowTableNodeSelection: true,
-        lastColumnResizable: true,
-      }),
-      TableRow,
-      TableHeader,
-      customTableCell, // <--- SOLO ESTO, BORRA EL TableCell.extend QUE TENÍAS ADENTRO
-      Highlight.configure({ multicolor: true }),
-      TextAlign.configure({ types: ["heading", "paragraph", "tableCell"] }),
-      Placeholder.configure({ placeholder: "Escribe aquí..." }),
-    ],
-    content: regenTextareaValue,
-    onUpdate: ({ editor }) => setRegenTextareaValue(editor.getHTML()),
-  });
+  const editorTitulo = useEditor(
+    {
+      extensions: [
+        StarterKit,
+        TextStyle,
+        Color.configure({ types: [TextStyle.name, "listing"] }),
+        FontFamily,
+        Underline,
+        Link,
+        Table.configure({
+          resizable: true,
+          allowTableNodeSelection: true,
+          lastColumnResizable: true,
+        }),
+        Image.configure({
+          inline: true,
+          allowBase64: true,
+        }),
+        TableRow,
+        TableHeader,
+        customTableCell,
+        Highlight.configure({ multicolor: true }),
+        TextAlign.configure({ types: ["heading", "paragraph", "tableCell"] }),
+        Placeholder.configure({ placeholder: "Escribe aquí..." }),
+      ],
+      content: regenTextareaValue,
+      // --- ESTA ES LA PARTE CLAVE PARA PEGAR IMÁGENES ---
+      editorProps: {
+        handlePaste: (view, event) => {
+          const items = (
+            event.clipboardData || event.originalEvent.clipboardData
+          ).items;
+          for (const item of items) {
+            if (item.type.indexOf("image") === 0) {
+              const blob = item.getAsFile();
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                view.dispatch(
+                  view.state.tr.replaceSelectionWith(
+                    view.state.schema.nodes.image.create({
+                      src: e.target.result,
+                    }),
+                  ),
+                );
+              };
+              reader.readAsDataURL(blob);
+              return true; // Impedimos el pegado por defecto para manejarlo nosotros
+            }
+          }
+          return false;
+        },
+      },
+      onUpdate: ({ editor }) => setRegenTextareaValue(editor.getHTML()),
+    },
+    [regenTextareaValue],
+  ); // Recomendado añadir dependencia si el contenido inicial cambia
 
   // Editor para el CONTENIDO
-  const editorContenido = useEditor({
-    extensions: [
-      StarterKit,
-      TextStyle,
-      Color.configure({ types: [TextStyle.name, "listing"] }),
-      FontFamily,
-      Underline,
-      Link,
-      Table.configure({ resizable: true, allowTableNodeSelection: true }),
-      TableRow,
-      TableHeader,
-      customTableCell, // <--- IGUAL AQUÍ, USA LA VARIABLE EXTERNA
-      Highlight.configure({ multicolor: true }),
-      TextAlign.configure({ types: ["heading", "paragraph", "tableCell"] }),
-      Placeholder.configure({ placeholder: "Escribe aquí..." }),
-    ],
-    content: sectionContentValue,
-    onUpdate: ({ editor }) => setSectionContentValue(editor.getHTML()),
-  });
+  const editorContenido = useEditor(
+    {
+      extensions: [
+        StarterKit,
+        TextStyle,
+        Color.configure({ types: [TextStyle.name, "listing"] }),
+        FontFamily,
+        Underline,
+        Link,
+        Table.configure({ resizable: true, allowTableNodeSelection: true }),
+        Image.configure({
+          inline: true,
+          allowBase64: true,
+        }),
+        TableRow,
+        TableHeader,
+        customTableCell,
+        Highlight.configure({ multicolor: true }),
+        TextAlign.configure({ types: ["heading", "paragraph", "tableCell"] }),
+        Placeholder.configure({ placeholder: "Escribe aquí..." }),
+      ],
+      content: sectionContentValue,
+      // --- MISMA LÓGICA DE PEGADO AQUÍ ---
+      editorProps: {
+        handlePaste: (view, event) => {
+          const items = (
+            event.clipboardData || event.originalEvent.clipboardData
+          ).items;
+          for (const item of items) {
+            if (item.type.indexOf("image") === 0) {
+              const blob = item.getAsFile();
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                view.dispatch(
+                  view.state.tr.replaceSelectionWith(
+                    view.state.schema.nodes.image.create({
+                      src: e.target.result,
+                    }),
+                  ),
+                );
+              };
+              reader.readAsDataURL(blob);
+              return true;
+            }
+          }
+          return false;
+        },
+      },
+      onUpdate: ({ editor }) => setSectionContentValue(editor.getHTML()),
+    },
+    [sectionContentValue],
+  );
 
   // Sincronizar TipTap cuando el estado de React cambie (por carga de API o IA)
   useEffect(() => {
@@ -1681,6 +1749,7 @@ const GeneracionBlog = () => {
     setTablaEstructuraFinal(newMarkdown);
     markAsChanged();
   };
+
   //Maneja acciones de Mover y Eliminar, mostrando un toast de confirmación
   const gestionarAccionDeSeccion = (action, section, direction = null) => {
     switch (action) {
@@ -2954,6 +3023,44 @@ const GeneracionBlog = () => {
     showToast("Generación finalizada.", "info");
   };
 
+  const generarFaqsDesdeEstructura = async () => {
+    setLoadingFaqs(true);
+    try {
+      // Función recursiva para aplanar toda la estructura y su contenido
+      const extraerContenidoRecursivo = (items) => {
+        return items
+          .map((item) => {
+            const textoLimpio = item.content ? stripHtml(item.content) : "";
+            const seccion = `[${item.level.toUpperCase()}]: ${item.text}\nCONTENIDO: ${textoLimpio}`;
+            const hijos =
+              item.children && item.children.length > 0
+                ? extraerContenidoRecursivo(item.children)
+                : "";
+            return `${seccion}\n${hijos}`;
+          })
+          .join("\n\n");
+      };
+
+      const textoEstructuraCompleta =
+        extraerContenidoRecursivo(structureWithCount);
+
+      // Llamada siguiendo tu lógica de apiService
+      const data = await apiService.generateFaqsFromStructure(
+        blogId,
+        textoEstructuraCompleta,
+        faqKeyword, // Esta variable ya la tienes en tu estado
+      );
+
+      if (data && data.faqs) {
+        setGoogleFaqs(data.faqs);
+      }
+    } catch (error) {
+      console.error("Error al generar FAQs:", error);
+    } finally {
+      setLoadingFaqs(false);
+    }
+  };
+
   // =======================================================================
   // 5. COMPONENTE StructureRenderer
   // =======================================================================
@@ -3194,7 +3301,9 @@ const GeneracionBlog = () => {
   return (
     <>
       <ToastNotification toast={toast} /> {/* Renderizar la notificación */}
-      <div className={`blog-generation-page ${isDarkMode ? "dark-mode" : ""}`}>
+      <div
+        className={`blog-generation-page ${isDarkMode ? "dark-mode" : "True"}`}
+      >
         {/* Header */}
         <header className="navbar-custom">
           {/* Sección Izquierda: Título */}
@@ -3602,6 +3711,35 @@ const GeneracionBlog = () => {
               </button>
             </div>
 
+            {/* ---------------------------------------------------- */}
+            {/* --- COMPONENTE DE PREGUNTAS FRECUENTES (IA)      --- */}
+            {/* ---------------------------------------------------- */}
+            {tablaEstructuraFinal && (
+              <section
+                className="analysis-result fade-in"
+                style={{ marginTop: "20px" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "15px",
+                  }}
+                >
+                  <h2 className="analysis-title">
+                    Preguntas Frecuentes Sugeridas
+                  </h2>
+                  <button
+                    className="btn-generate"
+                    onClick={generarFaqsDesdeEstructura}
+                    disabled={loadingFaqs}
+                    style={{ width: "auto" }}
+                  >
+                    {loadingFaqs ? "Generando..." : "Generar con IA"}
+                  </button>
+                </div>
+              </section>
+            )}
             {/* ---------------------------------------------------- */}
             {/* --- EDITOR / REGENERACIÓN DE TÍTULOS  --- */}
             {/* ---------------------------------------------------- */}

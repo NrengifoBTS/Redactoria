@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Search,
   Plus,
@@ -15,6 +16,8 @@ import {
   Hash,
   Upload,
   TestTube,
+  BarChart3,
+  Home,
 } from "lucide-react";
 
 // Importar hooks personalizados
@@ -28,7 +31,100 @@ import {
 import apiService from "./services/apiService.js";
 import { isAdminUser, isEditorUser, ADMIN_USER_IDS } from "./utils/roles";
 
+// Configuración de temas por proyecto
+const PROJECT_THEMES = {
+  viajemos: {
+    name: "Viajemos",
+    primary: "#0583FF",
+    primaryHover: "#0583FF",
+    primaryLight: "#dbeafe",
+    secondary: "#0583FF",
+    accent: "#60a5fa",
+  },
+  mcr: {
+    name: "Miles Car Rental",
+    primary: "#E6484B",
+    primaryHover: "#E6484B",
+    primaryLight: "#fee2e2",
+    secondary: "#E6484B",
+    accent: "#f87171",
+  },
+  outlet: {
+    name: "Outlet Rental Cars",
+    primary: "#f59e0b",
+    primaryHover: "#d97706",
+    primaryLight: "#fef3c7",
+    secondary: "#b45309",
+    accent: "#fbbf24",
+  },
+  guialegal: {
+    name: "Guía Legal",
+    primary: "#8b5cf6",
+    primaryHover: "#7c3aed",
+    primaryLight: "#ede9fe",
+    secondary: "#6d28d9",
+    accent: "#a78bfa",
+  },
+  arriendo: {
+    name: "Arriendo",
+    primary: "#ef4444",
+    primaryHover: "#dc2626",
+    primaryLight: "#fee2e2",
+    secondary: "#b91c1c",
+    accent: "#f87171",
+  },
+  default: {
+    name: "Todos los Proyectos",
+    primary: "#3b82f6",
+    primaryHover: "#2563eb",
+    primaryLight: "#dbeafe",
+    secondary: "#1e40af",
+    accent: "#60a5fa",
+  },
+};
+
+const filterFunctions = {
+  domain: (proyecto, value) => {
+    if (value === "all") return true;
+    return proyecto.domain === value;
+  },
+  status: (proyecto, value) => value === "all" || proyecto.status === value,
+  priority: (proyecto, value) => value === "all" || proyecto.priority === value,
+  assignee: (proyecto, value) => {
+    if (value === "all") return true;
+    if (value === "unassigned") return !proyecto.assignedTo;
+    return proyecto.assignedTo === value;
+  },
+  date: (proyecto, value) => {
+    if (value === "all") return true;
+    const now = new Date();
+    const proyectoDate = new Date(proyecto.lastModified);
+    const diffTime = now - proyectoDate;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    switch (value) {
+      case "today":
+        return diffDays <= 1;
+      case "week":
+        return diffDays <= 7;
+      case "month":
+        return diffDays <= 30;
+      default:
+        return true;
+    }
+  },
+};
+
+const SEARCH_FIELDS = ["name", "description"];
+
 function Dashboard() {
+  const navigate = useNavigate();
+  const { proyecto } = useParams(); // Obtener proyecto de la URL
+
+  // Determinar el tema basado en el proyecto
+  const currentTheme = PROJECT_THEMES[proyecto] || PROJECT_THEMES.default;
+  const isFilteredByProject = !!proyecto;
+
   // Estados usando hooks personalizados
   const { user: currentUser, loading: loadingUser } = useCurrentUser();
   const { users } = useUsers(true);
@@ -40,6 +136,32 @@ function Dashboard() {
     deleteProyecto,
     assignProyecto,
   } = useProyectos();
+
+  // Cargar templates para poder filtrar por proyecto
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        setLoadingTemplates(true);
+        // Usar endpoint que devuelve todos los templates (activos e inactivos) para filtrar proyectos
+        const response = await fetch(
+          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8000"}/templates/public/all-for-analytics`,
+        );
+        if (response.ok) {
+          const templatesData = await response.json();
+          setTemplates(templatesData);
+        }
+      } catch (error) {
+        console.error("Error cargando templates:", error);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+
+    loadTemplates();
+  }, []);
 
   // Estados locales para modales
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -83,48 +205,40 @@ function Dashboard() {
     return users || [];
   };
 
-  // Filtros y búsqueda
-  const filterFunctions = {
-    domain: (proyecto, value) => {
-      if (value === "all") return true;
-      return proyecto.domain === value;
-    },
-    status: (proyecto, value) => value === "all" || proyecto.status === value,
-    priority: (proyecto, value) =>
-      value === "all" || proyecto.priority === value,
-    assignee: (proyecto, value) => {
-      if (value === "all") return true;
-      if (value === "unassigned") return !proyecto.assignedTo;
-      return proyecto.assignedTo === value;
-    },
-    date: (proyecto, value) => {
-      if (value === "all") return true;
-      const now = new Date();
-      const proyectoDate = new Date(proyecto.lastModified);
-      const diffTime = now - proyectoDate;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  // Filtrar proyectos por el parámetro de URL si existe
+  const proyectosFiltrados = useMemo(() => {
+    if (!isFilteredByProject) {
+      return proyectos;
+    }
 
-      switch (value) {
-        case "today":
-          return diffDays <= 1;
-        case "week":
-          return diffDays <= 7;
-        case "month":
-          return diffDays <= 30;
-        default:
-          return true;
+    if (loadingTemplates) {
+      return [];
+    }
+
+    const filtered = proyectos.filter((p) => {
+      // Buscar el template asociado al proyecto
+      const template = templates.find((t) => t.id === p.templateId);
+
+      if (!template) {
+        return false;
       }
-    },
-  };
+
+      return template.proyecto === proyecto;
+    });
+
+    return filtered;
+  }, [proyectos, proyecto, isFilteredByProject, templates, loadingTemplates]);
+
+  // Filtros y búsqueda
 
   const {
     filters,
     filteredData: filteredByFilters,
     updateFilter,
-  } = useFilters(proyectos, filterFunctions);
+  } = useFilters(proyectosFiltrados, filterFunctions);
   const { searchTerm, setSearchTerm, searchResults } = useSearch(
     filteredByFilters,
-    ["name", "description"],
+    SEARCH_FIELDS,
   );
 
   // Proyectos visibles según permisos del usuario
@@ -184,6 +298,7 @@ function Dashboard() {
       approved: "#059669",
       rev_kws: "#E3AAAA",
       cargue: "#0ea5e9",
+      en_it: "#6366f1",
       test: "#f97316",
     };
     return colors[status] || "#6b7280";
@@ -201,6 +316,7 @@ function Dashboard() {
       approved: <ThumbsUp size={16} />,
       rev_kws: <Hash size={16} />,
       cargue: <Upload size={16} />,
+      en_it: <Clock size={16} />,
       test: <TestTube size={16} />,
     };
     return icons[status] || <Clock size={16} />;
@@ -216,6 +332,7 @@ function Dashboard() {
       apporved: "Aprobado",
       rev_kws: "Pendiente KWS",
       cargue: "Cargue",
+      en_it: "En IT",
       test: "Test",
       completed: "Publicado",
     };
@@ -286,8 +403,7 @@ function Dashboard() {
     }
   };
 
-  // Mostrar loading mientras cargan los datos principales
-  if (loadingUser || loadingProyectos) {
+  if (loadingUser || loadingProyectos || loadingTemplates) {
     return (
       <div
         style={{
@@ -304,13 +420,17 @@ function Dashboard() {
               width: "40px",
               height: "40px",
               border: "4px solid #e2e8f0",
-              borderTop: "4px solid #3b82f6",
+              borderTop: `4px solid ${currentTheme.primary}`,
               borderRadius: "50%",
               animation: "spin 1s linear infinite",
               margin: "0 auto 1rem",
             }}
           ></div>
-          <p style={{ color: "#64748b" }}>Cargando proyectos...</p>
+          <p style={{ color: "#64748b" }}>
+            {loadingTemplates
+              ? "Cargando templates..."
+              : "Cargando proyectos..."}
+          </p>
         </div>
       </div>
     );
@@ -342,10 +462,12 @@ function Dashboard() {
                 margin: 0,
                 fontSize: "1.875rem",
                 fontWeight: "700",
-                color: "#1e293b",
+                color: currentTheme.primary,
               }}
             >
-              Dashboard Redactoria
+              {isFilteredByProject
+                ? `Dashboard ${currentTheme.name}`
+                : "Dashboard Redactoria"}
             </h1>
             <p
               style={{
@@ -354,89 +476,158 @@ function Dashboard() {
                 fontSize: "0.875rem",
               }}
             >
-              Gestiona y supervisa todos los proyectos
+              {isFilteredByProject
+                ? `Gestiona proyectos de Landing Pages de ${currentTheme.name}`
+                : "Gestiona y supervisa todos los proyectos"}
             </p>
           </div>
 
-          {currentUser && (
-            <div
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            {/* Home Button */}
+            <button
+              onClick={() => navigate("/home")}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.75rem",
-                backgroundColor: "#f1f5f9",
+                gap: "0.5rem",
                 padding: "0.5rem 1rem",
+                backgroundColor: "#f1f5f9",
+                color: "#64748b",
+                border: "none",
                 borderRadius: "0.5rem",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: "500",
+                transition: "background-color 0.2s",
               }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.backgroundColor = "#e2e8f0")
+              }
+              onMouseOut={(e) =>
+                (e.currentTarget.style.backgroundColor = "#f1f5f9")
+              }
             >
+              <Home size={18} />
+              Home
+            </button>
+
+            {/* Analytics Button - Only for Admin/Editor */}
+            {currentUser &&
+              (isAdminUser(currentUser.id) || isEditorUser(currentUser.id)) && (
+                <button
+                  onClick={() => navigate("/analytics")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    padding: "0.5rem 1rem",
+                    backgroundColor: currentTheme.primary,
+                    color: "white",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                    fontWeight: "500",
+                    transition: "background-color 0.2s",
+                  }}
+                  onMouseOver={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      currentTheme.primaryHover)
+                  }
+                  onMouseOut={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      currentTheme.primary)
+                  }
+                >
+                  <BarChart3 size={18} />
+                  Analytics
+                </button>
+              )}
+
+            {currentUser && (
               <div
                 style={{
-                  width: "2rem",
-                  height: "2rem",
-                  backgroundColor: "#3b82f6",
-                  borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
+                  gap: "0.75rem",
+                  backgroundColor: "#f1f5f9",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "0.5rem",
                 }}
               >
-                {currentUser.avatar ||
-                  (currentUser.first_name || currentUser.last_name
-                    ? `${(currentUser.first_name?.[0] || "").toUpperCase()}${(
-                        currentUser.last_name?.[0] || ""
-                      ).toUpperCase()}`
-                    : (currentUser.email?.[0] || "").toUpperCase())}
-              </div>
-              <div>
-                <p
+                <div
                   style={{
-                    margin: 0,
+                    width: "2rem",
+                    height: "2rem",
+                    backgroundColor: currentTheme.primary,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
                     fontSize: "0.875rem",
                     fontWeight: "600",
-                    color: "#1e293b",
                   }}
                 >
-                  {currentUser.name}
-                </p>
-                <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>
-                  {isAdminUser(currentUser.id)
-                    ? "Administrador"
-                    : isEditorUser(currentUser.id)
-                      ? "Editor"
-                      : "Visualizador"}
-                </p>
+                  {currentUser.avatar ||
+                    (currentUser.first_name || currentUser.last_name
+                      ? `${(currentUser.first_name?.[0] || "").toUpperCase()}${(currentUser.last_name?.[0] || "").toUpperCase()}`
+                      : (currentUser.email?.[0] || "").toUpperCase())}
+                </div>
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.875rem",
+                      fontWeight: "600",
+                      color: "#1e293b",
+                    }}
+                  >
+                    {currentUser.name}
+                  </p>
+                  <p
+                    style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}
+                  >
+                    {isAdminUser(currentUser.id)
+                      ? "Administrador"
+                      : isEditorUser(currentUser.id)
+                        ? "Editor"
+                        : "Visualizador"}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 
       <div style={{ padding: "2rem", maxWidth: "1400px", margin: "0 auto" }}>
         {/* Estadísticas rápidas */}
         <div
+          className="dashboard-stats-container"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "nowrap",
             gap: "1rem",
             marginBottom: "2rem",
+            overflowX: "auto",
+            width: "100%",
           }}
         >
           <StatCard
             icon={<Edit3 size={20} />}
             value={stats.total}
             label="Proyectos Totales"
-            color="#3b82f6"
-            bgColor="#dbeafe"
+            color={currentTheme.primary}
+            bgColor={currentTheme.primaryLight}
           />
           <StatCard
             icon={<CheckCircle2 size={20} />}
             value={stats.completed}
             label="Publicados"
-            color="#10b981"
-            bgColor="#dcfce7"
+            color={currentTheme.secondary}
+            bgColor={currentTheme.primaryLight}
           />
           <StatCard
             icon={<Clock size={20} />}
@@ -465,6 +656,8 @@ function Dashboard() {
           onCreateProject={() => setShowCreateModal(true)}
           canCreateProjects={canCreateProjects}
           isAdminUser={isAdminUser}
+          hideDomainFilter={isFilteredByProject}
+          theme={currentTheme}
         />
 
         {/* Tabla de Proyectos */}
@@ -525,6 +718,24 @@ function Dashboard() {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+
+        .dashboard-stats-container {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          gap: 1rem !important;
+          margin-bottom: 2rem !important;
+          overflow-x: auto !important;
+          width: 100% !important;
+        }
+
+        .dashboard-stats-container > div {
+          flex: 1 1 0 !important;
+          min-width: 250px !important;
+          max-width: none !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
       `}</style>
     </div>
   );
@@ -540,6 +751,10 @@ function StatCard({ icon, value, label, color, bgColor }) {
         borderRadius: "0.75rem",
         boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
         border: "1px solid #e2e8f0",
+        flex: "1",
+        minWidth: "250px",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -588,6 +803,8 @@ function FilterPanel({
   onCreateProject,
   canCreateProjects,
   isAdminUser,
+  hideDomainFilter = false,
+  theme = { primary: "#3b82f6", primaryHover: "#2563eb" },
 }) {
   return (
     <div
@@ -602,48 +819,51 @@ function FilterPanel({
     >
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "1rem",
-          alignItems: "center",
-          justifyContent: "space-between",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: "0.75rem",
+          marginBottom: "1rem",
         }}
       >
+        {/* Búsqueda */}
         <div
-          style={{ display: "flex", gap: "1rem", flexWrap: "wrap", flex: 1 }}
+          style={{
+            position: "relative",
+            gridColumn: "span 6",
+            minWidth: "0",
+          }}
         >
-          {/* Búsqueda */}
-          <div style={{ position: "relative", minWidth: "300px" }}>
-            <Search
-              size={16}
-              style={{
-                position: "absolute",
-                left: "0.75rem",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#64748b",
-              }}
-            />
-            <input
-              type="text"
-              placeholder="       Buscar proyectos..."
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-              style={{
-                paddingLeft: "2.5rem",
-                padding: "0.5rem 0.75rem",
-                border: "1px solid #d1d5db",
-                borderRadius: "0.375rem",
-                fontSize: "0.875rem",
-                width: "100%",
-                outline: "none",
-                height: "2.25rem",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
+          <Search
+            size={16}
+            style={{
+              position: "absolute",
+              left: "0.75rem",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#64748b",
+            }}
+          />
+          <input
+            type="text"
+            placeholder="      Buscar proyectos..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            style={{
+              paddingLeft: "2.5rem",
+              padding: "0.5rem 0.75rem",
+              border: "1px solid #d1d5db",
+              borderRadius: "0.375rem",
+              fontSize: "0.875rem",
+              width: "100%",
+              outline: "none",
+              height: "2.25rem",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
 
-          {/* Filtros de dominio */}
+        {/* Filtros de dominio - Solo mostrar si no está filtrado por proyecto */}
+        {!hideDomainFilter && (
           <select
             value={filters.domain || "all"}
             onChange={(e) => onFilterChange("domain", e.target.value)}
@@ -653,102 +873,119 @@ function FilterPanel({
               borderRadius: "0.375rem",
               fontSize: "0.875rem",
               outline: "none",
+              height: "2.25rem",
+              minWidth: "0",
             }}
           >
-            <option value="all">Viajemos</option>
-            <option value="ejemplo.com">Miles Car Rental</option>
-            <option value="miempresa.com">Blog Viajemos</option>
-            <option value="otrodominio.com">Arriendo</option>
-            <option value="otrodominio.com">Hoteles Viajemos</option>
+            <option value="all">Todos los proyectos</option>
+            <option value="viajemos">Viajemos</option>
+            <option value="mcr">Miles Car Rental</option>
+            <option value="outlet">Outlet Rental Cars</option>
+            <option value="guialegal">Guía Legal</option>
+            <option value="arriendo">Arriendo</option>
           </select>
+        )}
 
-          {/* Filtros */}
-          <select
-            value={filters.status || "all"}
-            onChange={(e) => onFilterChange("status", e.target.value)}
-            style={{
-              padding: "0.5rem 0.75rem",
-              border: "1px solid #d1d5db",
-              borderRadius: "0.375rem",
-              fontSize: "0.875rem",
-              outline: "none",
-            }}
-          >
-            <option value="all">Todos los estados</option>
-            <option value="draft">Borrador</option>
-            <option value="review">Pendiente de Redacción</option>
-            <option value="in_progress">En Redacción</option>
-            <option value="pen_review">Pendiente de Revisión</option>
-            <option value="pen_ajuste">Pendiente de Ajuste</option>
-            <option value="approved">Aprobado</option>
-            <option value="rev_kws">Pendiente KWS</option>
-            <option value="cargue">Cargue</option>
-            <option value="test">Test</option>
-            <option value="completed">Publicado</option>
-          </select>
+        {/* Filtros de estado */}
+        <select
+          value={filters.status || "all"}
+          onChange={(e) => onFilterChange("status", e.target.value)}
+          style={{
+            padding: "0.5rem 0.75rem",
+            border: "1px solid #d1d5db",
+            borderRadius: "0.375rem",
+            fontSize: "0.875rem",
+            outline: "none",
+            height: "2.25rem",
+            minWidth: "0",
+          }}
+        >
+          <option value="all">Todos los estados</option>
+          <option value="draft">Borrador</option>
+          <option value="review">Pendiente de Redacción</option>
+          <option value="in_progress">En Redacción</option>
+          <option value="pen_review">Pendiente de Revisión</option>
+          <option value="pen_ajuste">Pendiente de Ajuste</option>
+          <option value="approved">Aprobado</option>
+          <option value="rev_kws">Pendiente KWS</option>
+          <option value="cargue">Cargue</option>
+          <option value="en_it">En IT</option>
+          <option value="test">Test</option>
+          <option value="completed">Publicado</option>
+        </select>
 
-          {(isAdminUser(currentUser?.id) || currentUser?.role === "admin") &&
-            users && (
-              <select
-                value={filters.assignee || "all"}
-                onChange={(e) => onFilterChange("assignee", e.target.value)}
-                style={{
-                  padding: "0.5rem 0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "0.375rem",
-                  fontSize: "0.875rem",
-                  outline: "none",
-                }}
-              >
-                <option value="all">Todos los asignados</option>
-                <option value="unassigned">Sin asignar</option>
-                {users
-                  .filter((u) => u.role !== "viewer")
-                  .map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name}
-                    </option>
-                  ))}
-              </select>
-            )}
+        {/* Filtro de prioridad */}
+        <select
+          value={filters.priority || "all"}
+          onChange={(e) => onFilterChange("priority", e.target.value)}
+          style={{
+            padding: "0.5rem 0.75rem",
+            border: "1px solid #d1d5db",
+            borderRadius: "0.375rem",
+            fontSize: "0.875rem",
+            outline: "none",
+            height: "2.25rem",
+            minWidth: "0",
+          }}
+        >
+          <option value="all">Todas las prioridades</option>
+          <option value="high">Alta</option>
+          <option value="medium">Media</option>
+          <option value="low">Baja</option>
+        </select>
 
-          <select
-            value={filters.priority || "all"}
-            onChange={(e) => onFilterChange("priority", e.target.value)}
-            style={{
-              padding: "0.5rem 0.75rem",
-              border: "1px solid #d1d5db",
-              borderRadius: "0.375rem",
-              fontSize: "0.875rem",
-              outline: "none",
-            }}
-          >
-            <option value="all">Todas las prioridades</option>
-            <option value="high">Alta</option>
-            <option value="medium">Media</option>
-            <option value="low">Baja</option>
-          </select>
+        {/* Filtro de fecha */}
+        <select
+          value={filters.date || "all"}
+          onChange={(e) => onFilterChange("date", e.target.value)}
+          style={{
+            padding: "0.5rem 0.75rem",
+            border: "1px solid #d1d5db",
+            borderRadius: "0.375rem",
+            fontSize: "0.875rem",
+            outline: "none",
+            height: "2.25rem",
+            minWidth: "0",
+          }}
+        >
+          <option value="all">Todas las fechas</option>
+          <option value="week">Esta semana</option>
+          <option value="month">Este mes</option>
+          <option value="year">Este año</option>
+        </select>
 
-          <select
-            value={filters.date || "all"}
-            onChange={(e) => onFilterChange("date", e.target.value)}
-            style={{
-              padding: "0.5rem 0.75rem",
-              border: "1px solid #d1d5db",
-              borderRadius: "0.375rem",
-              fontSize: "0.875rem",
-              outline: "none",
-            }}
-          >
-            <option value="all">Todas las fechas</option>
-            <option value="week">Esta semana</option>
-            <option value="month">Este mes</option>
-            <option value="year">Este año</option>
-          </select>
-        </div>
+        {/* Filtro de asignado (solo para admins) */}
+        {(isAdminUser(currentUser?.id) || currentUser?.role === "admin") &&
+          users && (
+            <select
+              value={filters.assignee || "all"}
+              onChange={(e) => onFilterChange("assignee", e.target.value)}
+              style={{
+                padding: "0.5rem 0.75rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.375rem",
+                fontSize: "0.875rem",
+                outline: "none",
+                height: "2.25rem",
+                minWidth: "0",
+              }}
+            >
+              <option value="all">Todos los asignados</option>
+              <option value="unassigned">Sin asignar</option>
+              {users
+                .filter((u) => u.role !== "viewer")
+                .map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+            </select>
+          )}
+      </div>
 
-        {/* Botones de acción */}
-        {canCreateProjects() && (
+      {/* Botón de acción - separado en su propia fila */}
+      {canCreateProjects() && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
             onClick={onCreateProject}
             style={{
@@ -756,20 +993,28 @@ function FilterPanel({
               alignItems: "center",
               gap: "0.5rem",
               padding: "0.5rem 1rem",
-              backgroundColor: "#3b82f6",
+              backgroundColor: theme.primary,
               color: "white",
               border: "none",
               borderRadius: "0.375rem",
               fontSize: "0.875rem",
               fontWeight: "500",
               cursor: "pointer",
+              height: "2.25rem",
+              transition: "background-color 0.2s",
             }}
+            onMouseOver={(e) =>
+              (e.currentTarget.style.backgroundColor = theme.primaryHover)
+            }
+            onMouseOut={(e) =>
+              (e.currentTarget.style.backgroundColor = theme.primary)
+            }
           >
             <Plus size={16} />
             Nuevo Proyecto
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -993,9 +1238,7 @@ function ProjectsTable({
                     <span
                       style={{
                         padding: "0.25rem 0.5rem",
-                        backgroundColor: `${getPriorityColor(
-                          proyecto.priority,
-                        )}15`,
+                        backgroundColor: `${getPriorityColor(proyecto.priority)}15`,
                         color: getPriorityColor(proyecto.priority),
                         borderRadius: "0.25rem",
                         fontSize: "0.75rem",
@@ -1156,7 +1399,7 @@ function CreateProyectoModal({ onClose, onSubmit }) {
       try {
         setTemplatesLoading(true);
         const response = await fetch(
-          "http://192.168.1.129:8000/templates/public/active",
+          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8000"}/templates/public/active`,
         );
 
         if (response.ok) {
@@ -1982,6 +2225,7 @@ function EditProyectoModal({ proyecto, onClose, onSubmit }) {
               <option value="approved">Aprobado</option>
               <option value="rev_kws">Pendiente KWS</option>
               <option value="cargue">Cargue</option>
+              <option value="en_it">En IT</option>
               <option value="test">Test</option>
               <option value="completed">Publicado</option>
             </select>

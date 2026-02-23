@@ -11,6 +11,7 @@ from . import models
 from pydantic import BaseModel
 import urllib3
 from fastapi import HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
 from .models import PeticionGeneracionContenido
 from fastapi.responses import StreamingResponse, FileResponse
 from src.entities.scraping import Scraping
@@ -27,6 +28,10 @@ from io import BytesIO
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx import Document
+from docx.shared import Inches
+from io import BytesIO
+
 
 # Importación necesaria para la persistencia
 from src.entities.scraping import Scraping
@@ -80,6 +85,23 @@ class DocumentService:
         
         if current_section: sections.append(current_section)
         return sections
+def actualizar_estructura_blog(
+    db: Session, 
+    blog_id: UUID, 
+    estructura_data: Dict[str, Any]
+) -> Blog:
+    """
+    Actualiza la estructura generada por IA en el campo 'estructura_blog_json' 
+    de la tabla Blog, así como otros datos relevantes.
+    """
+    
+    # 1. Buscar el Blog por ID
+    blog = db.query(Blog).filter(Blog.id == blog_id).first()
+    
+    if not blog:
+        # Se puede manejar este error según la política de la aplicación
+        # Aquí se lanza una excepción que puede ser capturada por el controlador.
+        raise ValueError(f"Blog con ID {blog_id} no encontrado para la actualización de estructura.") 
 
     def _process_html_to_word(self, html_content: str, paragraph, doc=None):
         if not html_content or not html_content.strip(): return
@@ -425,6 +447,61 @@ def actualizar_estructura_blog(
     
     return blog
 
+def generar_documento_word(blog_id: UUID, db: Session) -> StreamingResponse:
+    """
+    Genera un documento Word (.docx) a partir de la estructura final del blog.
+    Retorna una StreamingResponse para la descarga.
+    """
+    
+    # 1. Recuperar el contenido final del blog
+    # (Ajusta 'Blog' y 'estructura_blog_json' al modelo de tu BD si es necesario)
+    blog = db.query(Blog).filter(Blog.id == blog_id).first()
+    
+    if not blog or not blog.estructura_blog_json:
+        # Esto generará un 404 si el contenido no existe.
+        raise HTTPException(status_code=404, detail="Estructura del blog no encontrada o vacía.")
+        
+    # Asumimos que estructura_blog_json es una lista de dicts (ej: [{'title': '...', 'level': 1, 'content': '...'}])
+    structure_data: List[Dict[str, str]] = blog.estructura_blog_json 
+
+    # 2. Creación del Documento Word
+    document = Document()
+    
+    # 3. Mapeo de la estructura
+    # Añade el título principal (Nivel 0)
+    document.add_heading(blog.title or "Documento del Blog", 0) 
+    
+    for item in structure_data:
+        try:
+            # Añade el título con el estilo de encabezado
+            if 'title' in item and 'level' in item:
+                # Se asegura que el nivel sea un entero válido
+                document.add_heading(item['title'], level=int(item['level']))
+            
+            # Añade el contenido como un párrafo normal
+            if 'content' in item and item['content']:
+                document.add_paragraph(item['content'])
+        except Exception as e:
+            # Si un elemento falla (ej: 'level' no es un número), ignorarlo y seguir
+            print(f"Error al procesar item de estructura: {e}. Item: {item}")
+            continue
+
+            
+    # 4. Guardar el documento en memoria (Buffer)
+    file_stream = BytesIO()
+    document.save(file_stream)
+    file_stream.seek(0) # Mueve el puntero al inicio del archivo
+
+    # 5. Retornar el archivo como StreamingResponse
+    filename = f"blog-documento-{blog_id}.docx"
+    
+    return StreamingResponse(
+        file_stream,
+        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"'
+        }
+    )
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

@@ -2,21 +2,33 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "./context/AppContext";
 import LoginModal from "./Loginmodal";
+import ProyectoModal from "./ProyectoModal";
 import "./Home.css";
 
 const Home = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isProyectoModalOpen, setIsProyectoModalOpen] = useState(false);
+  const [selectedProyecto, setSelectedProyecto] = useState(null);
   const { currentUser, logout } = useApp();
   const handleLogout = () => {
     logout();
   };
+
+  const handleOpenProyecto = (proyecto) => {
+    setSelectedProyecto(proyecto);
+    setIsProyectoModalOpen(true);
+  };
+
+  const handleCloseProyectoModal = () => {
+    setIsProyectoModalOpen(false);
+    setSelectedProyecto(null);
+  };
+
   const getAvatarText = () => {
     if (!currentUser) return "";
     if (currentUser.avatar) return currentUser.avatar;
     if (currentUser.first_name || currentUser.last_name) {
-      return `${(currentUser.first_name?.[0] || "").toUpperCase()}${(
-        currentUser.last_name?.[0] || ""
-      ).toUpperCase()}`;
+      return `${(currentUser.first_name?.[0] || "").toUpperCase()}${(currentUser.last_name?.[0] || "").toUpperCase()}`;
     }
     return (currentUser.email?.[0] || "").toUpperCase();
   };
@@ -25,53 +37,149 @@ const Home = () => {
     if (!currentUser) return "";
     if (currentUser.name) return currentUser.name;
     if (currentUser.first_name || currentUser.last_name) {
-      return `${currentUser.first_name || ""} ${
-        currentUser.last_name || ""
-      }`.trim();
+      return `${currentUser.first_name || ""} ${currentUser.last_name || ""}`.trim();
     }
     return currentUser.email || "";
   };
   const proyectos = [
     {
       id: 1,
-      titulo: "Redactoria Landing Page",
+      titulo: "Redactoria MCR",
       descripcion:
         "Sistema de redacción y gestión de contenido con IA integrada para generación automática de landings pages",
-      imagen:
-        "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=300&fit=crop",
-      link: "/dashboard",
+      imagen: "https://milescdnver.azureedge.net/build/images/logo/logo.svg",
+      links: [
+        {
+          nombre: "Dashboard Landings Pages",
+          url: "/dashboard/mcr",
+          descripcion: "Accede al panel de control de landings pages de MCR",
+        },
+        {
+          nombre: "Dashboard Blogs",
+          url: "/dashboard_blog",
+          descripcion: "Accede al panel de control principal de blogs",
+        },
+      ],
       estado: "Activo",
       tecnologias: ["IA", "Generación de contenido", "SEO"],
     },
     {
       id: 2,
-      titulo: "Redactoria Blogs",
+      titulo: "Redactoria Viajemos",
       descripcion:
         "Sistema de redacción y gestión de contenido con IA integrada para la generación automática y optimizada de artículos y publicaciones de blog.",
-      imagen:
-        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop",
-      link: "/dashboard_blog",
+      imagen: "https://dce.viajemos.com/images/viajemos/logo/logo.svg",
+      links: [
+        {
+          nombre: "Dashboard Landings Pages",
+          url: "/dashboard/viajemos",
+          descripcion:
+            "Accede al panel de control de landings pages de Viajemos",
+        },
+        {
+          nombre: "Dashboard Blogs",
+          url: "/dashboard_blog",
+          descripcion: "Accede al panel de control principal de blogs",
+        },
+      ],
       estado: "En desarrollo",
       tecnologias: ["IA", "Generación de contenido", "SEO"],
     },
     {
       id: 3,
+      titulo: "Redactoria Outlet",
+      descripcion:
+        "Sistema de redacción y gestión de contenido con IA integrada para la generación automática y optimizada de artículos y publicaciones de blog.",
+      imagen: "https://dce.outletrentalcars.com/images/outlet/logo/logo.svg",
+      links: [
+        {
+          nombre: "Dashboard Landings Pages",
+          url: "/dashboard/outlet",
+          descripcion: "Accede al panel de control de landings pages de Outlet",
+        },
+        {
+          nombre: "Dashboard Blogs",
+          url: "/dashboard_blog",
+          descripcion: "Accede al panel de control principal de blogs",
+        },
+      ],
+      estado: "En desarrollo",
+      tecnologias: ["IA", "Generación de contenido", "SEO"],
+    },
+    {
+      id: 4,
+      titulo: "Redactoria Guia Legal",
+      descripcion:
+        "Sistema de redacción y gestión de contenido con IA integrada para la generación automática y optimizada de artículos y publicaciones de blog.",
+      imagen:
+        "https://guialegal.com/wp-content/uploads/2021/02/logo-guia-legal.svg",
+      links: [
+        {
+          nombre: "Dashboard Landings Pages",
+          url: "/dashboard/guialegal",
+          descripcion:
+            "Accede al panel de control de landings pages de Guía Legal",
+        },
+        {
+          nombre: "Dashboard Blogs",
+          url: "/dashboard_blog",
+          descripcion: "Accede al panel de control principal de blogs",
+        },
+      ],
+      estado: "En desarrollo",
+      tecnologias: ["IA", "Generación de contenido", "SEO"],
+    },
+    {
+      id: 5,
+      titulo: "Redactoria Arriendo",
+      descripcion:
+        "Sistema de redacción y gestión de contenido con IA integrada para la generación automática y optimizada de artículos y publicaciones de blog.",
+      imagen:
+        "https://cdn.arriendo.com/co/wp-content/uploads/2024/06/logo-svg.svg",
+      links: [
+        {
+          nombre: "Dashboard Landings Pages",
+          url: "/dashboard/arriendo",
+          descripcion:
+            "Accede al panel de control de landings pages de Arriendo",
+        },
+        {
+          nombre: "Dashboard Blogs",
+          url: "/dashboard_blog",
+          descripcion: "Accede al panel de control principal de blogs",
+        },
+      ],
+      estado: "En desarrollo",
+      tecnologias: ["IA", "Generación de contenido", "SEO"],
+    },
+    {
+      id: 6,
       titulo: " Generación Multimedia",
       descripcion:
         "Plataforma integral para la creación de contenido multimedia utilizando inteligencia artificial, que permite generar imágenes y videos personalizados de alta calidad.",
-      imagen:
-        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&h=300&fit=crop",
-      link: "http://127.0.0.1:8188/",
+      imagen: "https://cdn-icons-png.flaticon.com/512/2920/2920277.png",
+      links: [
+        {
+          nombre: "ComfyUI Local",
+          url: process.env.REACT_APP_COMFYUI_URL || "http://127.0.0.1:8188",
+          descripcion: "Generador de imágenes local",
+        },
+        {
+          nombre: "Galería de Ejemplos",
+          url: "/dashboard/gallery",
+          descripcion: "Explora ejemplos generados",
+        },
+      ],
       estado: "En desarrollo",
       tecnologias: ["IA", "Imagenes", "Videos"],
     },
     {
-      id: 4,
-      titulo: "Proximamente",
-      descripcion: "...",
-      imagen:
-        "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=300&fit=crop",
-      link: "https://imgs.search.brave.com/6rXksKcPYPmMYDfIUuqh7ouaKmLH7o2ghX6xy5rJ7qs/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9hc3Nl/dHMuc3RpY2twbmcu/Y29tL3RodW1icy81/ODBiNTg1YjJlZGJj/ZTI0YzQ3YjJhMjcu/cG5n",
+      id: 7,
+      titulo: "Redes Sociales",
+      descripcion:
+        "Respuesta automatizadas con agentes IA en las diferentes redes sociales.",
+      imagen: "https://cdn-icons-png.flaticon.com/512/3178/3178158.png",
+      link: "https://www.youtube.com/shorts/Ay8lynMZ4mE",
       estado: "Próximamente",
       tecnologias: [""],
     },
@@ -196,7 +304,7 @@ const Home = () => {
       {/* Header con Logo */}
       <header className="main-header">
         <div className="header-content">
-          <Link to="/" className="logo-link">
+          <Link to="/home" className="logo-link">
             <div className="logo">
               <img
                 src="https://browsertravelsolutions.com/wp-content/uploads/2022/02/Logo-1.png"
@@ -241,53 +349,6 @@ const Home = () => {
             nuestras soluciones y desarrollos en IA, mostrando la innovación que
             impulsa cada iniciativa.
           </p>
-
-          {/* Logos de Empresas Clientes */}
-          <div className="empresas-section">
-            <p className="empresas-title">Empresas que confían en nosotros</p>
-            <div className="empresas-grid">
-              {empresasClientes.map((empresa, index) => (
-                <div key={index} className="empresa-card">
-                  <a
-                    href={empresa.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="empresa-logo-link"
-                  >
-                    <div className="empresa-logo-card">
-                      <img
-                        src={empresa.logo}
-                        alt={empresa.nombre}
-                        className="empresa-logo"
-                      />
-                    </div>
-                  </a>
-
-                  {/* Redes sociales de cada empresa */}
-                  <div className="empresa-redes">
-                    {empresa.redes.map((red, redIndex) => (
-                      <a
-                        key={redIndex}
-                        href={red.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="empresa-social-link"
-                        title={red.nombre}
-                      >
-                        <svg
-                          className="empresa-social-icon"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path d={red.icon} />
-                        </svg>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -338,14 +399,18 @@ const Home = () => {
 
                 {/* Botón */}
                 {currentUser ? (
-                  <Link to={proyecto.link} className="proyecto-button">
-                    Ver proyecto
-                  </Link>
+                  <button
+                    onClick={() => handleOpenProyecto(proyecto)}
+                    className="proyecto-button"
+                    style={{ cursor: "pointer", border: "n  one" }}
+                  >
+                    Abrir proyecto
+                  </button>
                 ) : (
                   <button
                     onClick={() => setIsLoginModalOpen(true)}
                     className="proyecto-button"
-                    style={{ cursor: "pointer" }}
+                    style={{ cursor: "pointer", border: "none" }}
                   >
                     Iniciar sesión para ver
                   </button>
@@ -371,9 +436,7 @@ const Home = () => {
               maximizar la eficiencia, mejorar la colaboración y potenciar la
               toma de decisiones basada en datos.
             </p>
-            <Link to="/dashboard" className="about-button">
-              Explorar Dashboard →
-            </Link>
+            {/* Dashboard general solo accesible por URL directa - no mostrar link */}
           </div>
 
           <div className="about-features">
@@ -417,14 +480,51 @@ const Home = () => {
 
       {/* Footer */}
       <footer className="footer">
-        <div className="footer-content">
-          <h3 className="footer-title">¿Listo para comenzar?</h3>
-          <p className="footer-text">
-            Accede a nuestras herramientas y lleva tu trabajo al siguiente nivel
-          </p>
-          {/*<Link to="/login" className="footer-button">
-            Iniciar Sesión →
-          </Link>*/}
+        {/* Logos de Empresas Clientes */}
+        <div className="empresas-section">
+          <p className="empresas-title">Empresas con las que trabajamos</p>
+          <div className="empresas-grid">
+            {empresasClientes.map((empresa, index) => (
+              <div key={index} className="empresa-card">
+                <a
+                  href={empresa.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="empresa-logo-link"
+                >
+                  <div className="empresa-logo-card">
+                    <img
+                      src={empresa.logo}
+                      alt={empresa.nombre}
+                      className="empresa-logo"
+                    />
+                  </div>
+                </a>
+
+                {/* Redes sociales de cada empresa */}
+                <div className="empresa-redes">
+                  {empresa.redes.map((red, redIndex) => (
+                    <a
+                      key={redIndex}
+                      href={red.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="empresa-social-link"
+                      title={red.nombre}
+                    >
+                      <svg
+                        className="empresa-social-icon"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d={red.icon} />
+                      </svg>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="footer-copyright">
           <p>© 2025 Browser Travel SOLUTIONS. Todos los derechos reservados.</p>
@@ -434,6 +534,13 @@ const Home = () => {
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
+      />
+
+      {/* Modal de Selección de Proyecto */}
+      <ProyectoModal
+        isOpen={isProyectoModalOpen}
+        onClose={handleCloseProyectoModal}
+        proyecto={selectedProyecto}
       />
     </div>
   );
