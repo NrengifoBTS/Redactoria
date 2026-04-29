@@ -56,11 +56,11 @@ class ContentGenerator:
 
         # Crear el prompt para quicksearch
         prompt = (
-            #f"{restric}\n"
             f"{ejemplos_texto}\n\n"
-            f"nuevo tema: {nuevo_tema}, tit:{tit_seo}\n"
-            f"reglas a tener en cuenta para desc: cantidad de palabras{vol_h1} minimo a maximo.\n"
-            f"ahora genera tu la desc, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: {tit_seo}|\n |desc: redaccion|\n"
+            f"NUEVO TEMA: {nuevo_tema}, TÍTULO SEO: {tit_seo}\n"
+            f"REGLA DE EXTENSIÓN: {vol_h1} palabras para la descripción.\n\n"
+            f"Genera el contenido siguiendo exactamente esta estructura:\n"
+            f"|tit: {tit_seo}| |desc: [Redacción de máximo {vol_h1} palabras]|"
         )
         # Llamar al LLM y obtener respuesta
         ini= self.llm_client.generate(prompt, self.system_message)
@@ -205,9 +205,31 @@ class ContentGenerator:
         ter= self.llm_client.post_generate_dos(sec, regla= vol_h2)
         return ter
 
+    RESPUESTA_REQUISITOS_RENTA = (
+        "Los requisitos generales para alquilar un auto de lujo son: "
+        "** "
+        "- Ser mayor de 25 años.* "
+        "- Licencia de conducción de tu país de origen vigente, con antigüedad mayor a un año y fecha de vencimiento impresa. "
+        "- Tarjeta de crédito a nombre del titular de la reserva con cupo disponible para cubrir el depósito de alquiler. "
+        "- Depósito de Garantía. "
+        "- Pasaporte vigente. "
+        "- Tiquetes aéreos (ida y vuelta). "
+        "** "
+        "*Algunas agencias permiten que el titular de la reserva tenga entre 21 y 24 años, por un pequeño precio adicional. "
+        "Es necesario que los documentos se presenten en formato físico al momento de retirar el carro de la agencia. "
+        "Además, ten presente que los requisitos pueden cambiar de acuerdo con tu país de origen, "
+        "te invitamos a consultar todos los detalles con nuestro Chatbot."
+    )
+
+    def _es_pregunta_requisitos_renta(self, pregunta: str) -> bool:
+        """Detecta si la pregunta es sobre requisitos para rentar un carro."""
+        pregunta_lower = pregunta.lower()
+        return "qué se necesita para rentar" in pregunta_lower or "que se necesita para rentar" in pregunta_lower
+
     def generate_faq_respuesta(self, nuevo_tema: str, preguntas: List[str], ejemplos: List[Dict[str, Any]]) -> str:
         """
         Genera solo la respuesta para una pregunta dada, usando ejemplos previos.
+        Si la pregunta es sobre requisitos para rentar un carro, reemplaza esa respuesta con una fija.
         """
         # Construir ejemplos para el prompt
         ejemplos_texto_faq = "\n".join(
@@ -219,10 +241,9 @@ class ContentGenerator:
             ]
         )
         vol_faq = ejemplos[0].get('vol_faq', '') if ejemplos else ''
-        
+
         # Crear el texto con todas las preguntas
         preguntas_texto = "\n".join([f"Pregunta {i+1}: {pregunta}" for i, pregunta in enumerate(preguntas)])
-    
 
         prompt_qa = (
             f"{ejemplos_texto_faq}\n"
@@ -233,7 +254,18 @@ class ContentGenerator:
             f"genera solo las respuestas para las preguntas anteriores.\n"
             f"Sigue esta estructura: <think>aquí pondrás tus pensamientos</think>\n |faq_1: tu respuesta|\n |faq_2: tu respuesta|\n ..."
         )
-        return self.llm_client.generate(prompt_qa, self.system_message)
+        respuesta = self.llm_client.generate(prompt_qa, self.system_message)
+
+        # Reemplazar la respuesta del LLM con la fija para preguntas sobre requisitos de renta
+        import re
+        for i, pregunta in enumerate(preguntas):
+            if self._es_pregunta_requisitos_renta(pregunta):
+                faq_num = i + 1
+                patron = rf'\|faq_{faq_num}:.*?\|'
+                reemplazo = f'|faq_{faq_num}: {self.RESPUESTA_REQUISITOS_RENTA}|'
+                respuesta = re.sub(patron, reemplazo, respuesta)
+
+        return respuesta
     
     def generate_car_rental(self, num:int, tit_seo: str, nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> Tuple[str, str]:
         """
@@ -364,7 +396,28 @@ class ContentGenerator:
             f"{ciudades_texto}\n"
             f"genera solo las descripciones para las ciudades anteriores.\n"
             f"Se centra principalmente en los beneficios y luego en road trip, y justificacion de la compra/alquiler.\n"
-            f"Sigue esta estructura: <think>aquí pondrás tus pensamientos</think>\n |desc_1: tu descripción|\n |desc_2: tu descripción|\n ..."
+            f"\nREGLAS OBLIGATORIAS DE REDACCIÓN (SI LAS INCUMPLES, EL TEXTO SERÁ RECHAZADO):\n"
+            f"\n1. PRIMERA PALABRA: La primera palabra de CADA descripción NO puede ser un nombre de ciudad, estado o lugar. "
+            f"Tampoco puede empezar con artículos seguidos de ciudad ('La ciudad de...', 'Las luces de...', 'El paisaje de...'). "
+            f"La ciudad SOLO puede aparecer a partir de la SEGUNDA oración en adelante.\n"
+            f"\n2. FRASES PROHIBIDAS que NO puedes usar en ninguna descripción:\n"
+            f"   - 'Desde X hasta Y'\n"
+            f"   - 'Cada kilómetro/trayecto/destino/ruta/camino es/te...'\n"
+            f"   - '[Ciudad], con su/sus...'\n"
+            f"   - '[Ciudad] se despliega/se transforma/se convierte...'\n"
+            f"   - '[Ciudad] te ofrece/te invita...'\n"
+            f"   - 'Con un auto de alquiler' como muletilla repetida\n"
+            f"\n3. VARIEDAD ESTRUCTURAL: Cada descripción debe usar una estructura DIFERENTE. Asigna a cada una UN enfoque distinto de esta lista (no repitas):\n"
+            f"   - Una que empiece con un beneficio económico\n"
+            f"   - Una que empiece con una pregunta retórica\n"
+            f"   - Una que empiece con una acción/verbo imperativo\n"
+            f"   - Una que empiece describiendo una experiencia sensorial\n"
+            f"   - Una que empiece con un dato curioso o cultural del lugar\n"
+            f"   - Una que empiece con una emoción o sentimiento\n"
+            f"   - Una que empiece hablando del road trip directamente\n"
+            f"   - Otras variaciones creativas para las demás\n"
+            f"\n4. MENCIÓN DE LA CIUDAD: El nombre de la ciudad debe aparecer UNA vez, integrado de forma natural en medio de una oración (nunca al inicio de la oración donde aparece).\n"
+            f"\nSigue esta estructura: <think>aquí pondrás tus pensamientos, planifica qué enfoque usarás para CADA ciudad antes de escribir</think>\n |desc_1: tu descripción|\n |desc_2: tu descripción|\n ..."
         )
         return self.llm_client.generate(prompt_city, self.system_message) 
 

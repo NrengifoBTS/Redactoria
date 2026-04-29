@@ -19,6 +19,7 @@ const getStatusText = (status) => {
     review: "En Revisión",
     approved: "Aprobado",
     published: "Publicado",
+    ajusted: "Ajustes Aplicados",
   };
   return texts[status] || status;
 };
@@ -134,6 +135,8 @@ function EditBlogModal({ blog, onClose, onSubmit }) {
                 <option value="generated">Estructura Generada</option>
                 <option value="published">Publicado</option>
                 <option value="review">En revision</option>
+                <option value="approved">Aprobado</option>
+                <option value="ajusted">Ajustes aplicados</option>
               </select>
             </div>
           </div>
@@ -1077,6 +1080,9 @@ const BlogsTable = ({
               <option value="draft">Borrador</option>
               <option value="review">En Revisión</option>
               <option value="published">Publicado</option>
+              <option value="generated">Generado</option>
+              <option value="approved">Aprobado</option>
+              <option value="ajusted">Ajustes aplicados</option>
             </select>
 
             <select

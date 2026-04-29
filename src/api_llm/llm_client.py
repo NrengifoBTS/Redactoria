@@ -131,6 +131,7 @@ class LLMClient:
             - Cobertura por Robo ->	Seguro Contra Hurto del Vehículo ->	Latam to Usa
             - Sin Deducibles ->	Sin Responsabilidad Económica -> Latam to Usa
             - Beneficio en Cobertura del IOF ->	No tiene ->	Brasil
+            - No repitas la palabra Descruber, si quieres usarla, solo usala una vez y luego usa sinonimos o frases que transmitan la misma idea, como 'conoce', 'explora', 'aprovecha' etc...
             recuerda mantener su estructura
             |tit: tit| |desc: desc|\n |desc2: desc2| etc... y mantener los bloques correspondientes si aplica, como los de ip_.
             """

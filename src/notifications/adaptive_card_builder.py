@@ -37,6 +37,7 @@ class AdaptiveCardBuilder:
         "in_progress": "En Progreso",
         "pen_review": "Pendiente de Revisión",
         "pen_ajuste": "Pendiente de Ajuste",
+        "ajuste_aplicado": "Ajuste Aplicado",
         "approved": "Aprobado",
         "rev_kws": "Revisión de Keywords",
         "cargue": "Cargue",

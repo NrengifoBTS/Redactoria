@@ -1,6 +1,9 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy import text
 from .database.core import engine, Base
+import os
 
 # Import existing entities
 from .entities.todo import Todo
@@ -45,3 +48,14 @@ app = FastAPI()
 # Base.metadata.create_all(bind=engine)  # Commented out - use Alembic migrations
 
 register_routes(app)
+
+FRONTEND_BUILD = "/app/frontend/build"
+if os.path.exists(f"{FRONTEND_BUILD}/static"):
+    app.mount("/static", StaticFiles(directory=f"{FRONTEND_BUILD}/static"), name="static")
+
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    index = f"{FRONTEND_BUILD}/index.html"
+    if os.path.exists(index):
+        return FileResponse(index)
+    return {"detail": "Frontend build not found"}

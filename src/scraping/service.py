@@ -85,24 +85,7 @@ class DocumentService:
         
         if current_section: sections.append(current_section)
         return sections
-def actualizar_estructura_blog(
-    db: Session, 
-    blog_id: UUID, 
-    estructura_data: Dict[str, Any]
-) -> Blog:
-    """
-    Actualiza la estructura generada por IA en el campo 'estructura_blog_json' 
-    de la tabla Blog, así como otros datos relevantes.
-    """
     
-    # 1. Buscar el Blog por ID
-    blog = db.query(Blog).filter(Blog.id == blog_id).first()
-    
-    if not blog:
-        # Se puede manejar este error según la política de la aplicación
-        # Aquí se lanza una excepción que puede ser capturada por el controlador.
-        raise ValueError(f"Blog con ID {blog_id} no encontrado para la actualización de estructura.") 
-
     def _process_html_to_word(self, html_content: str, paragraph, doc=None):
         if not html_content or not html_content.strip(): return
         
@@ -502,6 +485,8 @@ def generar_documento_word(blog_id: UUID, db: Session) -> StreamingResponse:
             'Content-Disposition': f'attachment; filename="{filename}"'
         }
     )
+
+
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

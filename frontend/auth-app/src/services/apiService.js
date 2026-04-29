@@ -1,5 +1,9 @@
 const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://192.168.1.129:8000";
+  process.env.REACT_APP_API_URL !== undefined && process.env.REACT_APP_API_URL !== ""
+    ? process.env.REACT_APP_API_URL
+    : process.env.NODE_ENV === "production"
+    ? ""
+    : "http://192.168.1.129:8000";
 
 class ApiService {
   constructor() {
@@ -10,6 +14,7 @@ class ApiService {
   getHeaders() {
     const headers = {
       "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true",
     };
     const currentToken = localStorage.getItem("token");
     if (currentToken) {
@@ -569,6 +574,7 @@ class ApiService {
       published: "published",
       pen_review: "pen_review",
       pen_ajuste: "pen_ajuste",
+      ajuste_aplicado: "ajuste_aplicado",
       approved: "approved",
       rev_kws: "rev_kws",
       cargue: "cargue",
@@ -586,6 +592,7 @@ class ApiService {
       published: "completed",
       pen_review: "pen_review",
       pen_ajuste: "pen_ajuste",
+      ajuste_aplicado: "ajuste_aplicado",
       approved: "approved",
       rev_kws: "rev_kws",
       cargue: "cargue",
@@ -816,6 +823,33 @@ class ApiService {
         return [];
       }
       throw error;
+    }
+  }
+
+  //Guardar Log completo de Landing Page
+  async saveTrainingData(currentLP, tableData) {
+    try {
+      const payload = {
+        landing_page_id: currentLP.id,
+        template_id: currentLP.template_id, // Obligatorio para la consulta SQL
+        proyecto_id: currentLP.proyecto_id,
+        full_json_content: tableData,
+        metadata: {
+          tema:
+            currentLP.name || currentLP.proyecto_name || "Landing sin nombre",
+          tit_seo: currentLP.title || "Sin título",
+          marca: currentLP.name?.toLowerCase().includes("miles")
+            ? "miles"
+            : "viajemos",
+        },
+      };
+
+      return await this.makeRequest("/logs/training-dataset", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error("Error en saveTrainingData:", error);
     }
   }
 

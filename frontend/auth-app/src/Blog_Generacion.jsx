@@ -385,6 +385,14 @@ const GeneracionBlog = () => {
           if (data.prioridad) {
             setBlogPriority(data.prioridad);
           }
+          //ESTA SECCION ACTIVA LOS BOTONES DE EDICION BASADO EN EL TITULO DEL BLOG, SOLO PARA EMERGENCIAS DE QUE EL SCRAPING NO FUNCIONE Y NO SE GENERE LA ESTRUCTURA INICIAL, ASI EL USUARIO PUEDE EMPEZAR A EDITAR DESDE EL TITULO Y CREAR LA ESTRUCTURA MANUALMENTE
+          if (data.estructura_blog_json) {
+            setTablaEstructuraFinal(data.estructura_blog_json);
+          } else {
+            // ESTO ACTIVA LOS BOTONES: Creamos un H1 inicial basado en el título del blog
+            const estructuraInicial = `[H1 - 1.0] ${data.title || "Nuevo Blog"}`;
+            setTablaEstructuraFinal(estructuraInicial);
+          }
 
           // ============================================================
           // MODIFICACIÓN PARA RENDERIZAR URLS EN INPUTS INDIVIDUALES
@@ -434,16 +442,14 @@ const GeneracionBlog = () => {
   // // 3. CONSTANTES Y DATOS INICIALES
   // // =======================================================================
   // //--- URLs de la API del backend ---
-  const URL_API_SCRAPING = "http://192.168.1.129:8080/scraping/stream";
-  const URL_CONTENIDO_SECCION = "http://192.168.1.129:8080/ai/generate_content";
-  const URL_API_IA = "http://192.168.1.129:8080/ai/generate_structure";
-  const URL_API_BASE_BLOGS = "http://192.168.1.129:8080/blogs/";
-  const URL_API_IA_COMPLETO =
-    "http://192.168.1.129:8080/ai/generate_full_content";
-
-  const URL_API_IA_DOWNLOAD = "http://192.168.1.129:8080/ai/download_blog_doc";
-
-  const URL_API_IA_REGEN = "http://192.168.1.129:8080/ai/regenerate_titles";
+  const _API = process.env.REACT_APP_API_URL ?? "http://192.168.1.129:8000";
+  const URL_API_SCRAPING = `${_API}/scraping/stream`;
+  const URL_CONTENIDO_SECCION = `${_API}/ai/generate_content`;
+  const URL_API_IA = `${_API}/ai/generate_structure`;
+  const URL_API_BASE_BLOGS = `${_API}/blogs/`;
+  const URL_API_IA_COMPLETO = `${_API}/ai/generate_full_content`;
+  const URL_API_IA_DOWNLOAD = `${_API}/ai/download_blog_doc`;
+  const URL_API_IA_REGEN = `${_API}/ai/regenerate_titles`;
 
   const mainTitle = datosFinales?.title || "Generación de Blog"; // <-- ¡Lee directo de datosFinales!
   // =======================================================================
@@ -584,7 +590,7 @@ const GeneracionBlog = () => {
       },
       onUpdate: ({ editor }) => setRegenTextareaValue(editor.getHTML()),
     },
-    [regenTextareaValue],
+    [],
   ); // Recomendado añadir dependencia si el contenido inicial cambia
 
   // Editor para el CONTENIDO
@@ -638,7 +644,7 @@ const GeneracionBlog = () => {
       },
       onUpdate: ({ editor }) => setSectionContentValue(editor.getHTML()),
     },
-    [sectionContentValue],
+    [],
   );
 
   // Sincronizar TipTap cuando el estado de React cambie (por carga de API o IA)
@@ -1458,13 +1464,16 @@ const GeneracionBlog = () => {
 
   // Funcion que Maneja la selección del título en el StructureRenderer
   const seleccionarSeccionEdicion = (section, event) => {
+    // 1. Seteamos los estados básicos
     setSelectedSectionForRegen(section);
     setRegenTextareaValue(section.text);
 
+    // 2. Obtenemos la estructura completa para buscar el contenido
     const fullStructureObject = parseMarkdownStructure(tablaEstructuraFinal);
     const { level, enumeration } = section;
     let contentToEdit = "";
 
+    // --- LÓGICA DE BÚSQUEDA DE CONTENIDO ---
     if (level === "h1") {
       const h1Item = fullStructureObject.find((item) => item.level === "h1");
       contentToEdit = h1Item?.content || "";
@@ -1483,9 +1492,7 @@ const GeneracionBlog = () => {
             (item) => item.enumeration === enumeration,
           );
           contentToEdit = h3Objetivo?.content || "";
-        }
-        // NUEVA LÓGICA PARA H4
-        else if (level === "h4") {
+        } else if (level === "h4") {
           const idH3 = `${parts[0]}.${parts[1]}`;
           const h3Padre = h2Padre.children?.find(
             (item) => item.enumeration === idH3,
@@ -1497,7 +1504,26 @@ const GeneracionBlog = () => {
         }
       }
     }
+
+    // 3. ACTUALIZAR ESTADOS Y EDITORES TIPTAP
     setSectionContentValue(contentToEdit);
+
+    // Sincronizar el editor de TÍTULO (el que dice "Editar/Regenerar Sección")
+    if (editorTitulo) {
+      // Usamos section.text porque es el título de la sección
+      editorTitulo.commands.setContent(section.text || "");
+    }
+
+    // Sincronizar el editor de CONTENIDO (el editor grande de abajo)
+    if (editorContenido) {
+      // Usamos el contentToEdit que encontramos en la estructura
+      editorContenido.commands.setContent(contentToEdit || "");
+    }
+
+    // Opcional: Limpiar sugerencias anteriores de IA al cambiar de sección
+    if (setTitleSuggestions) {
+      setTitleSuggestions([]);
+    }
   };
 
   const guardarCambiosTitulo = () => {
@@ -3682,7 +3708,7 @@ const GeneracionBlog = () => {
               <button
                 onClick={agregarSeccionH2}
                 className="btn-add-h2"
-                disabled={!tablaEstructuraFinal}
+                disabled={false}
                 title="Agregar una sección principal"
               >
                 <i className="uil uil-plus-circle"></i> Agregar H2
@@ -3692,7 +3718,7 @@ const GeneracionBlog = () => {
               <button
                 onClick={agregarSubseccionH3}
                 className="btn-add-h3"
-                disabled={!selectedSectionForRegen || !tablaEstructuraFinal}
+                disabled={!selectedSectionForRegen}
                 title="Selecciona un H2 para agregar un H3"
               >
                 <i className="uil uil-plus-circle"></i> Agregar H3
@@ -3952,12 +3978,7 @@ const GeneracionBlog = () => {
 
                 <div className="tiptap-container contenido-editor">
                   {/* Toolbar completa con iconos para el contenido */}
-                  <div className="tiptap-container contenido-editor">
-                    <MenuBar editor={editorContenido} />
-                    <EditorContent editor={editorContenido} />
-                  </div>
-
-                  {/* Área de edición de TipTap */}
+                  <MenuBar editor={editorContenido} />
                   <EditorContent editor={editorContenido} />
                 </div>
 

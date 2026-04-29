@@ -720,11 +720,7 @@ export default function Redactor() {
       // Solo actualizar si el contenido realmente cambió
       const currentContent = tableData[editingCell]?.content || "";
 
-      // Validamos que no sea solo un párrafo vacío que Tiptap suele poner "<p></p>"
-      const isEmptyTiptap =
-        cleanedContent === "<p></p>" || cleanedContent === "";
-
-      if (cleanedContent !== currentContent && !isEmptyTiptap) {
+      if (cleanedContent !== currentContent) {
         setTableData((prev) => ({
           ...prev,
           [editingCell]: {
@@ -1119,7 +1115,7 @@ export default function Redactor() {
 
       // Llamar al endpoint
       const API_BASE =
-        process.env.REACT_APP_API_URL || "http://192.168.1.129:8080";
+        process.env.REACT_APP_API_URL ?? "http://192.168.1.129:8000";
       const response = await fetch(`${API_BASE}/export/excel`, {
         method: "POST",
         headers: {
@@ -1707,20 +1703,23 @@ export default function Redactor() {
     setCurrentAnnotationCell(null);
   };
 
+  // Dentro de Redactor.jsx
   const saveProgress = async () => {
     if (!currentLP) return;
 
     setSaveStatus("saving");
     try {
+      // 1. Guardar progreso normal
       await saveRedactorProgress(currentLP.id, tableData, annotations);
+
+      // 2. Guardar log de entrenamiento (El backend buscará el resto)
+      await apiService.saveTrainingData(currentLP, tableData);
+
       setLastSaved(new Date());
       setSaveStatus("saved");
-
-      setTimeout(() => {
-        setSaveStatus("idle");
-      }, 2000);
+      setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (error) {
-      console.error("Error guardando progreso:", error);
+      console.error("Error al guardar:", error);
       setSaveStatus("error");
     }
   };
@@ -2741,6 +2740,7 @@ export default function Redactor() {
             "#150a44",
             "#00ffff",
             "#00eba7",
+            "#209986",
             "#B45F1D",
             "#9900ff",
           ].map((color) => (

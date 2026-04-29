@@ -8,7 +8,7 @@ function ProtectedPage() {
     const verifyToken = async () => {
       const token = localStorage.getItem("token");
       const API_BASE =
-        process.env.REACT_APP_API_URL || "http://192.168.1.129:8000";
+        process.env.REACT_APP_API_URL ?? "http://192.168.1.129:8000";
 
       try {
         const response = await fetch(`${API_BASE}/auth/verify-token/${token}`);

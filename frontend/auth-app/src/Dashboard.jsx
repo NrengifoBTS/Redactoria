@@ -147,7 +147,7 @@ function Dashboard() {
         setLoadingTemplates(true);
         // Usar endpoint que devuelve todos los templates (activos e inactivos) para filtrar proyectos
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8000"}/templates/public/all-for-analytics`,
+          `${process.env.REACT_APP_API_URL ?? "http://192.168.1.129:8000"}/templates/public/all-for-analytics`,
         );
         if (response.ok) {
           const templatesData = await response.json();
@@ -295,6 +295,7 @@ function Dashboard() {
       draft: "#6b7280",
       pen_review: "#f59e0b",
       pen_ajuste: "#ef4444",
+      ajuste_aplicado: "#8044ef",
       approved: "#059669",
       rev_kws: "#E3AAAA",
       cargue: "#0ea5e9",
@@ -313,6 +314,7 @@ function Dashboard() {
       draft: <Edit3 size={16} />,
       pen_review: <FileText size={16} />,
       pen_ajuste: <AlertTriangle size={16} />,
+      ajuste_aplicado: <AlertTriangle size={16} />,
       approved: <ThumbsUp size={16} />,
       rev_kws: <Hash size={16} />,
       cargue: <Upload size={16} />,
@@ -329,7 +331,8 @@ function Dashboard() {
       in_progress: "En Redacción",
       pen_review: "Pendiente de Revisión",
       pen_ajuste: "Pendiente de Ajuste",
-      apporved: "Aprobado",
+      ajuste_aplicado: "Ajuste Aplicado",
+      approved: "Aprobado",
       rev_kws: "Pendiente KWS",
       cargue: "Cargue",
       en_it: "En IT",
@@ -906,6 +909,7 @@ function FilterPanel({
           <option value="in_progress">En Redacción</option>
           <option value="pen_review">Pendiente de Revisión</option>
           <option value="pen_ajuste">Pendiente de Ajuste</option>
+          <option value="ajuste_aplicado">Ajuste Aplicado</option>
           <option value="approved">Aprobado</option>
           <option value="rev_kws">Pendiente KWS</option>
           <option value="cargue">Cargue</option>
@@ -1399,7 +1403,7 @@ function CreateProyectoModal({ onClose, onSubmit }) {
       try {
         setTemplatesLoading(true);
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8000"}/templates/public/active`,
+          `${process.env.REACT_APP_API_URL ?? "http://192.168.1.129:8000"}/templates/public/active`,
         );
 
         if (response.ok) {
@@ -2222,6 +2226,7 @@ function EditProyectoModal({ proyecto, onClose, onSubmit }) {
               <option value="in_progress">En Redacción</option>
               <option value="pen_review">Pendiente de Revisión</option>
               <option value="pen_ajuste">Pendiente de Ajuste</option>
+              <option value="ajuste_aplicado">Ajuste Aplicado</option>
               <option value="approved">Aprobado</option>
               <option value="rev_kws">Pendiente KWS</option>
               <option value="cargue">Cargue</option>

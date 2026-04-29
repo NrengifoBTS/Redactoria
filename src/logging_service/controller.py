@@ -3,10 +3,16 @@ from uuid import UUID
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 from collections import Counter, defaultdict
+from sqlalchemy import cast, String
+from src.entities.landing_page import LandingPage
 import logging
+import json
+import re
+import os
 
 from src.database.core import DbSession
 from src.auth.service import CurrentUser
+from src.entities.proyecto import Proyecto
 from .models import (
     LogUserEditRequest,
     UserProfileResponse,
@@ -21,6 +27,10 @@ from .models import (
 from .edit_logging import EditLoggingService
 from .profile_builder import ProfileBuilderService
 from .ai_logging import AILoggingService
+from ..entities.logging.training_dataset import TrainingDataset
+from ..entities.template import Template
+from ..entities.logging.ai_generation import AIGeneration
+
 
 router = APIRouter(
     prefix="/logs",
@@ -653,3 +663,357 @@ def _process_edit_log(db: DbSession, current_user, request: LogUserEditRequest):
 
     except Exception as e:
         logging.error(f"✗ Failed to process edit log in background: {e}", exc_info=True)
+
+
+
+#LOG COMPLETO DE LANDING PAGES PARA DATASET DE ENTRENAMIENTO (V3 GOLD)
+#CREACION DE  CARPETA Y GUARDADO DE ARCHIVO JSON POR CADA LANDING PAGE (SE SOBREESCRIBE SI YA EXISTE, PARA MANTENER SOLO LA VERSIÓN MÁS RECIENTE) CON EL CONTENIDO LIMPIO Y LOS METADATOS RELEVANTES. TAMBIÉN SE HACE UPSERT EN BASE DE DATOS PARA TENER REGISTRO ESTRUCTURADO DE CADA LANDING PAGE PROCESADA.
+@router.post("/training-dataset", status_code=status.HTTP_201_CREATED)
+def log_full_landing_dataset(
+    db: DbSession,
+    request: dict,
+    current_user: CurrentUser
+):
+    try:
+        u_id = getattr(current_user, 'id', None) or getattr(current_user, 'user_id', None)
+        lp_id = request.get("landing_page_id")
+        raw_content = request.get("full_json_content", {}) 
+        metadata_front = request.get('metadata', {})
+        tema = metadata_front.get('tit_seo', 'Tema Desconocido')
+
+        template_id = request.get("template_id") 
+        template_db = db.query(Template).filter(Template.id == template_id).first()
+        template_name = template_db.name if template_db else "Template Desconocido"        
+
+        # 1. BUSCAR LA LANDING PARA LLEGAR AL PROYECTO
+        # Suponiendo que tu entidad se llama LandingPage y tiene un campo 'proyecto_id'
+        # Si 'Proyecto' ya es la entidad que tiene el contenido, saltar al paso 2.
+        from src.entities.landing_page import LandingPage # Asegúrate de importar tu entidad de LP
+        
+        lp_db = db.query(LandingPage).filter(LandingPage.id == lp_id).first()
+        if not lp_db:
+            raise HTTPException(status_code=404, detail="No se encontró la Landing Page")
+
+        # 2. OBTENER EL PROYECTO ASOCIADO
+        # Usamos el proyecto_id que tiene la landing para buscar el estado real
+        proyecto_db = db.query(Proyecto).filter(Proyecto.id == lp_db.proyecto_id).first()
+        
+        if not proyecto_db:
+            raise HTTPException(status_code=404, detail="Proyecto asociado no encontrado")
+
+        # 3. FILTRO DE ESTADOS PERMITIDOS (Inclusión estricta)
+        # Solo estos estados pueden entrar al Training Data:
+        estados_permitidos = ["rev_kws", "cargue", "en_it", "test", "completed", "pen_review","approved"]
+        estado_actual = (proyecto_db.estado or "").lower()
+
+        if estado_actual not in estados_permitidos:
+            return {
+                "status": "skipped", 
+                "message": f"Estado '{estado_actual}' no es apto para Training Dataset. Solo se permiten: {estados_permitidos}"
+            }
+
+        # 4. Recuperamos el OBJETO Template
+        template_db = db.query(Template).filter(Template.id == template_id).first()
+        template_name = template_db.name if template_db else "Template Desconocido"
+        t_config = template_db.template_config if template_db else {}
+
+
+        # 1. RECONSTRUCCIÓN DE LA MATRIZ
+        matrix_rows = {}
+        for key, value in raw_content.items():
+            try:
+                r, c = map(int, key.split('-'))
+                if r not in matrix_rows: matrix_rows[r] = {}
+                text = value.get("content", "") if isinstance(value, dict) else str(value)
+                matrix_rows[r][c] = re.sub(r'<[^>]*>', '', text).strip()
+            except: continue
+
+        # 2. AGRUPACIÓN POR BLOQUE
+        bloques_finales = {}
+        current_page = ""
+        current_block = ""
+
+        for r in sorted(matrix_rows.keys()):
+            row = matrix_rows[r]
+            if row.get(0): current_page = row.get(0).strip().lower()
+            if row.get(1): current_block = row.get(1).strip()
+            
+            contenido = row.get(3, "").strip()
+            if not contenido or not current_page: continue
+
+            block_key = f"{current_page}_{current_block}"
+            if block_key not in bloques_finales:
+                bloques_finales[block_key] = {"page": current_page, "texts": []}
+            
+            bloques_finales[block_key]["texts"].append(contenido)
+
+        # =========================================================
+        # PRE-PROCESAMIENTO: UNIFICAR SECCIONES ESPECIALES
+        # =========================================================
+        
+        # 1. UNIFICAR FAVORITE CITIES
+        fc_keys = [k for k in bloques_finales.keys() if "favoritecities" in k.lower()]
+        if len(fc_keys) > 1:
+            fc_unificado = {"page": bloques_finales[fc_keys[0]]["page"], "texts": []}
+            for key in sorted(fc_keys):
+                fc_unificado["texts"].extend(bloques_finales[key]["texts"])
+            for key in fc_keys:
+                del bloques_finales[key]
+            bloques_finales["favoritecities_unificado"] = fc_unificado
+
+        # 2. UNIFICAR AGENCIES
+        agencies_keys = [k for k in bloques_finales.keys() if "agencies" in k.lower()]
+        if len(agencies_keys) > 1:
+            agencies_unificado = {"page": bloques_finales[agencies_keys[0]]["page"], "texts": []}
+            for key in sorted(agencies_keys):
+                agencies_unificado["texts"].extend(bloques_finales[key]["texts"])
+            for key in agencies_keys:
+                del bloques_finales[key]
+            bloques_finales["agencies_unificado"] = agencies_unificado
+        # =========================================================
+
+        registros_creados = 0
+
+        # 3. GENERACIÓN DINÁMICA DE PARES (INPUT/OUTPUT)
+        for key, data in bloques_finales.items():
+            page = data["page"]
+            block = data.get("block", page) 
+            textos = [txt.strip() for txt in data["texts"] if txt and txt.strip()]
+
+            if not textos: continue
+
+            output_p = ""
+            uid = None
+
+            # --- MAPEO DE ETIQUETAS SEGÚN LA FUNCIÓN DEL PROYECTO ---
+            
+            # 1. Quicksearch 
+            if any(x in key for x in ["quicksearch"]):
+                tit = textos[0] if len(textos) > 0 else tema
+                desc = textos[1] if len(textos) > 1 else ""
+                output_p = f"|tit: {tit}|\n|desc: {desc}|"
+                uid = f"lp_{lp_id}_{key.lower().replace(' ', '_')}"
+
+            # 2. Fleet
+            elif "fleet" in key:
+                tit = textos[0] if len(textos) > 0 else tema
+                desc = textos[1] if len(textos) > 1 else ""
+                ip_u = textos[2] if len(textos) > 2 else ""
+                ip_b = textos[3] if len(textos) > 3 else ""
+                output_p = f"|tit: {tit}|\n|desc: {desc}|\n|ip_usa: {ip_u}|\n|ip_bra: {ip_b}|"
+                uid = f"lp_{lp_id}_{key.lower().replace(' ', '_')}"
+
+            # 3. Agencies (UNIFICADO - PROCESA TODOS LOS TEXTOS)
+            elif "agencies" in key.lower():
+                uid = f"lp_{lp_id}_agencies_full"
+                
+                output_parts = []
+                textos_proc = textos[:]
+                disclaimer = ""
+                
+                # Detectar disclaimer al final (igual que FAQ)
+                if len(textos_proc) > 0 and ("sujetos a cambios" in textos_proc[-1].lower() or 
+                    "precios pueden variar" in textos_proc[-1].lower() or
+                    "términos y condiciones" in textos_proc[-1].lower()):
+                    disclaimer = textos_proc.pop()
+                
+                # Header principal
+                tit = textos_proc[0] if len(textos_proc) > 0 else tema
+                output_parts.append(f"|tit: {tit}|")
+                
+                # Descripción H2
+                if len(textos_proc) > 1:
+                    output_parts.append(f"|desc_h2: {textos_proc[1]}|")
+                
+                # Descripción H3
+                if len(textos_proc) > 2:
+                    output_parts.append(f"|desc_h3: {textos_proc[2]}|")
+                
+                # Procesar TODOS los textos restantes (agencias individuales, info adicional, etc.)
+                textos_extra = textos_proc[3:]
+                for i, txt in enumerate(textos_extra):
+                    if txt and txt.strip():
+                        output_parts.append(f"|info_{i+1}: {txt}|")
+                
+                # Agregar disclaimer si existe
+                if disclaimer:
+                    output_parts.append(f"|info: {disclaimer}|")
+                
+                output_p = "\n".join(output_parts)
+                # NO sobrescribir uid
+
+            # 4. CAR RENTAL
+            elif any(x in key.lower() for x in ["carrental", "car_type", "alquiler_autos"]):
+                tit_h2 = textos[0] if len(textos) > 0 else tema
+                desc_h2 = textos[1] if len(textos) > 1 else ""
+                
+                output_parts = [
+                    f"|tit: {tit_h2}|",
+                    f"|desc: {desc_h2}|"
+                ]
+                
+                items_raw = textos[2:]
+                contador = 1
+                
+                for i in range(0, len(items_raw), 2):
+                    if i + 1 < len(items_raw):
+                        nombre_auto = items_raw[i].strip()
+                        descripcion_auto = items_raw[i+1].strip()
+                        
+                        if nombre_auto or descripcion_auto:
+                            output_parts.append(f"|desc_{contador}: {nombre_auto}\n{descripcion_auto}|")
+                            contador += 1
+                
+                output_p = "\n".join(output_parts)
+                uid = f"lp_{lp_id}_{key.lower().replace(' ', '_')}"
+
+            # 5. FAQ
+            elif any(x in key.lower() for x in ["faqs", "questions", "faq"]):
+                disclaimer = ""
+                textos_proc = textos[:] 
+                if len(textos_proc) > 0 and ("basados en los resultados" in textos_proc[-1].lower() or "precios pueden variar" in textos_proc[-1].lower()):
+                    disclaimer = textos_proc.pop()
+
+                tit_h2 = textos_proc[0] if len(textos_proc) > 0 else ""
+                desc_h2 = textos_proc[1] if len(textos_proc) > 1 else ""
+                
+                output_parts = [
+                    f"|tit: {tit_h2}|",
+                    f"|desc: {desc_h2}|"
+                ]
+                
+                qa_items = textos_proc[2:] 
+                faq_index = 1
+                
+                for i in range(0, len(qa_items), 2):
+                    if i + 1 < len(qa_items):
+                        pregunta = qa_items[i].strip()
+                        respuesta = qa_items[i+1].strip()
+                        
+                        if pregunta or respuesta:
+                            output_parts.append(f"|faq_{faq_index}: {pregunta}: {respuesta}|")
+                            faq_index += 1
+                
+                if disclaimer:
+                    output_parts.append(f"|info: {disclaimer}|")
+                    
+                output_p = "\n".join(output_parts)
+                uid = f"lp_{lp_id}_{key.lower().replace(' ', '_')}"
+
+            # 6. FAVORITE CITIES (UNIFICADO)
+            elif any(x in key.lower() for x in ["favoritecities"]):
+                uid = f"lp_{lp_id}_favorite_cities_full" 
+
+                tit_h2 = textos[0] if len(textos) > 0 else tema
+                desc_h2 = textos[1] if len(textos) > 1 else ""
+                
+                output_parts = [
+                    f"|tit: {tit_h2}|",
+                    f"|desc: {desc_h2}|"
+                ]
+                
+                ciudades_raw = textos[2:]
+                
+                if ciudades_raw:
+                    contador = 1
+                    for i in range(0, len(ciudades_raw), 2):
+                        if i + 1 < len(ciudades_raw):
+                            nombre_ciudad = ciudades_raw[i].strip()
+                            desc_ciudad = ciudades_raw[i+1].strip()
+                            
+                            if nombre_ciudad and desc_ciudad:
+                                output_parts.append(f"|desc_{contador}: {nombre_ciudad}\n{desc_ciudad}|")
+                                contador += 1
+                
+                output_p = "\n".join(output_parts)
+
+            else:
+                output_p = "\n".join([f"|desc_{i+1}: {txt}|" for i, txt in enumerate(textos)])
+                uid = f"lp_{lp_id}_{key.lower().replace(' ', '_')}"
+            
+            # --- INPUT TÉCNICO ---
+            input_p = f"Nuevo tema: {tema}, Tipo: {block.upper()}, template: {template_name}"
+
+            # =========================================================
+            # VALIDACIÓN DE INTEGRIDAD
+            # =========================================================
+            
+            if not output_p or not output_p.strip():
+                continue
+            
+            if not input_p or not input_p.strip():
+                continue
+
+            contenido_real = re.sub(r'\|[^:]+:\s*\|', '', output_p).strip()
+            if len(contenido_real) < 3:
+                continue
+
+            if not uid:
+                uid = f"lp_{lp_id}_{key.lower().replace(' ', '_')}"
+            # =========================================================
+
+            dataset_entry = {
+                "user_id": u_id,
+                "input_prompt": input_p,
+                "expected_output": output_p,
+                "block_type": page,
+                "is_verified": True,
+                "dataset_version": "V2-PRUEBA-Miles",
+                "extra_metadata": {
+                    "unique_id": uid,
+                    "landing_page_id": str(lp_id),
+                    "proyecto_id": str(proyecto_db.id), # Guardamos la referencia al proyecto
+                    "template_name": template_name,   # CONFIG para que la IA sepa cómo se hace
+                    "estado_validado": estado_actual,
+                    "marca": metadata_front.get('marca'),
+                    "tema": metadata_front.get('tit_seo')
+                }
+            }
+
+            existing = db.query(TrainingDataset).filter(
+                cast(TrainingDataset.extra_metadata['unique_id'], String) == f'"{uid}"'
+            ).first()
+
+            if existing:
+                for k, v in dataset_entry.items(): setattr(existing, k, v)
+            else:
+                db.add(TrainingDataset(**dataset_entry))
+            
+            registros_creados += 1
+
+        db.commit()
+        return {"status": "success", "message": f"Se procesaron {registros_creados} bloques válidos."}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#COMANDO SQL PARA EXTRAER EL DATASET :docker exec -t redactoria-db-1 psql -U postgres -d cleanfastapi -c "COPY (SELECT input_prompt as input, expected_output as output, (extra_metadata->>'tema') as tema, (extra_metadata->>'marca') as marca, (extra_metadata->>'template_name') as template FROM training_dataset WHERE dataset_version = 'v1_prueba' AND is_verified = true) TO '/tmp/dataset_utf8.csv' WITH CSV HEADER;"
+#COMANDO PARA EXPORTAR DESDE EL CONTENEDOR: docker cp redactoria-db-1:/tmp/dataset_utf8.csv ./dataset_inspiracion_ia.csv

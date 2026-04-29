@@ -25,8 +25,6 @@ def register_routes(app: FastAPI):
         "http://192.168.1.129:3000",
         "http://192.168.1.129:8000",
         "http://192.168.1.129:1234",
-        "http://200.91.205.82:8000",
-        "http://200.91.205.82:3000",
         "http://192.168.1.36:8000",
         "http://192.168.1.36:8000",
         "http://192.168.1.36:1234",
@@ -45,7 +43,7 @@ def register_routes(app: FastAPI):
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
