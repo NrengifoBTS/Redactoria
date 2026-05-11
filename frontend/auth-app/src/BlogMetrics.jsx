@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import apiService from "./services/apiService.js";
 import { isAdminUser, isEditorUser } from "./utils/roles";
 import { useCurrentUser } from "./hooks/useApi.js";
@@ -26,8 +26,8 @@ const BlogMetrics = ({ blogId, onBack }) => {
       try {
         setLoading(true);
         const url = blogId
-          ? `http://localhost:8080/logs_blog/analytics/${blogId}`
-          : `http://localhost:8080/logs_blog/analytics/global/summary`;
+          ? `http://localhost:8000/logs_blog/analytics/${blogId}`
+          : `http://localhost:8000/logs_blog/analytics/global/summary`;
 
         const res = await axios.get(url);
         setData({

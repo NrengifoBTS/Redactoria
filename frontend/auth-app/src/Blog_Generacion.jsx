@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useState,
   useRef,
   useCallback,
@@ -437,16 +437,16 @@ const GeneracionBlog = () => {
   // // 3. CONSTANTES Y DATOS INICIALES
   // // =======================================================================
   // //--- URLs de la API del backend ---
-  const URL_API_SCRAPING = "http://192.168.1.129:8080/scraping/stream";
-  const URL_CONTENIDO_SECCION = "http://192.168.1.129:8080/ai/generate_content";
-  const URL_API_IA = "http://192.168.1.129:8080/ai/generate_structure";
-  const URL_API_BASE_BLOGS = "http://192.168.1.129:8080/blogs/";
+  const URL_API_SCRAPING = "http://192.168.1.129:8000/scraping/stream";
+  const URL_CONTENIDO_SECCION = "http://192.168.1.129:8000/ai/generate_content";
+  const URL_API_IA = "http://192.168.1.129:8000/ai/generate_structure";
+  const URL_API_BASE_BLOGS = "http://192.168.1.129:8000/blogs/";
   const URL_API_IA_COMPLETO =
-    "http://192.168.1.129:8080/ai/generate_full_content";
+    "http://192.168.1.129:8000/ai/generate_full_content";
 
-  const URL_API_IA_DOWNLOAD = "http://192.168.1.129:8080/ai/download_blog_doc";
+  const URL_API_IA_DOWNLOAD = "http://192.168.1.129:8000/ai/download_blog_doc";
 
-  const URL_API_IA_REGEN = "http://192.168.1.129:8080/ai/regenerate_titles";
+  const URL_API_IA_REGEN = "http://192.168.1.129:8000/ai/regenerate_titles";
 
   const mainTitle = datosFinales?.title || "Generación de Blog"; // <-- ¡Lee directo de datosFinales!
   // =======================================================================

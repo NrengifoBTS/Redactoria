@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
+﻿import React, { createContext, useState, useContext, useEffect } from "react";
 
 const AppContext = createContext();
 
@@ -11,7 +11,7 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   // Configuración base de la API
-  const API_BASE = process.env.REACT_APP_API_URL || "http://192.168.1.129:8080";
+  const API_BASE = process.env.REACT_APP_API_URL || "http://192.168.1.129:8000";
 
   // Funciones de utilidad para headers de API
   const getAuthHeaders = () => {

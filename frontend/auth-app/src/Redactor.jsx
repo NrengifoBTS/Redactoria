@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+﻿import React, { useState, useRef, useEffect, useCallback } from "react";
 import "./Redactor.css";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -1138,7 +1138,7 @@ export default function Redactor() {
 
       // Llamar al endpoint
       const API_BASE =
-        process.env.REACT_APP_API_URL || "http://192.168.1.129:8080";
+        process.env.REACT_APP_API_URL || "http://192.168.1.129:8000";
       const response = await fetch(`${API_BASE}/export/excel`, {
         method: "POST",
         headers: {

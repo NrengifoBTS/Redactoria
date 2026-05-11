@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+﻿import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Search,
@@ -147,7 +147,7 @@ function Dashboard() {
         setLoadingTemplates(true);
         // Usar endpoint que devuelve todos los templates (activos e inactivos) para filtrar proyectos
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8080"}/templates/public/all-for-analytics`,
+          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8000"}/templates/public/all-for-analytics`,
         );
         if (response.ok) {
           const templatesData = await response.json();
@@ -1546,7 +1546,7 @@ function CreateProyectoModal({ onClose, onSubmit, proyectoFilter, theme = { prim
       try {
         setTemplatesLoading(true);
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8080"}/templates/public/active`,
+          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8000"}/templates/public/active`,
         );
 
         if (response.ok) {
