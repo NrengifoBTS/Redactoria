@@ -11,13 +11,14 @@ import enum
 
 class EstadoBlog(str, enum.Enum):
     """Estados posibles de un Blog en el sistema."""
-    DRAFT = "draft"               # Borrador, recién creado (por defecto)
-    GENERATED = "generated"       # Estructura generada
-    REVIEW = "review"             # En revisión por un editor
-    REVIEWED_AI = "reviewed_ai"   # Revisado por IA (ortografía/SEO)
-    APPROVED = "approved"         # Aprobado para publicación
-    PUBLISHED = "published"       # Publicado
-    AJUSTED = "ajusted"           # Ajustes aplicados después de revisión
+    DRAFT = "draft"                       # Borrador, recién creado (por defecto)
+    GENERATED = "generated"               # Estructura generada
+    REVIEW = "review"                     # En revisión por un editor
+    PENDING_REVIEW = "pending_review"     # Pendiente de revisión (legado)
+    REVIEWED_AI = "reviewed_ai"           # Revisado por IA (ortografía/SEO)
+    APPROVED = "approved"                 # Aprobado para publicación
+    PUBLISHED = "published"               # Publicado
+    AJUSTED = "ajusted"                   # Ajustes aplicados después de revisión
 
 class PrioridadBlog(str, enum.Enum):
     """Niveles de prioridad para un Blog."""

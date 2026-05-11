@@ -130,7 +130,7 @@ const templateTextData = {
   "74-2": "Descripción H3",
   
   // Bloque 7 (filas 76-85)
-  "75-0": " ", "75-1": "Bloque 7:", "75-2": "Desclaimers F",
+  "75-0": " ", "75-1": "Bloque 7:", "75-2": "Disclaimer F",
 };
 
 // Función principal para obtener el template completo

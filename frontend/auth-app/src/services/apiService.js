@@ -1,5 +1,4 @@
-﻿const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://192.168.1.129:8000";
+﻿import { API_BASE_URL } from "../utils/apiBase";
 
 class ApiService {
   constructor() {
@@ -43,6 +42,47 @@ class ApiService {
     }
   }
 
+  async makeXmlHttpRequest(fullUrl, config) {
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open(config.method || "GET", fullUrl, true);
+
+      Object.entries(config.headers || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          request.setRequestHeader(key, value);
+        }
+      });
+
+      request.onload = () => {
+        const responseText = request.responseText;
+
+        resolve({
+          ok: request.status >= 200 && request.status < 300,
+          status: request.status,
+          statusText: request.statusText,
+          json: async () => {
+            if (!responseText) {
+              return {};
+            }
+
+            return JSON.parse(responseText);
+          },
+          text: async () => responseText,
+        });
+      };
+
+      request.onerror = () => {
+        reject(new TypeError("Failed to fetch"));
+      };
+
+      request.ontimeout = () => {
+        reject(new TypeError("Request timed out"));
+      };
+
+      request.send(config.body);
+    });
+  }
+
   // Método para hacer requests HTTP
   async makeRequest(url, options = {}) {
     // Verificar autenticación antes de hacer la petición
@@ -57,7 +97,18 @@ class ApiService {
     };
 
     try {
-      const response = await fetch(`${this.baseURL}${url}`, config);
+      const fullUrl = `${this.baseURL}${url}`;
+      let response;
+
+      try {
+        response = await fetch(fullUrl, config);
+      } catch (error) {
+        if (typeof XMLHttpRequest === "undefined") {
+          throw error;
+        }
+
+        response = await this.makeXmlHttpRequest(fullUrl, config);
+      }
 
       if (!response.ok) {
         // Manejo silencioso de errores de autenticación

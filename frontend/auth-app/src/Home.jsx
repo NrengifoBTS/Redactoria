@@ -312,7 +312,7 @@ const Home = () => {
                 alt="Logo BTS"
                 className="logo-image"
               />
-              <span className="logo-text">Presents Omina test </span>
+              <span className="logo-text">Presents Omina</span>
             </div>
           </Link>
           <nav className="header-nav">

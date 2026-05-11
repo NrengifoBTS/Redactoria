@@ -28,6 +28,7 @@ import {
   useFilters,
   useSearch,
 } from "./hooks/useApi.js";
+import { API_BASE_URL } from "./utils/apiBase";
 import apiService from "./services/apiService.js";
 import { isAdminUser, isEditorUser, ADMIN_USER_IDS } from "./utils/roles";
 
@@ -147,7 +148,7 @@ function Dashboard() {
         setLoadingTemplates(true);
         // Usar endpoint que devuelve todos los templates (activos e inactivos) para filtrar proyectos
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8000"}/templates/public/all-for-analytics`,
+          `${API_BASE_URL}/templates/public/all-for-analytics`,
         );
         if (response.ok) {
           const templatesData = await response.json();
@@ -522,7 +523,7 @@ function Dashboard() {
               }
             >
               <Home size={18} />
-              Home TEST
+              Home
             </button>
 
             {/* Analytics Button - Only for Admin/Editor */}
@@ -1294,11 +1295,23 @@ function ProjectsTable({
                       </div>
                     ) : (
                       <div>
-                        <p style={{ margin: 0, fontSize: "0.8rem", color: "#9ca3af" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.8rem",
+                            color: "#9ca3af",
+                          }}
+                        >
                           Template no disponible
                         </p>
                         {proyecto.templateId && (
-                          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", color: "#9ca3af" }}>
+                          <p
+                            style={{
+                              margin: "0.25rem 0 0 0",
+                              fontSize: "0.75rem",
+                              color: "#9ca3af",
+                            }}
+                          >
                             ID: {proyecto.templateId}
                           </p>
                         )}
@@ -1529,7 +1542,12 @@ function ProjectsTable({
 }
 
 // Modal para crear nuevo proyecto
-function CreateProyectoModal({ onClose, onSubmit, proyectoFilter, theme = { primary: "#3b82f6", primaryLight: "#dbeafe" } }) {
+function CreateProyectoModal({
+  onClose,
+  onSubmit,
+  proyectoFilter,
+  theme = { primary: "#3b82f6", primaryLight: "#dbeafe" },
+}) {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -1546,7 +1564,7 @@ function CreateProyectoModal({ onClose, onSubmit, proyectoFilter, theme = { prim
       try {
         setTemplatesLoading(true);
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8000"}/templates/public/active`,
+          `${API_BASE_URL}/templates/public/active`,
         );
 
         if (response.ok) {
@@ -1657,7 +1675,9 @@ function CreateProyectoModal({ onClose, onSubmit, proyectoFilter, theme = { prim
 
     const visibleGrouped = proyectoFilter
       ? Object.fromEntries(
-          Object.entries(templatesGrouped).filter(([key]) => key === proyectoFilter)
+          Object.entries(templatesGrouped).filter(
+            ([key]) => key === proyectoFilter,
+          ),
         )
       : templatesGrouped;
 
@@ -1706,12 +1726,18 @@ function CreateProyectoModal({ onClose, onSubmit, proyectoFilter, theme = { prim
                       <button
                         key={template.id}
                         type="button"
-                        onClick={() => setFormData({ ...formData, template_id: template.id })}
+                        onClick={() =>
+                          setFormData({ ...formData, template_id: template.id })
+                        }
                         style={{
                           padding: "0.4rem 0.9rem",
-                          border: isSelected ? `2px solid ${theme.primary}` : "1px solid #d1d5db",
+                          border: isSelected
+                            ? `2px solid ${theme.primary}`
+                            : "1px solid #d1d5db",
                           borderRadius: "9999px",
-                          backgroundColor: isSelected ? theme.primaryLight : "white",
+                          backgroundColor: isSelected
+                            ? theme.primaryLight
+                            : "white",
                           color: isSelected ? theme.primary : "#4b5563",
                           fontSize: "0.8rem",
                           fontWeight: isSelected ? "600" : "400",
@@ -1720,7 +1746,9 @@ function CreateProyectoModal({ onClose, onSubmit, proyectoFilter, theme = { prim
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
-                          boxShadow: isSelected ? `0 0 0 3px ${theme.primary}33` : "none",
+                          boxShadow: isSelected
+                            ? `0 0 0 3px ${theme.primary}33`
+                            : "none",
                         }}
                       >
                         {template.name}
@@ -1730,7 +1758,7 @@ function CreateProyectoModal({ onClose, onSubmit, proyectoFilter, theme = { prim
                 </div>
               </div>
             );
-          })
+          }),
         )}
 
         <style>{`

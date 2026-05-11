@@ -1,4 +1,4 @@
-#redactoria-test/src/core/config.py
+#redactoria/src/core/config.py
 
 """
 Core configuration settings.
@@ -37,7 +37,7 @@ class Settings:
     TEAMS_WEBHOOK_URL: str = os.getenv("TEAMS_WEBHOOK_URL", "")
     
     # 2. IMPORTANTE: El valor por defecto en test será sobreescrito por el .env.test (http://192.168.1.129:3001)
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3001")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
     # 3. Notificaciones: os.getenv devolverá lo que diga tu .env.test
     ENABLE_TEAMS_NOTIFICATIONS: bool = os.getenv("ENABLE_TEAMS_NOTIFICATIONS", "true").lower() == "true"

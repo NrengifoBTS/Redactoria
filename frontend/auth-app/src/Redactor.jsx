@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useApp } from "./context/AppContext";
 import { getExcelTemplate, columnHeaders, tableConfig } from "./templateConfig";
+import { API_BASE_URL } from "./utils/apiBase";
 import tableStyles, { getContainerStyle, getCellStyle } from "./tableStyles";
 import { isAdminUser, isEditorUser } from "./utils/roles";
 import apiService from "./services/apiService";
@@ -1137,8 +1138,7 @@ export default function Redactor() {
       };
 
       // Llamar al endpoint
-      const API_BASE =
-        process.env.REACT_APP_API_URL || "http://192.168.1.129:8000";
+      const API_BASE = API_BASE_URL;
       const response = await fetch(`${API_BASE}/export/excel`, {
         method: "POST",
         headers: {
@@ -1722,7 +1722,7 @@ export default function Redactor() {
           if (col >= 3) {
             const labelCell = templateData[`${rowStr}-2`];
             const label = (labelCell?.text || "").toLowerCase();
-            if (label.includes("disclaimer")) {
+            if (label.includes("disclaimer") || label.includes("desclaimer")) {
               fallback = templateCell?.text || "";
             }
           } else {

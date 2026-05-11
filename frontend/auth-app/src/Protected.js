@@ -1,5 +1,6 @@
 ﻿import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "./utils/apiBase";
 
 function ProtectedPage() {
   const navigate = useNavigate();
@@ -7,8 +8,7 @@ function ProtectedPage() {
   useEffect(() => {
     const verifyToken = async () => {
       const token = localStorage.getItem("token");
-      const API_BASE =
-        process.env.REACT_APP_API_URL || "http://192.168.1.129:8000";
+      const API_BASE = API_BASE_URL;
 
       try {
         const response = await fetch(`${API_BASE}/auth/verify-token/${token}`);
