@@ -27,6 +27,7 @@ class Proyecto(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, nullable=True)
     last_modified = Column(DateTime, default=datetime.utcnow, nullable=False)
+    assigned_at = Column(DateTime, nullable=True)
     
     
     creator = relationship("User", foreign_keys=[created_by], back_populates="created_projects")

@@ -12,6 +12,7 @@ import logging
 
 def create_proyecto(current_user: TokenData, db: Session, proyecto: models.ProyectoCreate) -> Proyecto:
     try:
+        now = datetime.now(timezone.utc)
         new_proyecto = Proyecto(
             name=proyecto.name,
             description=proyecto.description,
@@ -20,8 +21,9 @@ def create_proyecto(current_user: TokenData, db: Session, proyecto: models.Proye
             created_by=current_user.get_uuid(),
             assigned_to=proyecto.assigned_to,
             template_id=proyecto.template_id,
-            created_at=datetime.now(timezone.utc),
-            last_modified=datetime.now(timezone.utc)
+            created_at=now,
+            last_modified=now,
+            assigned_at=now if proyecto.assigned_to else None,
         )
         
         db.add(new_proyecto)
@@ -68,7 +70,7 @@ def get_proyectos(current_user: TokenData, db: Session,
     if assigned_to:
         query = query.filter(Proyecto.assigned_to == assigned_to)
     
-    proyectos = query.all()
+    proyectos = query.order_by(Proyecto.last_modified.desc()).all()
     logging.info(f"Retrieved {len(proyectos)} proyectos for user: {current_user.get_uuid()}")
     return proyectos
 
@@ -159,11 +161,12 @@ def delete_proyecto(current_user: TokenData, db: Session, proyecto_id: UUID) -> 
 
 def assign_proyecto(current_user: TokenData, db: Session, proyecto_id: UUID, assigned_to: UUID) -> Proyecto:
     proyecto = get_proyecto_by_id(current_user, db, proyecto_id)
-    
+
     proyecto.assigned_to = assigned_to
+    proyecto.assigned_at = datetime.now(timezone.utc)
     proyecto.updated_at = datetime.now(timezone.utc)
     proyecto.last_modified = datetime.now(timezone.utc)
-    
+
     db.commit()
     db.refresh(proyecto)
     logging.info(f"Proyecto {proyecto_id} assigned to {assigned_to} by user {current_user.get_uuid()}")
@@ -265,7 +268,7 @@ def _send_status_change_notification(
         changed_by_user = TokenData(user_id=str(changed_by_user_id))
 
         # Construir URL del proyecto
-        frontend_url = os.getenv("FRONTEND_URL", "http://192.168.1.129:3000/")
+        frontend_url = os.getenv("FRONTEND_URL", "http://192.168.1.129:3001/")
         project_url = f"{frontend_url}/redactor/{proyecto_id}"
 
         # Enviar notificaciones

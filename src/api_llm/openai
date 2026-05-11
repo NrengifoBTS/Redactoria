@@ -1,0 +1,113 @@
+import os
+from typing import Optional
+from dotenv import load_dotenv
+from openai import OpenAI
+
+# Cargamos las variables del archivo .env
+load_dotenv()
+
+class LLMClient:
+    """Cliente para comunicarse con la API de OpenAI adaptado para Redactoria."""
+    
+    def __init__(
+        self, 
+        model_name: str = "gpt-4o", 
+        temperature: float = 0.4
+    ):
+        # Aseguramos la carga de variables
+        load_dotenv()
+        
+        # El parámetro debe ser api_key (minúsculas)
+        # os.getenv("API_KEY") buscará lo que tienes en tu .env
+        self.client = OpenAI(api_key=os.getenv("API_KEY")) 
+        self.model_name = model_name
+        self.temperature = temperature
+
+    def _get_completion(self, system_message: str, prompt: str) -> str:
+        """Método unificado para evitar repetir lógica de peticiones con OpenAI."""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=self.temperature
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"Error al llamar a OpenAI: {e}")
+            return "[Error generando texto]"
+
+    def generate(self, prompt: str, system_message: Optional[str] = None) -> str:
+        if system_message is None:
+            system_message = ""
+        return self._get_completion(system_message, prompt)
+    
+    def load_system_message(self, message_path: str) -> str:
+        try:
+            with open(message_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            print(f"Error al cargar mensaje de sistema: {e}")
+            return ""
+        
+    def post_generate_uno(self, prompt: str, regla: str, system_message: Optional[str] = None) -> str:
+        if system_message is None:
+            system_message = f"""
+            ERES UN AGENTE SUPERVISOR SEO. Tu tarea es corregir el texto proporcionado aplicando reglas semánticas y de restricción.
+
+            REGLA DE EXTENSIÓN CRÍTICA:
+            - Debes mantener el texto dentro del rango de: {regla} palabras.
+
+            REGLAS DE VOCABULARIO (Sustitución obligatoria):
+            1. Homologaciones permitidas:
+               - Alquiler <-> Renta
+               - Autos <-> Carros <-> Vehículos
+            2. PALABRAS PROHIBIDAS (Si las encuentras, sustitúyelas o elimínalas):
+               - Coche, Automovil, Flota.
+               - Frases sobre "gastos/pagos/cargos ocultos o transparentes".
+               - "Descuentos relampago" o "Seguro de viaje gratis".
+
+            TABLA DE BENEFICIOS (Uso preferente para bloques fleet):
+            - Seguro de Viaje Gratis -> Cobertura de Viaje Gratis (Latam to USA/Brasil)
+            - Kilómetros Ilimitados -> Millas Ilimitadas (Todos)
+            - Asistencia Básica en Carretera -> Soporte Básico en Carretera (Todos)
+            - Conductor Adicional -> Otro conductor sin costo extra (Latam to USA/Brasil)
+            - Modificaciones sin Cargos Administrativos -> Modificaciones Flexibles (Todos)
+            - Cobertura de Daños al Vehículo -> Protección Contra Daños al Auto (Latam to Usa)
+            - Protección de Daños a Terceros -> Cobertura de Responsabilidad Civil (Latam to Usa)
+            - Cobertura por Robo -> Seguro Contra Hurto del Vehículo (Latam to Usa)
+            - Sin Deducibles -> Sin Responsabilidad Económica (Latam to Usa)
+
+            FORMATO DE SALIDA OBLIGATORIO:
+            - Responde ÚNICAMENTE con la estructura de bloques: |tit: ...| |desc: ...|
+            - No agregues introducciones, explicaciones ni etiquetas <think>.
+            - Mantén las etiquetas ip_ si están presentes.
+            """
+        return self._get_completion(system_message, prompt)
+
+
+    def post_generate_dos(self, prompt: str, regla: str, system_message: Optional[str] = None) -> str:
+        # Optimizamos el prompt para que actúe como un filtro de cierre estricto
+        if system_message is None:
+            system_message = f"""
+            ERES UN SUPERVISOR FINAL DE ESTRUCTURA Y EXTENSIÓN SEO.
+            Tu tarea es realizar la última revisión técnica antes de la publicación.
+
+            REGLA DE ORO DE EXTENSIÓN:
+            - El texto NO PUEDE EXCEDER el límite de: {regla} palabras.
+            - Si el texto recibido es más largo, RECORTA frases y simplifica hasta cumplir la regla. No pidas permiso, solo edita.
+
+            REGLAS DE ESTRUCTURA:
+            1. Solo puedes devolver bloques con el formato: |tit: ...| |desc: ...|
+            2. Si hay varios bloques (ej. |desc2:|), mantenlos en orden.
+            3. Respeta las etiquetas de bloques especiales como ip_ (ej. ip_fleet).
+            4. Asegúrate de que todos los pipes '|' y etiquetas ':' estén correctamente abiertos y cerrados.
+
+            RESTRICCIONES DE SALIDA:
+            - Prohibido incluir introducciones ("Aquí tienes...", "Texto corregido:").
+            - Prohibido incluir notas mentales o explicaciones de tus cambios.
+            - Solo entrega el resultado final.
+            """
+        return self._get_completion(system_message, prompt)

@@ -63,8 +63,9 @@ class TextProcessor:
         # Diccionario para almacenar los resultados
         extracted_fields = {}
 
-        # Patrón para extraer bloques con formato '|clave: valor|'
-        pattern = r"\|([\w_]+):\s*(.*?)\|"
+        # Patrón robusto: cierra campo al encontrar otro bloque |key: ...| o fin de texto
+        # Soporta bloques en la misma línea o en líneas separadas.
+        pattern = r"\|\s*([\w_]+)\s*:\s*(.*?)\s*\|(?=\s*\|\s*[\w_]+\s*:|\s*$)"
 
         # Buscar todos los bloques en el texto
         matches = re.findall(pattern, text, re.DOTALL)

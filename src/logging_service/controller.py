@@ -4,7 +4,6 @@ from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 from collections import Counter, defaultdict
 from sqlalchemy import cast, String
-from src.entities.landing_page import LandingPage
 import logging
 import json
 import re
@@ -13,6 +12,7 @@ import os
 from src.database.core import DbSession
 from src.auth.service import CurrentUser
 from src.entities.proyecto import Proyecto
+
 from .models import (
     LogUserEditRequest,
     UserProfileResponse,
@@ -958,12 +958,12 @@ def log_full_landing_dataset(
                 "expected_output": output_p,
                 "block_type": page,
                 "is_verified": True,
-                "dataset_version": "V2-PRUEBA-Miles",
+                "dataset_version": "v4_generic_style",
                 "extra_metadata": {
-                    "unique_id": uid,
                     "landing_page_id": str(lp_id),
                     "proyecto_id": str(proyecto_db.id), # Guardamos la referencia al proyecto
-                    "template_name": template_name,   # CONFIG para que la IA sepa cómo se hace
+                    "template_name": template_name,
+                    "template_config": t_config,    # CONFIG para que la IA sepa cómo se hace
                     "estado_validado": estado_actual,
                     "marca": metadata_front.get('marca'),
                     "tema": metadata_front.get('tit_seo')
@@ -987,19 +987,6 @@ def log_full_landing_dataset(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

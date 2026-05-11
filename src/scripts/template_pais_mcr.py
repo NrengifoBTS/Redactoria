@@ -8,7 +8,7 @@ def create_template():
     token = ""
     
     # URL de tu API
-    base_url = "http://192.168.1.129:8000"  
+    base_url = "http://192.168.1.129:8080"  
     
     # Template data - BLOQUE 1 Y BLOQUE 2
     template_text_data = {
@@ -188,22 +188,22 @@ def create_template():
         "59-3": "Tipos de vehículos de alquiler en Estados Unidos",
         "60-2": "descripción H2",
         "61-2": "h3",
-        "61-3": "Autos Económicos",
+        "61-3": "Económico",
         "62-2": "Descripción H3",
         "63-2": "h3",
-        "63-3": "SUV",
+        "63-3": "Camionetas",
         "64-2": "Descripción H3",
         "65-2": "h3",
-        "65-3": "Vans",
+        "65-3": "Van",
         "66-2": "Descripción H3",
-        "67-3": "h3",
-        "67-3": "Convetibles",
+        "67-2": "h3",
+        "67-3": "Convertibles",
         "68-2": "Descripción H3",
         "69-2": "h3",
-        "69-3": "Carros de lujo",
+        "69-3": "Lujo",
         "70-2": "Descripción H3",
         "71-2": "h3",
-        "71-3": "Auntos Eléctricos",   
+        "71-3": "Eléctricos",
         "72-2": "Descripción H3",
         
         # Bloque 8
@@ -320,8 +320,7 @@ def create_template():
                 "desc_3": "66-3",
                 "desc_4": "68-3",
                 "desc_5": "70-3",
-                "desc_6": "72-3",
-                "desc_7": "74-3"
+                "desc_6": "72-3"
             }
         }
     }

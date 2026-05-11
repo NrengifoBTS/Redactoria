@@ -21,20 +21,21 @@ import os
 
 def register_routes(app: FastAPI):
     origins = [
-        "http://localhost:3000", 
-        "http://192.168.1.129:3000",
-        "http://192.168.1.129:8000",
+        "http://localhost:3001", 
+        "http://192.168.1.129:3001",
+        "http://192.168.1.129:8080",
         "http://192.168.1.129:1234",
-        "http://192.168.1.36:8000",
-        "http://192.168.1.36:8000",
+        "http://192.168.1.36:8080",
+        "http://192.168.1.36:8080",
         "http://192.168.1.36:1234",
+        "http://172.18.16.1:1234",
 
 
 
     ]
     
     # Leer CORS origins desde variable de entorno
-    cors_origins_env = os.getenv('CORS_ORIGINS', 'http://localhost:3000')
+    cors_origins_env = os.getenv('CORS_ORIGINS', 'http://localhost:3001')
     origins = [origin.strip() for origin in cors_origins_env.split(',')]
 
     # Log para verificar configuración

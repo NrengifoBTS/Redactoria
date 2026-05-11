@@ -1,3 +1,5 @@
+#redactoria-test/src/core/config.py
+
 """
 Core configuration settings.
 
@@ -22,11 +24,6 @@ class Settings:
         'c7c17838-074d-44fa-9248-8dc87c15edd5',
         '152c46be-e2f4-48da-86b1-592af570624a',
         'b43f1d04-f339-4cf9-8e4e-4f127f12af5a',
-        "4e7a5222-8bd5-45c5-bdcd-e4dc1dbfe27d",
-        '2fd1e540-40be-42cf-9d2b-693b0d3132af',
-        '4a6b072e-bbb2-4280-ba9c-9f15d46807f6',
-        'ac652f1f-218c-48d0-86db-d2a9e68a3d10',
-        "a1116359-0fd7-43b4-b4eb-231bc2a14a21",
     ]
 
 
@@ -36,32 +33,26 @@ class Settings:
     ]
 
     # Notification settings
+    # 1. Leemos el Webhook (en test puede estar vacío en el .env.test)
     TEAMS_WEBHOOK_URL: str = os.getenv("TEAMS_WEBHOOK_URL", "")
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    
+    # 2. IMPORTANTE: El valor por defecto en test será sobreescrito por el .env.test (http://192.168.1.129:3001)
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3001")
+    
+    # 3. Notificaciones: os.getenv devolverá lo que diga tu .env.test
     ENABLE_TEAMS_NOTIFICATIONS: bool = os.getenv("ENABLE_TEAMS_NOTIFICATIONS", "true").lower() == "true"
+    
+    # 4. Nombre del Bot: Cámbialo en el .env.test para saber qué instancia te escribe
     TEAMS_BOT_NAME: str = os.getenv("TEAMS_BOT_NAME", "Sistema de Notificaciones")
 
-    # Timezone setting (default: America/Bogota for Colombia UTC-5)
     TIMEZONE: str = os.getenv("TIMEZONE", "America/Bogota")
 
     @classmethod
     def is_admin_user(cls, user_id: UUID | str | None) -> bool:
-        """
-        Check if a user ID belongs to an admin/supervisor.
-
-        Args:
-            user_id: UUID or string representation of user ID, can be None
-
-        Returns:
-            True if user is admin, False otherwise
-        """
         if user_id is None:
             return False
-
-        # Convert to string for comparison
         user_str = str(user_id)
         return user_str in cls.ADMIN_USER_IDS
-
 
 # Singleton instance
 settings = Settings()

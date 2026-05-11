@@ -49,7 +49,8 @@ class ProyectoResponse(ProyectoBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     last_modified: datetime
-    
+    assigned_at: Optional[datetime] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 # Modelos para requests específicos

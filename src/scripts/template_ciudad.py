@@ -8,7 +8,7 @@ def create_template():
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjYW1pbGFjQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJiNDNmMWQwNC1mMzM5LTRjZjktOGU0ZS00ZjEyN2YxMmFmNWEiLCJleHAiOjE3NTI4NTk1MDJ9.o9NeRqDJ7p9Aho9cDzzB-E5-RmMpDdfQIfSI5VisJPI"
     
     # URL de tu API
-    base_url = "http://192.168.1.129:8000"  
+    base_url = "http://192.168.1.129:8080"  
     
     # Template data - BLOQUE 1 Y BLOQUE 2
     template_text_data = {
@@ -80,13 +80,13 @@ def create_template():
         "31-3": "Alquiler de Camionetas",
         "32-2": "Descripción H3",
         "33-2": "H3",
-        "33-3": "Alquiler de Vans",
+        "33-3": "Alquiler de Convertibles",
         "34-2": "Descripción H3",
         "35-2": "H3",
-        "35-3": "Alquiler de Convertibles",
+        "35-3": "Alquiler de Autos de Lujo",
         "36-2": "Descripción H3",
         "37-2": "H3",
-        "37-3": "Alquiler de Autos de Lujo",
+        "37-3": "Alquiler de Vans",
         "38-2": "Descripción H3",
         "39-2": "H3",
         "39-3": "Alquiler de Autos Eléctricos",
@@ -229,27 +229,38 @@ def create_template():
             "name": "Bloque 6",
             "type": "fav_city",
             "startRow": 41,
-            "endRow": 75,
-            "titleRow": 61,
+            "endRow": 74,
+            "titleRow": 41,
             "descRow": 42,
             "contentMapping": {
-                "desc": "42-3",    
-                "desc_1": "44-3",         
-                "desc_2": "46-3",         
-                "desc_3": "48-3",         
-                "desc_4": "50-3",         
-                "desc_5": "52-3",         
-                "desc_6": "54-3",         
-                "desc_7": "56-3",         
-                "desc_8": "58-3",         
-                "desc_9": "60-3",         
-                "desc_10": "62-3",       
-                "desc_11": "64-3",        
-                "desc_12": "66-3",        
-                "desc_13": "68-3",       
-                "desc_14": "70-3",        
-                "desc_15": "72-3",        
-                "desc_16": "74-3"        
+                "desc": "42-3",
+                "desc_1": "44-3",
+                "desc_2": "46-3",
+                "desc_3": "48-3",
+                "desc_4": "50-3",
+                "desc_5": "52-3",
+                "desc_6": "54-3",
+                "desc_7": "56-3",
+                "desc_8": "58-3",
+                "desc_9": "60-3",
+                "desc_10": "62-3",
+                "desc_11": "64-3",
+                "desc_12": "66-3",
+                "desc_13": "68-3",
+                "desc_14": "70-3",
+                "desc_15": "72-3",
+                "desc_16": "74-3"
+            }
+        },
+        "7": {
+            "name": "Bloque 7",
+            "type": "disclaimer",
+            "startRow": 75,
+            "endRow": 75,
+            "titleRow": 75,
+            "descRow": 75,
+            "contentMapping": {
+                "disclaimer_f": "75-3"
             }
         }
     }

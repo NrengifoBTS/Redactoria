@@ -1,10 +1,11 @@
 import logging
 import os
+import re
 from uuid import UUID
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
 from src.auth.models import TokenData
-from src.core.content_generator import ContentGenerator  
+from src.core.content_generator import ContentGenerator, _FAV_CITY_DEFAULTS  
 from src.utils.file_utils import FileHandler
 from src.utils.text_utils import TextProcessor  
 from . import models
@@ -13,6 +14,12 @@ import traceback
 
 class IAService:
     """Servicio para manejar generación de contenido IA y traducción"""
+
+    _PRIMARY_KW_PATTERN = re.compile(r"\b(?:alquil\w*|rent\w*)\b", re.IGNORECASE)
+    _PRIMARY_KW_ALLOWED_FIELDS = re.compile(
+        r"^(tit(?:_\d+)?|titulo|h2|h2_desc|desc(?:_h[23])?|desc(?:_\d+)?|faq_\d+|ip_usa|ip_bra)$",
+        re.IGNORECASE,
+    )
     
     # Mapeo de bloques a métodos del generador
     BLOCK_METHODS = {
@@ -21,7 +28,10 @@ class IAService:
         "agencies": "generate_agencies",
         "faqs": "generate_faq",
         "car_rental": "generate_car_rental",
-        "fav_city": "generate_fav_city"
+        "fav_city": "generate_fav_city",
+        "bloquehistoria": "generate_bloquehistoria",
+        "favoritecities": "generate_fav_city",
+        "carrental": "generate_car_rental",
     }
     
     BLOCK_NAMES = {
@@ -32,6 +42,22 @@ class IAService:
         5: "Bloque 5",
         6: "Bloque 6"
     }
+
+    @staticmethod
+    def normalize_block_type(block_type: str) -> str:
+        """Homologa aliases de bloque entre frontend, templates y backend."""
+        bt = (block_type or "").strip()
+        bt_lower = bt.lower()
+        alias_map = {
+            "favoritecities": "fav_city",
+            "favorite_cities": "fav_city",
+            "locationscarousel": "locationscarrusel",
+            "carrental": "car_rental",
+            "car_rental": "car_rental",
+            "faq": "faqs",
+            "questions": "questions",
+        }
+        return alias_map.get(bt_lower, bt_lower)
 
     @staticmethod
     def clean_html_artifacts(text: str) -> str:
@@ -61,13 +87,61 @@ class IAService:
         text = text.replace('&gt;', '>')
         text = text.replace('&quot;', '"')
         
-        # Limpiar espacios múltiples
-        text = re.sub(r'\s+', ' ', text)
-        
+        # Limpiar espacios múltiples (preservar saltos de línea)
+        text = re.sub(r'[^\S\n]+', ' ', text)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+
         # Limpiar espacios al inicio y final
         text = text.strip()
         
         return text
+
+    @staticmethod
+    def _preserve_case(replacement: str, original: str) -> str:
+        if original.isupper():
+            return replacement.upper()
+        if original[:1].isupper():
+            return replacement.capitalize()
+        return replacement
+
+    @staticmethod
+    def _limit_primary_keyword_mentions(text: str, max_mentions: int = 1) -> str:
+        """Limita menciones de la familia alquila/renta a maximo 1 por campo."""
+        if not text or max_mentions < 0:
+            return text
+
+        mentions = 0
+        replacement_idx = 0
+        alternatives = ("reserva", "compara", "elige", "viaja")
+
+        def _replace(match: re.Match) -> str:
+            nonlocal mentions, replacement_idx
+            mentions += 1
+            if mentions <= max_mentions:
+                return match.group(0)
+
+            alt = alternatives[replacement_idx % len(alternatives)]
+            replacement_idx += 1
+            return IAService._preserve_case(alt, match.group(0))
+
+        limited = IAService._PRIMARY_KW_PATTERN.sub(_replace, text)
+        return re.sub(r"\s{2,}", " ", limited).strip()
+
+    @staticmethod
+    def _enforce_primary_keyword_policy(structured_content: Dict[str, Any]) -> Dict[str, Any]:
+        """Aplica politica de keyword principal por seccion para H2/H3 y descripciones."""
+        if not structured_content:
+            return structured_content
+
+        for key, value in list(structured_content.items()):
+            if not isinstance(value, str):
+                continue
+            if key.startswith("q_"):
+                continue
+            if IAService._PRIMARY_KW_ALLOWED_FIELDS.match(key):
+                structured_content[key] = IAService._limit_primary_keyword_mentions(value, max_mentions=1)
+
+        return structured_content
 
     @staticmethod
     def process_llm_response(raw_content: str, block_type: str) -> Dict[str, Any]:
@@ -76,6 +150,7 @@ class IAService:
         """
         try:
             import re
+            block_type = IAService.normalize_block_type(block_type)
             
             # Extraer el contenido think si existe
             think_pattern = r'<think>(.*?)</think>'
@@ -103,10 +178,17 @@ class IAService:
                 "block_type": block_type
             }
             
+            def _numeric_suffix(key: str, prefix: str) -> int:
+                if not key.startswith(prefix):
+                    return -1
+                suffix = key[len(prefix):]
+                return int(suffix) if suffix.isdigit() else -1
+
             # Procesamiento específico por tipo de bloque
             if block_type == "quicksearch":
                 # Bloque 1: tit, desc
                 result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
                     "titulo": extracted_fields.get("tit", ""),
                     "desc": extracted_fields.get("desc", "")
                 }
@@ -114,34 +196,65 @@ class IAService:
             elif block_type == "fleet":
                 # Bloque 2: tit, desc, ip_usa, ip_bra
                 result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
                     "titulo": extracted_fields.get("tit", ""),
                     "desc": extracted_fields.get("desc", ""),
                     "ip_usa": extracted_fields.get("ip_usa", ""),
                     "ip_bra": extracted_fields.get("ip_bra", "")
                 }
-                
-            elif block_type == "rentacar":
-                # Bloque rentacar: tit, desc, desc_h2, desc_h3
+
+            elif block_type == "deals":
                 result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
                     "titulo": extracted_fields.get("tit", ""),
                     "desc": extracted_fields.get("desc", ""),
-                    "desc_h2": extracted_fields.get("desc_h2", ""),
-                    "desc_h3": extracted_fields.get("desc_h3", "")
-    }
+                    "ip_usa": extracted_fields.get("ip_usa", ""),
+                    "ip_bra": extracted_fields.get("ip_bra", ""),
+                }
+
+            elif block_type == "deals_additional":
+                result["structured_content"] = {}
+                indexed_keys = sorted(
+                    [k for k in extracted_fields.keys() if _numeric_suffix(k, "tit_") > 0 or _numeric_suffix(k, "desc_") > 0],
+                    key=lambda k: _numeric_suffix(k, "tit_") if _numeric_suffix(k, "tit_") > 0 else _numeric_suffix(k, "desc_")
+                )
+                for key in indexed_keys:
+                    result["structured_content"][key] = extracted_fields[key]
+                
+            elif block_type == "rentacar":
+                result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
+                    "titulo": extracted_fields.get("tit", ""),
+                    "desc": extracted_fields.get("desc", ""),
+                    "tit_1": extracted_fields.get("tit_1", ""),
+                    "desc_1": extracted_fields.get("desc_1", ""),
+                    "tit_2": extracted_fields.get("tit_2", ""),
+                    "desc_2": extracted_fields.get("desc_2", ""),
+                }
+
+            elif block_type == "bloquehistoria":
+                result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
+                    "titulo": extracted_fields.get("tit", ""),
+                    "desc": extracted_fields.get("desc", extracted_fields.get("desc_h2", "")),
+                    "desc_h2": extracted_fields.get("desc", extracted_fields.get("desc_h2", "")),
+                }
                 
             
                 
             elif block_type == "reviews" or block_type == "rentcompanies":
                 # Bloque reviews/rentcompanies: tit, desc
                 result["structured_content"]= {
+                    "tit": extracted_fields.get("tit", ""),
                     "titulo": extracted_fields.get("tit", ""),
-                    "desc": extracted_fields.get("desc", ""),
-                    "desc_h2": extracted_fields.get("desc", "")
+                    "desc": extracted_fields.get("desc_h2", extracted_fields.get("desc", "")),
+                    "desc_h2": extracted_fields.get("desc_h2", extracted_fields.get("desc", ""))
                 }
 
             elif block_type == "agencies":
                 # Bloque 3: tit, desc_h2, desc_h3
                 result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
                     "titulo": extracted_fields.get("tit", ""),
                     "desc_h2": extracted_fields.get("desc_h2", ""),
                     "desc_h3": extracted_fields.get("desc_h3", "")
@@ -150,8 +263,14 @@ class IAService:
             elif block_type == "faqs" or block_type == "questions":
                 # Bloque 4: desc
                 result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
+                    "titulo": extracted_fields.get("tit", ""),
                     "desc": extracted_fields.get("desc", "")
                 }
+                for i in range(1, 8):
+                    q_key = f"q_{i}"
+                    if q_key in extracted_fields:
+                        result["structured_content"][q_key] = extracted_fields[q_key]
                 
             elif block_type == "faqs_additional":
                 # Procesar respuestas individuales de FAQ
@@ -160,50 +279,81 @@ class IAService:
                     faq_key = f"faq_{i}"
                     if faq_key in extracted_fields:
                         result["structured_content"][faq_key] = extracted_fields[faq_key]
+                    q_key = f"q_{i}"
+                    if q_key in extracted_fields:
+                        result["structured_content"][q_key] = extracted_fields[q_key]
                 
             elif block_type == "car_rental" or block_type == "fleetcarrusel":
                 # Bloque 5: desc
                 result["structured_content"] = {
-                    "desc": extracted_fields.get("desc", "")
+                    "tit": extracted_fields.get("tit", ""),
+                    "titulo": extracted_fields.get("tit", ""),
+                    "desc": extracted_fields.get("desc", ""),
+                    "desc_h2": extracted_fields.get("desc_h2", ""),
+                    "desc_h3": extracted_fields.get("desc_h3", "")
                 }
                 
             elif block_type == "advicestipocarrusel":
                 # Bloque: desc
                 result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
+                    "titulo": extracted_fields.get("tit", ""),
                     "desc": extracted_fields.get("desc", "")
                 }
                 
             elif block_type == "advicestipocarrusel_additional":
                 # Procesar descripciones de consejos
                 result["structured_content"] = {}
-                for i in range(1, 7):  # desc_1 hasta desc_6
-                    desc_key = f"desc_{i}"
-                    if desc_key in extracted_fields:
-                        result["structured_content"][desc_key] = extracted_fields[desc_key]
+                desc_keys = sorted(
+                    [k for k in extracted_fields.keys() if _numeric_suffix(k, "desc_") > 0],
+                    key=lambda k: _numeric_suffix(k, "desc_")
+                )
+                for desc_key in desc_keys:
+                    result["structured_content"][desc_key] = extracted_fields[desc_key]
                 
             elif block_type == "car_rental_additional" or block_type == "fleetcarrusel_additional":
                 # Procesar descripciones de tipos de autos
                 result["structured_content"] = {}
-                for i in range(1, 7):  # desc_1 hasta desc_6
-                    desc_key = f"desc_{i}"
-                    if desc_key in extracted_fields:
-                        result["structured_content"][desc_key] = extracted_fields[desc_key]
+                indexed_keys = sorted(
+                    [k for k in extracted_fields.keys() if _numeric_suffix(k, "tit_") > 0 or _numeric_suffix(k, "desc_") > 0],
+                    key=lambda k: _numeric_suffix(k, "tit_") if _numeric_suffix(k, "tit_") > 0 else _numeric_suffix(k, "desc_")
+                )
+                for key in indexed_keys:
+                    result["structured_content"][key] = extracted_fields[key]
                 
             elif block_type == "fav_city" or block_type == "locationscarrusel":
                 # Bloque 6: tit, desc
                 result["structured_content"] = {
+                    "tit": extracted_fields.get("tit", ""),
                     "titulo": extracted_fields.get("tit", ""),
-                    "desc": extracted_fields.get("desc", "")
+                    "h2": extracted_fields.get("tit", ""),
+                    "desc": extracted_fields.get("desc", ""),
+                    "h2_desc": extracted_fields.get("desc", ""),
                 }
                 
             elif block_type == "fav_city_additional" or block_type == "locationscarrusel_additional":
                 # Procesar descripciones de ciudades/ubicaciones
                 result["structured_content"] = {}
-                for i in range(1, 20):  # Soporta hasta 19 ciudades (desc_1 a desc_19)
-                    desc_key = f"desc_{i}"
-                    if desc_key in extracted_fields:
-                        result["structured_content"][desc_key] = extracted_fields[desc_key]
+                indexed_keys = sorted(
+                    [k for k in extracted_fields.keys() if _numeric_suffix(k, "tit_") > 0 or _numeric_suffix(k, "desc_") > 0],
+                    key=lambda k: _numeric_suffix(k, "tit_") if _numeric_suffix(k, "tit_") > 0 else _numeric_suffix(k, "desc_")
+                )
+                for key in indexed_keys:
+                    result["structured_content"][key] = extracted_fields[key]
             
+            # Garantizar que 'titulo' siempre esté en structured_content si el LLM generó 'tit'
+            if "structured_content" in result and "tit" in extracted_fields:
+                if not result["structured_content"].get("titulo"):
+                    result["structured_content"]["titulo"] = extracted_fields["tit"]
+                if not result["structured_content"].get("tit"):
+                    result["structured_content"]["tit"] = extracted_fields["tit"]
+
+            # Regla global: maximo 1 mención de alquila/renta por campo en secciones.
+            if "structured_content" in result:
+                result["structured_content"] = IAService._enforce_primary_keyword_policy(
+                    result["structured_content"]
+                )
+
             # Agregar información adicional útil para el frontend
             result["frontend_ready"] = {
                 "has_think": bool(think_content),
@@ -317,128 +467,104 @@ class IAService:
             titulo_sin_html = re.sub(r'<[^>]+>', '', titulo_original)
             titulo_limpio = titulo_sin_html.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&quot;', '"')
             titulo_limpio = titulo_limpio.strip()
-            logging.info(f"BACKEND RAW - blockType del request: '{request.blockType}'")
-            logging.info(f"BACKEND RAW - blockNumber del request: {request.blockNumber}")
-            # Debug: verificar si el frontend envía datos del template
-            logging.info(f"BACKEND RAW - template_proyecto: '{request.template_proyecto}'")
-            logging.info(f"BACKEND RAW - template_dominio: '{request.template_dominio}'")
-            logging.info(f"BACKEND RAW - template_categoria: '{request.template_categoria}'")
             if len(titulo_limpio) > 100:
                 titulo_limpio = titulo_limpio[:100] + "..."
-                 
+
             nuevo_tema = request.tema or "Tema por defecto"
-            # Determinar block_type
-            block_type = request.blockType   # Usar  el tipo de bloque
-            logging.info(f"BACKEND ASIGNADO - block_type variable: '{block_type}'")
-            # Cargar ejemplos
-            try:
-                if request.template_proyecto and request.template_dominio and request.template_categoria:
-                    secciones_ejemplos = IAService.load_ejemplos_from_data_folder(
-                        request.template_proyecto, 
-                        request.template_dominio, 
-                        request.template_categoria
-                    )
-                    ejemplos = secciones_ejemplos.get(block_type, [])
-                else:
-                    logging.warning("No se recibieron datos del template para cargar ejemplos")
-                    ejemplos = []
-            except Exception as e:
-                logging.error(f"Error cargando ejemplos: {str(e)}")
-                ejemplos = []
-            
-            # Inicializar generador
-            try:
-                generator = ContentGenerator()
-            except Exception as e:
-                logging.error(f"Error inicializando generator: {str(e)}")
-                raise e
-            
-            # GENERACIÓN DE CONTENIDO PARA TODOS LOS BLOQUES
+            block_type = IAService.normalize_block_type(request.blockType)
+            logging.info(f"Generando bloque '{block_type}' para LP {landing_page_id}")
+
+            brand = (request.brand or "mcr").lower()
+            generator = ContentGenerator(brand=brand)
             raw_generated_content = ""
             additional_content = ""
-            
+            faq_questions_for_response: List[str] = []
+            city_titles_for_response: List[str] = []
+
             try:
-                
-                logging.info(f"BACKEND ANTES DEL SWITCH - block_type final: '{block_type}'")
                 if block_type == "quicksearch":
-                    template_data = {}
-                    raw_generated_content = generator.generate_quicksearch(titulo_limpio, template_data, nuevo_tema, ejemplos)
-                    
+                    raw_generated_content = generator.generate_quicksearch(titulo_limpio, nuevo_tema)
+
                 elif block_type == "fleet":
-                    template_data = {}
-                    raw_generated_content = generator.generate_fleet(titulo_limpio, template_data, nuevo_tema, ejemplos)
-                    
+                    raw_generated_content = generator.generate_fleet(titulo_limpio, nuevo_tema)
+
+                elif block_type == "deals":
+                    raw_generated_content = generator.generate_deals(titulo_limpio, nuevo_tema)
+                    tipos_validos = [t for t in (request.car_types or []) if t and t.strip()]
+                    if not tipos_validos:
+                        tipos_validos = [
+                            "Ofertas de Autos Económicos", "Ofertas de SUV", "Ofertas de Vans",
+                            "Ofertas de Autos de Lujo", "Ofertas de Convertibles",
+                            "Ofertas de Autos Eléctricos", "Ofertas de Alquiler Semanal",
+                        ]
+                    additional_content = generator.generate_car_type(tipos_validos, nuevo_tema)
+
                 elif block_type == "agencies":
-                    template_data = {}
-                    raw_generated_content = generator.generate_agencies(titulo_limpio, template_data, nuevo_tema, ejemplos)
-                    
-                elif block_type == "reviews" or block_type == "rentcompanies":
-                    template_data = {}
-                    raw_generated_content = generator.generate_reviews(titulo_limpio, template_data, nuevo_tema, ejemplos)
-                    
+                    raw_generated_content = generator.generate_agencies(titulo_limpio, nuevo_tema)
+
+                elif block_type == "reviews":
+                    raw_generated_content = generator.generate_reviews(titulo_limpio, nuevo_tema)
+
+                elif block_type == "rentcompanies":
+                    raw_generated_content = generator.generate_rentcompanies(titulo_limpio, nuevo_tema)
+
+                elif block_type == "bloquehistoria":
+                    raw_generated_content = generator.generate_bloquehistoria(titulo_limpio, nuevo_tema)
+
                 elif block_type == "advicestipocarrusel":
-                    raw_generated_content = generator.generate_advicestipocarrusel(titulo_limpio, nuevo_tema, ejemplos)
-                    
-                    tipos_recibidos = request.car_types or []  # Reutilizamos car_types para los consejos
-                    tipos_validos = [t for t in tipos_recibidos if t and t.strip()]
-                    
-                    if tipos_validos:
-                        additional_content = generator.generate_advice_type(tipos_validos, nuevo_tema, ejemplos)
-                    else:
-                        logging.error("ADVICES: No se encontraron consejos válidos del frontend")
-                        tipos_default = [
-                            "Consejo sobre reservas", "Consejo sobre seguros", 
+                    raw_generated_content = generator.generate_advicestipocarrusel(titulo_limpio, nuevo_tema)
+                    tipos_validos = [t for t in (request.car_types or []) if t and t.strip()]
+                    if not tipos_validos:
+                        tipos_validos = [
+                            "Consejo sobre reservas", "Consejo sobre seguros",
                             "Consejo sobre combustible", "Consejo sobre documentación",
                             "Consejo sobre inspección", "Consejo sobre devolución"
                         ]
-                        additional_content = generator.generate_advice_type(tipos_default, nuevo_tema, ejemplos)
-                    
+                    additional_content = generator.generate_advice_type(tipos_validos, nuevo_tema)
+
                 elif block_type == "rentacar":
-                    template_data = {}
-                    raw_generated_content = generator.generate_rentacar(titulo_limpio, template_data, nuevo_tema, ejemplos)
-                    
+                    raw_generated_content = generator.generate_rentacar(titulo_limpio, nuevo_tema)
+
                 elif block_type == "faqs" or block_type == "questions":
-                    raw_generated_content = generator.generate_faq(titulo_limpio, nuevo_tema, ejemplos)
-                    
-                    preguntas_recibidas = request.faq_questions or []
-                    preguntas_validas = [q for q in preguntas_recibidas if q and q.strip()]
-                    
-                    if preguntas_validas:
-                        additional_content = generator.generate_faq_respuesta(nuevo_tema, preguntas_validas, ejemplos)
-                    else:
-                        additional_content = "|error: No se encontraron preguntas válidas para generar respuestas|"
-                
+                    raw_generated_content = generator.generate_faq(titulo_limpio, nuevo_tema)
+                    preguntas_validas = [q for q in (request.faq_questions or []) if q and q.strip()]
+                    if not preguntas_validas:
+                        preguntas_validas = generator.generate_faq_questions_from_title(titulo_limpio)
+                        logging.info(f"FAQs: preguntas auto-generadas desde título: {preguntas_validas}")
+                    preguntas_validas = preguntas_validas[:4]
+                    faq_questions_for_response = preguntas_validas
+                    additional_content = generator.generate_faq_respuesta(nuevo_tema, preguntas_validas)
+
                 elif block_type == "car_rental" or block_type == "fleetcarrusel":
-                    raw_generated_content = generator.generate_car_rental(1, titulo_limpio, nuevo_tema, ejemplos)
-                    
-                    tipos_recibidos = request.car_types or []
-                    tipos_validos = [t for t in tipos_recibidos if t and t.strip()]
-                    print(request)
-                    if tipos_validos:
-                        additional_content = generator.generate_car_type(tipos_validos, nuevo_tema, ejemplos)
-                    else:
-                        tipos_autos_default = [
-                            "Autos x defecto 1", "Autos x defecto 2", "Autos x defecto 3",
-                            "Autos x defecto 4", "Autos x defecto 5", "Autos x defecto 6"
-                        ]
-                        additional_content = generator.generate_car_type(tipos_autos_default, nuevo_tema, ejemplos)
-                    
-                    
+                    raw_generated_content = generator.generate_car_rental(titulo_limpio, nuevo_tema)
+                    _STANDARD_CAR_TYPES = ["Económico", "Camionetas", "Convertibles", "Lujo", "Van", "Eléctricos"]
+                    tipos_validos = [t for t in (request.car_types or []) if t and t.strip()]
+                    logging.info(f"CAR_TYPES recibidos: {tipos_validos}")
+                    if not tipos_validos:
+                        tipos_validos = _STANDARD_CAR_TYPES
+                    additional_content = generator.generate_car_type(tipos_validos, nuevo_tema)
+
                 elif block_type == "fav_city" or block_type == "locationscarrusel":
-                    template_data = {}
-                    raw_generated_content = generator.generate_fav_city(titulo_limpio, template_data, nuevo_tema, ejemplos)
-                    
-                    ciudades_recibidas = request.fav_city_questions or []
-                    ciudades_validas = [c for c in ciudades_recibidas if c and c.strip()]
-                    
+                    raw_generated_content = generator.generate_fav_city(titulo_limpio, nuevo_tema)
+                    ciudades_validas = [c for c in (request.fav_city_questions or []) if c and c.strip()]
                     if ciudades_validas:
-                        additional_content = generator.generate_fav_city_respuesta(nuevo_tema, ciudades_validas, ejemplos)
+                        # El usuario ya proveyó su lista — respetarla exactamente.
+                        target_city_items = len(ciudades_validas)
                     else:
-                        logging.error("No se encontraron ciudades válidas del frontend")
-                        additional_content = "|error: No se encontraron ciudades válidas para generar descripciones|"
-                    
+                        # Sin input del usuario: usar siempre la lista estática.
+                        ciudades_validas = [c[0] for c in _FAV_CITY_DEFAULTS]
+                        target_city_items = len(ciudades_validas)
+                        logging.info("Favorite Cities: usando lista estática por defecto")
+
+                    ciudades_validas = ciudades_validas[:target_city_items]
+                    city_titles_for_response = ciudades_validas
+                    if ciudades_validas:
+                        additional_content = generator.generate_fav_city_respuesta(nuevo_tema, ciudades_validas)
+                    else:
+                        additional_content = "|error: No se pudieron generar ciudades|"
+
                 else:
-                    logging.error(f"Block type {block_type} no válido")
+                    logging.error(f"Block type '{block_type}' no válido")
                     raw_generated_content = f"|desc: Error - Tipo de bloque {block_type} no válido|"
 
             except Exception as e:
@@ -470,18 +596,130 @@ class IAService:
                 try:
                     additional_processed = IAService.process_llm_response(additional_content, f"{block_type}_additional")
                     
-                    if additional_processed and additional_processed.get("processed_fields"):
-                        # Combinar campos del contenido adicional con el principal
-                        processed_response["structured_content"].update(additional_processed["processed_fields"])
-                        processed_response["frontend_ready"]["available_fields"].extend(additional_processed["frontend_ready"]["available_fields"])
-                        processed_response["frontend_ready"]["field_count"] += additional_processed["frontend_ready"]["field_count"]
-                        processed_response["frontend_ready"]["content_preview"].update(additional_processed["frontend_ready"]["content_preview"])
+                    if additional_processed:
+                        # Priorizar structured_content del bloque adicional y usar processed_fields como respaldo.
+                        additional_fields = (
+                            additional_processed.get("structured_content")
+                            or additional_processed.get("processed_fields")
+                            or {}
+                        )
+                        if additional_fields:
+                            processed_response["structured_content"].update(additional_fields)
+
+                            available = list(additional_processed.get("frontend_ready", {}).get("available_fields", []))
+                            preview = dict(additional_processed.get("frontend_ready", {}).get("content_preview", {}))
+                            for key in additional_fields.keys():
+                                if key not in available:
+                                    available.append(key)
+                                if key not in preview:
+                                    val = additional_fields.get(key, "")
+                                    preview[key] = val[:100] + "..." if isinstance(val, str) and len(val) > 100 else (val or "")
+
+                            merged_available = list(dict.fromkeys(
+                                processed_response["frontend_ready"].get("available_fields", []) + available
+                            ))
+                            processed_response["frontend_ready"]["available_fields"] = merged_available
+                            processed_response["frontend_ready"]["field_count"] = len(merged_available)
+                            processed_response["frontend_ready"]["content_preview"].update(preview)
                     
                 except Exception as e:
                     logging.error(f"Error en proceso adicional: {str(e)}")
+
+            # Asegurar preguntas FAQ en la respuesta final (q_1..q_n)
+            if faq_questions_for_response:
+                for i, pregunta in enumerate(faq_questions_for_response, start=1):
+                    key = f"q_{i}"
+                    processed_response["structured_content"][key] = pregunta
+                    if key not in processed_response["frontend_ready"]["available_fields"]:
+                        processed_response["frontend_ready"]["available_fields"].append(key)
+                        processed_response["frontend_ready"]["field_count"] += 1
+                    processed_response["frontend_ready"]["content_preview"][key] = (
+                        pregunta[:100] + "..." if len(pregunta) > 100 else pregunta
+                    )
+
+            # Asegurar títulos de Favorite Cities (tit_1..tit_n)
+            if city_titles_for_response:
+                import re as _re
+                _prefix_pat = _re.compile(
+                    r"(?i)^(alquiler de autos en|renta de autos en|renta de carros en|"
+                    r"alquiler de carros en|rentar un auto en|reservar un auto en)\s*"
+                )
+                for i, ciudad in enumerate(city_titles_for_response, start=1):
+                    key = f"tit_{i}"
+                    # En favoriteCities, h3 debe ser solo ciudad/localidad.
+                    ciudad_clean = _prefix_pat.sub("", ciudad).strip()
+                    ciudad_clean = generator.sanitize_city_name(ciudad_clean)
+                    if ciudad_clean:
+                        processed_response["structured_content"][key] = ciudad_clean
+                    else:
+                        existing = (processed_response["structured_content"].get(key) or "").strip()
+                        existing_clean = _prefix_pat.sub("", existing).strip()
+                        existing_clean = generator.sanitize_city_name(existing_clean)
+                        if existing_clean:
+                            processed_response["structured_content"][key] = existing_clean
+                    if key not in processed_response["frontend_ready"]["available_fields"]:
+                        processed_response["frontend_ready"]["available_fields"].append(key)
+                        processed_response["frontend_ready"]["field_count"] += 1
+                    processed_response["frontend_ready"]["content_preview"][key] = (
+                        processed_response["structured_content"].get(key, "")
+                    )
+
+            # Asegurar H2 de Favorite Cities (tit/titulo) cuando el parser no lo traiga.
+            if block_type in ("fav_city", "locationscarrusel"):
+                tit_val = (processed_response["structured_content"].get("tit") or "").strip()
+                if not tit_val:
+                    location = generator._extract_location_from_title(nuevo_tema)
+                    fallback_h2 = f"Ciudades populares para rentar un auto cerca de {location}"
+                    processed_response["structured_content"]["tit"] = fallback_h2
+                    processed_response["structured_content"]["h2"] = fallback_h2
+                    if "tit" not in processed_response["frontend_ready"]["available_fields"]:
+                        processed_response["frontend_ready"]["available_fields"].append("tit")
+                        processed_response["frontend_ready"]["field_count"] += 1
+                    if "h2" not in processed_response["frontend_ready"]["available_fields"]:
+                        processed_response["frontend_ready"]["available_fields"].append("h2")
+                        processed_response["frontend_ready"]["field_count"] += 1
+                    processed_response["frontend_ready"]["content_preview"]["tit"] = fallback_h2
+                    processed_response["frontend_ready"]["content_preview"]["h2"] = fallback_h2
+
+                # Mantener siempre consistencia entre tit y titulo para que UI pinte el H2.
+                final_h2 = (processed_response["structured_content"].get("tit") or "").strip()
+                if final_h2:
+                    processed_response["structured_content"]["titulo"] = final_h2
+                    processed_response["structured_content"]["h2"] = final_h2
+                    if "titulo" not in processed_response["frontend_ready"]["available_fields"]:
+                        processed_response["frontend_ready"]["available_fields"].append("titulo")
+                        processed_response["frontend_ready"]["field_count"] += 1
+                    if "h2" not in processed_response["frontend_ready"]["available_fields"]:
+                        processed_response["frontend_ready"]["available_fields"].append("h2")
+                        processed_response["frontend_ready"]["field_count"] += 1
+                    processed_response["frontend_ready"]["content_preview"]["titulo"] = final_h2
+                    processed_response["frontend_ready"]["content_preview"]["h2"] = final_h2
+
+                final_desc = (processed_response["structured_content"].get("desc") or "").strip()
+                if final_desc:
+                    processed_response["structured_content"]["h2_desc"] = final_desc
+                    if "h2_desc" not in processed_response["frontend_ready"]["available_fields"]:
+                        processed_response["frontend_ready"]["available_fields"].append("h2_desc")
+                        processed_response["frontend_ready"]["field_count"] += 1
+                    processed_response["frontend_ready"]["content_preview"]["h2_desc"] = final_desc
             
             block_names = {1: "Bloque 1", 2: "Bloque 2", 3: "Bloque 3", 4: "Bloque 4", 5: "Bloque 5", 6: "Bloque 6", 7: "Bloque 7"}
             block_name = block_names.get(request.blockNumber, f"Bloque {request.blockNumber}")
+
+            # Meta para UI: permite avisar si se está trabajando en fallback y no con LLM real
+            llm_health = generator.llm.health()
+            processed_response["llm_status"] = {
+                "ok": llm_health.get("ok", False),
+                "last_call_success": llm_health.get("last_call_success", False),
+                "reachable_url": llm_health.get("reachable_url", ""),
+                "last_error": llm_health.get("last_error", ""),
+                "fallback_likely": not llm_health.get("ok", False) or not llm_health.get("last_call_success", False),
+                "message": (
+                    "Generado con LLM activo"
+                    if llm_health.get("ok", False) and llm_health.get("last_call_success", False)
+                    else "LLM no disponible: se usó contenido de respaldo"
+                ),
+            }
             
             final_response = models.IAContentResponse(
                 generatedContent=processed_response,
@@ -595,7 +833,7 @@ class IAService:
             """
             
             # Ejecutar traducción
-            translated_content = generator.llm_client.generate(
+            translated_content = generator.llm.generate(
                 translation_prompt,
                 system_message
             )

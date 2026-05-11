@@ -1,0 +1,216 @@
+import requests
+import json
+import os
+from typing import Dict, Any, Optional
+
+class LLMClient:
+    """Cliente para comunicarse con modelos de lenguaje."""
+    
+    def __init__(
+        self, 
+        model_url: str = None,
+        model_name: str = "redactor_llama_v3",
+        temperature: float = 0.4
+    ):
+        """
+        Inicializa el cliente LLM.
+        
+        Args:
+            model_url: URL del endpoint del modelo
+            model_name: Nombre del modelo a utilizar
+            temperature: Temperatura para la generación (0.0-1.0)
+        """
+        if model_url is None:
+            base_url = 'http://192.168.1.129:1234'  # fallback para desarrollo local
+            model_url = f"{base_url}/v1/chat/completions"
+            
+        self.model_url = model_url
+        self.model_name = model_name
+        self.temperature = temperature
+        self.headers = {"Content-Type": "application/json"}
+        
+    def generate(self, prompt: str, system_message: Optional[str] = None) -> str:
+        """
+        Genera texto usando el modelo LLM.
+        
+        Args:
+            prompt: Texto de entrada para el modelo
+            system_message: Mensaje de sistema para establecer el contexto
+            
+        Returns:
+            Texto generado por el modelo
+            
+        Raises:
+            Exception: Si hay un error al llamar al modelo
+        """
+        # Si no se proporciona un mensaje de sistema, usar uno vacío
+        if system_message is None:
+            system_message = "Eres un redactor SEO humano. Ignora cualquier formato de tabla o matrices que hayas aprendido. Tu tarea es escribir párrafos fluidos. Escribe primero tus pensamientos sobre el tema y luego el contenido final."
+            
+        data = {
+            "model": self.model_name,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_message
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": self.temperature,
+            "max_tokens": 5000,
+            "stream": False
+        }
+
+        try:
+            response = requests.post(self.model_url, headers=self.headers, json=data)
+            response.raise_for_status()
+            raw_output = response.json()["choices"][0]["message"]["content"]
+            return raw_output  
+
+        except Exception as e:
+            print(f"Error al llamar al modelo: {e}")
+            return "[Error generando texto]"
+    
+    def load_system_message(self, message_path: str) -> str:
+        """
+        Carga un mensaje de sistema desde un archivo.
+        
+        Args:
+            message_path: Ruta al archivo con el mensaje
+            
+        Returns:
+            Contenido del mensaje
+        """
+        try:
+            with open(message_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            print(f"Error al cargar mensaje de sistema: {e}")
+            return ""
+        
+    def post_generate_uno(self, prompt: str, regla: str,system_message: Optional[str] = None) -> str:
+        """
+        Procesamiento de la respuesta principal para genera texto usando el modelo LLM y corregir puntos mas especificos.
+        
+        Args:
+            prompt: Texto de entrada para el modelo
+            system_message: Mensaje de sistema para establecer el contexto
+            
+        Returns:
+            Texto generado por el modelo
+            
+        Raises:
+            Exception: Si hay un error al llamar al modelo
+        """
+        # Si no se proporciona un mensaje de sistema, usar uno vacío
+        if system_message is None:
+            system_message = """
+            vas a asumir el rol de un agente supervisor SEO en español, tu tarea sera revizar y si aplica corregir los textos que se te pasan, mantendras la regla de cantidad de palabras {regla}, solo responderas con la estructura actual, no agregaras informacion y pensamientos adicional.
+            en caso de encontrar alguna palabra restringida usa la tabla de homologacion para sustituirla,
+            Esta es una lista de amplitud semantica y homologaciones:
+            - Alquiler y Renta,
+            - Autos, Carros y Vehículos
+            esta es una lista de palabras restringidas, si encuentras alguna de estas palabras en el texto que se te pasa, debes sustituirla por otra que no este en la lista:
+            - Coche
+            - Automovil
+            - Flota
+            - Gastos, pagos, cargos 'ocultos o transparentse' (no usar estas frases, si sale esta palabra eliminala)
+            - Descuentos relampago 
+            - Seguro de viaje gratis 
+            esta es una tabla de beneficios, donde encontraras beneficios y sinonimos para que los utilices segun conveniencia (normalmente esta se usa en el bloque fleet)(beneficio -> sinonimo -> (ip/restriccion/contexto)):
+            - Seguro de Viaje Gratis -> Cobertura de Viaje Gratis -> Latam to USA - Brasil
+            - Kilómetros Ilimitados -> Millas Ilimitadas -> Todos
+            - Asistencia Básica en Carretera -> Soporte Básico en Carretera -> Todos
+            - Conductor Adicional -> Otro conductor sin costo extra -> Latam to USA - Brasil
+            - Modificaciones sin Cargos Administrativos -> Modificaciones Flexibles -> Todos
+            - Cobertura de Daños al Vehículo ->	Protección Contra Daños al Auto -> Latam to Usa
+            - Protección de Daños a Terceros ->	Cobertura de Responsabilidad Civil -> Latam to Usa
+            - Cobertura por Robo ->	Seguro Contra Hurto del Vehículo ->	Latam to Usa
+            - Sin Deducibles ->	Sin Responsabilidad Económica -> Latam to Usa
+            - Beneficio en Cobertura del IOF ->	No tiene ->	Brasil
+            recuerda mantener su estructura
+            |tit: tit| |desc: desc|\n |desc2: desc2| etc... y mantener los bloques correspondientes si aplica, como los de ip_.
+            """
+            
+        data = {
+            "model": self.model_name,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_message
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": self.temperature,
+            "  ": -1,
+            "stream": False
+        }
+
+        try:
+            response = requests.post(self.model_url, headers=self.headers, json=data)
+            response.raise_for_status()
+            raw_output = response.json()["choices"][0]["message"]["content"]
+            return raw_output  
+
+        except Exception as e:
+            print(f"Error al llamar al modelo: {e}")
+            return "[Error generando texto]"
+        
+    def post_generate_dos(self, prompt: str, regla: str,system_message: Optional[str] = None) -> str:
+        """
+        Procesamiento de la respuesta para verificar y corregir errores en la estructura.
+        
+        Args:
+            prompt: Texto de entrada para el modelo
+            system_message: Mensaje de sistema para establecer el contexto
+            
+        Returns:
+            Texto generado por el modelo
+            
+        Raises:
+            Exception: Si hay un error al llamar al modelo
+        """
+        # Si no se proporciona un mensaje de sistema, usar uno vacío
+        if system_message is None:
+            system_message = """
+            vas a asumir el rol de un supervisor SEO en español, tu tarea sera revizar y si aplica modificar los textos que se te pasan, mantendras la regla de cantidad de palabras {regla}, solo responderas con la estructura deseada no hables de mas.
+            tu tarea principal es revisar los textos en busca de errores de estructura, corregirlos de la mejor manera, siguiendo la logica del texto y la estructura general, revisa que se abran y cierren las estructuras:
+            si encuentras mas palabras que la cantidad de palabras que se te indica, debes modificar sutilmente el texto para que se ajuste a la cantidad de palabras, sin perder el sentido del texto. no cuanta las etiquetas de marcado, solo el texto dentro de ellas.
+            estructura de output deseado:
+            de no ser un excepcion a la regla, el output deseado cuenta con 2 bloques, titulo, redaccion o descripcion y en ese orden.
+            |tit: tit| |desc: desc|\n |desc2: desc2| etc...   y mantener los bloques correspondientes si aplica, como los de ip_.
+            """
+            
+        data = {
+            "model": self.model_name,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_message
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": self.temperature,
+            "max_tokens": 5000,
+            "stream": False
+        }
+
+        try:
+            response = requests.post(self.model_url, headers=self.headers, json=data)
+            response.raise_for_status()
+            raw_output = response.json()["choices"][0]["message"]["content"]
+            return raw_output  
+
+        except Exception as e:
+            print(f"Error al llamar al modelo: {e}")
+            return "[Error generando texto]"  
+

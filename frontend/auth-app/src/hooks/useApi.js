@@ -63,25 +63,25 @@ export const useProyectos = (filters = {}) => {
   // Crear proyecto
   const createProyecto = useCallback(async (proyectoData) => {
     try {
-      const newProyecto = await apiService.createProyecto(proyectoData);
-      setProyectos((prev) => [...prev, newProyecto]);
-      return newProyecto;
+      const nuevoProyecto = await apiService.createProyecto(proyectoData);
+      // 💡 Usa esta forma para que aparezca arriba de todo inmediatamente
+      setProyectos((prev) => [nuevoProyecto, ...prev]);
+      return nuevoProyecto;
     } catch (err) {
-      console.error("Error creating proyecto:", err);
+      console.error("Error al crear proyecto:", err);
       throw err;
     }
   }, []);
 
   // Actualizar proyecto
-  const updateProyecto = useCallback(async (id, updates) => {
+  const updateProyecto = useCallback(async (id, proyectoData) => {
     try {
-      const updatedProyecto = await apiService.updateProyecto(id, updates);
-      setProyectos((prev) =>
-        prev.map((p) => (p.id === id ? updatedProyecto : p))
-      );
-      return updatedProyecto;
+      const actualizado = await apiService.updateProyecto(id, proyectoData);
+      // 🔥 CRUCIAL: Reemplazar el proyecto viejo por el actualizado en el estado
+      setProyectos((prev) => prev.map((p) => (p.id === id ? actualizado : p)));
+      return actualizado;
     } catch (err) {
-      console.error("Error updating proyecto:", err);
+      console.error("Error al actualizar proyecto:", err);
       throw err;
     }
   }, []);
@@ -102,10 +102,10 @@ export const useProyectos = (filters = {}) => {
     try {
       const updatedProyecto = await apiService.assignProyecto(
         proyectoId,
-        userId
+        userId,
       );
       setProyectos((prev) =>
-        prev.map((p) => (p.id === proyectoId ? updatedProyecto : p))
+        prev.map((p) => (p.id === proyectoId ? updatedProyecto : p)),
       );
       return updatedProyecto;
     } catch (err) {
@@ -119,10 +119,10 @@ export const useProyectos = (filters = {}) => {
     try {
       const updatedProyecto = await apiService.updateEstadoProyecto(
         proyectoId,
-        estado
+        estado,
       );
       setProyectos((prev) =>
-        prev.map((p) => (p.id === proyectoId ? updatedProyecto : p))
+        prev.map((p) => (p.id === proyectoId ? updatedProyecto : p)),
       );
       return updatedProyecto;
     } catch (err) {
@@ -300,7 +300,7 @@ export const useApiForm = (submitFunction, options = {}) => {
       if (error) setError(null);
       if (success) setSuccess(false);
     },
-    [error, success]
+    [error, success],
   );
 
   const handleSubmit = useCallback(
@@ -334,7 +334,7 @@ export const useApiForm = (submitFunction, options = {}) => {
         setLoading(false);
       }
     },
-    [formData, submitFunction, options]
+    [formData, submitFunction, options],
   );
 
   const reset = useCallback(() => {
@@ -368,7 +368,7 @@ export const usePagination = (items, itemsPerPage = 10) => {
     (page) => {
       setCurrentPage(Math.max(1, Math.min(page, totalPages)));
     },
-    [totalPages]
+    [totalPages],
   );
 
   const nextPage = useCallback(() => {

@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-aiofiles
 sqlalchemy
 alembic
 psycopg2-binary
@@ -26,6 +25,7 @@ cloudscraper
 fake-useragent
 trafilatura
 html-to-docx
+
 
 openai
 python-dotenv

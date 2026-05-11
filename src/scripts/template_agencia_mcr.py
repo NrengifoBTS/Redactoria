@@ -8,7 +8,7 @@ def create_template():
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3NjkxMTE0NTl9.aC_D_IQfXxNHY-2pR-6l7l-ph00cIb55exS3Nu8qn6o"
     
     # URL de tu API
-    base_url = "http://192.168.1.129:8000"  
+    base_url = "http://192.168.1.129:8080"  
     
     # Template data - BLOQUE 1 Y BLOQUE 2
     template_text_data = {
@@ -68,22 +68,22 @@ def create_template():
         "23-3": "Tipos de autos de alquiler en Avis",
         "24-2": "descripción H2",
         "25-2": "h3",
-        "25-3": "Renta de Autos Económicos",
+        "25-3": "Económico",
         "26-2": "Descripción H3",
         "27-2": "h3",
-        "27-3": "Alquiler de SUV",
+        "27-3": "Camionetas",
         "28-2": "Descripción H3",
         "29-2": "h3",
-        "29-3": "Renta de Minivans",
+        "29-3": "Van",
         "30-2": "Descripción H3",
         "31-2": "h3",
-        "31-3": "Alquiler de Convertibles",
+        "31-3": "Convertibles",
         "32-2": "Descripción H3",
         "33-2": "h3",
-        "33-3": "Renta de Autos de Lujo",
+        "33-3": "Lujo",
         "34-2": "Descripción H3",
         "35-2": "h3",
-        "35-3": "Alquiler de Autos de Eléctricos",
+        "35-3": "Eléctricos",
         "36-2": "Descripción H3",
         "37-2": "h3",
         "37-3": "Alquiler de Autos de Hibridos",
@@ -256,9 +256,8 @@ def create_template():
                 "desc_2": "28-3",         
                 "desc_3": "30-3",         
                 "desc_4": "32-3",         
-                "desc_5": "34-3",         
-                "desc_6": "36-3",
-                "desc_7": "38-3"
+                "desc_5": "34-3",
+                "desc_6": "36-3"
             }
         },
         "5": {

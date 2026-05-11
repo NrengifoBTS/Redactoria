@@ -1,20 +1,16 @@
 const API_BASE_URL =
-  process.env.REACT_APP_API_URL !== undefined && process.env.REACT_APP_API_URL !== ""
-    ? process.env.REACT_APP_API_URL
-    : process.env.NODE_ENV === "production"
-    ? ""
-    : "http://192.168.1.129:8000";
+  process.env.REACT_APP_API_URL || "http://192.168.1.129:8080";
 
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
   }
 
+
   // Configurar headers comunes
   getHeaders() {
     const headers = {
       "Content-Type": "application/json",
-      "ngrok-skip-browser-warning": "true",
     };
     const currentToken = localStorage.getItem("token");
     if (currentToken) {
@@ -364,16 +360,12 @@ class ApiService {
         tit: blockTitle,
         tema,
         lpId,
+        brand: templateInfo?.proyecto || "mcr",
         faqQuestions,
         favCityQuestions,
       };
 
-      // Agregar info del template si existe
-      if (templateInfo) {
-        payload.template_proyecto = templateInfo.proyecto;
-        payload.template_dominio = templateInfo.dominio;
-        payload.template_categoria = templateInfo.categoria;
-      } else {
+      if (!templateInfo) {
         console.warn("No hay templateInfo");
       }
 
@@ -557,6 +549,9 @@ class ApiService {
         ? backendData.last_modified.split("T")[0]
         : null,
       updatedAt: backendData.updated_at,
+      assignedAt: backendData.assigned_at
+        ? backendData.assigned_at.split("T")[0]
+        : null,
 
       // Campos calculados para el frontend
       progress: this.calculateProgress(backendData.estado),
@@ -1029,6 +1024,19 @@ class ApiService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Revisar ortografía del blog con IA (OpenAI).
+   * Devuelve { blog_id, errors: [{wrong, correct, reason}], checked_chars }.
+   * No modifica el blog en la DB; el frontend resalta los errores y se
+   * marca el blog como "Revisado con IA".
+   */
+  async reviewBlogWithAI(blogId) {
+    const response = await this.makeRequest(`/blogs/${blogId}/review-ia`, {
+      method: "POST",
+    });
+    return response;
   }
 
   /**

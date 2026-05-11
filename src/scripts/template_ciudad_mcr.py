@@ -8,7 +8,7 @@ def create_template():
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnaXNlbGxoQHJlZGFjdG9yaWEuY29tIiwiaWQiOiJjN2MxNzgzOC0wNzRkLTQ0ZmEtOTI0OC04ZGM4N2MxNWVkZDUiLCJleHAiOjE3Njk3MDc0ODB9.0MTcfCjwPJ0UpKr0cjrr2YWCB1J66O8kzOJXFRvY6d8"
     
     # URL de tu API
-    base_url = "http://192.168.1.129:8000"  
+    base_url = "http://192.168.1.129:8080"  
     
     # Template data - BLOQUE 1 Y BLOQUE 2
     template_text_data = {
@@ -111,22 +111,22 @@ def create_template():
         "42-3": "Flota de vehículos para rentar en Miami, FL",
         "43-2": "descripción H2",
         "44-2": "h3",
-        "44-3": "Carros Económicos",
+        "44-3": "Económico",
         "45-2": "Descripción H3",
         "46-2": "h3",
         "46-3": "Camionetas",
         "47-2": "Descripción H3",
         "48-2": "h3",
-        "48-3": "Vans",
+        "48-3": "Van",
         "49-2": "Descripción H3",
         "50-2": "h3",
         "50-3": "Convertibles",
         "51-2": "Descripción H3",
         "52-2": "h3",
-        "52-3": "Carros de Lujo",
+        "52-3": "Lujo",
         "53-2": "Descripción H3",
         "54-2": "h3",
-        "54-3": "Autos Eléctricos",
+        "54-3": "Eléctricos",
         "55-2": "Descripción H3",
         
         # Bloque 8

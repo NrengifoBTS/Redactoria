@@ -1,3 +1,5 @@
+#redactoria/src/ia/controller.py
+
 from fastapi import APIRouter, status, BackgroundTasks
 from uuid import UUID
 import time
@@ -8,11 +10,19 @@ from .service import IAService
 from ..auth.service import CurrentUser
 from ..logging_service.ai_logging import AILoggingService
 from ..entities.landing_page import LandingPage
+from ..api_llm.llm_client import LLMClient
 
 router = APIRouter(
     prefix="/ia",
     tags=["IA Content Generation"]
 )
+
+
+@router.get("/health/llm")
+def ia_llm_health(current_user: CurrentUser):
+    """Estado de conectividad del LLM para que frontend pueda avisar antes de generar."""
+    client = LLMClient()
+    return client.health()
 
 # Endpoints de IA por bloque
 @router.post("/{landing_page_id}/block-1", response_model=models.IAContentResponse)

@@ -1,0 +1,600 @@
+
+import os
+import re
+from typing import Dict, List, Any, Optional, Tuple
+
+from src.api_llm.llm_client import LLMClient
+from src.utils.file_utils import FileHandler
+from src.utils.text_utils import TextProcessor
+
+
+class ContentGenerator:
+    
+    def __init__(self, llm_client: Optional[LLMClient] = None):
+        """
+        Inicializa el generador de contenido.
+        
+        Args:
+            llm_client: Cliente LLM opcional. Si no se proporciona, se crea uno nuevo.
+        """
+        self.llm_client = llm_client or LLMClient()
+        self.system_message = """
+        Vas a pensar en español, recibiras instrucciones en español y deberas responder en español (español neutral latino americano).
+        Eres un redactor experto en marketing digital SEO para renta de autos.
+        TU OBJETIVO: Analizar los ejemplos para replicar SOLO su ESTRUCTURA y TONO, pero usando EXCLUSIVAMENTE la información del "Nuevo Tema".
+        
+        REGLAS CRÍTICAS DE CONTENIDO:
+        1. NO COPIES nombres de ciudades, agencias o marcas de los ejemplos. Si el ejemplo habla de 'Miami' pero tu nuevo tema es 'Chicago', DEBES escribir sobre 'Chicago'.
+        2. Si el nuevo tema es 'Budget', JAMÁS menciones otras agencias (como Enterprise o Avis) a menos que se te pida explícitamente.
+        
+        Estas son restricciones de estructura que debes seguir:
+        -	nunca usaras emojis
+        -	nunca usaras doble ** para negrita.
+        -	nunca olvides abir y cerrar las etiquetas de marcado y de bloques,
+        -	nunca inventes otras etiquetas de marcado,
+        -   manten el numero de palabras que se te indica, es importante que no te pases del limite.
+        para abrir y cerrar los bloques como por ejemplo tit(titulo) o desc(descripcion/redaccion) utilizaras siempre este caracter '|' ejemplo: | tit: desc |
+        ---------------------
+        """
+    
+    def _clean_think(self, text: str) -> str:
+        """Elimina las etiquetas <think> y su contenido."""
+        if not text:
+            return ""
+        return re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+
+    def _parse_output(self, text: str) -> Any:
+        """Parsea la salida con formato |key: value| a un diccionario."""
+        if not text:
+            return ""
+        # Asegurar limpieza final
+        text = self._clean_think(text)
+        
+        # Extraer pares clave valor entre pipes
+        parts = [p.strip() for p in text.split('|') if p.strip()]
+        result = {}
+        for part in parts:
+            if ':' in part:
+                key, value = part.split(':', 1)
+                result[key.strip()] = value.strip()
+        
+        return result if result else text
+
+    def generate_quicksearch(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera la sección de búsqueda rápida (Solo descripción).
+        
+        Args:
+            tit_seo: Título SEO que se mantiene estático.
+            template_data: Datos de la plantilla.
+            nuevo_tema: Nuevo tema para generar contenido.
+            ejemplos: Lista de ejemplos de referencia.
+            
+        Returns:
+            Texto generado con el formato |tit: ...| |desc: ...|
+        """
+        # Obtener el volumen de palabras desde los ejemplos
+        vol_h1 = ejemplos[0].get('vol_h1', '') if ejemplos else '60'
+        
+        print("----------------")
+        print(f"Volumen H1: {vol_h1}")
+
+        # Crear ejemplos para el prompt (usando h1 y h1_desc de la data original)
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ej.get('h1', '')}, desc: {ej.get('h1_desc', '')}" for i, ej in enumerate(ejemplos[:2])]
+        )
+
+        # Crear el prompt siguiendo tu estructura solicitada
+        # Nota: Mantenemos el tit: {tit_seo} fijo para que el modelo no lo invente.
+        prompt = (
+            f"{ejemplos_texto}\n\n"
+            f"nuevo tema: {nuevo_tema}, tit: {tit_seo}\n"
+            f"reglas a tener en cuenta para desc: cantidad de palabras {vol_h1} minimo a maximo.\n"
+            f"ahora genera tu la desc, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n "
+            f"|tit: {tit_seo}|\n "
+            f"|desc: redaccion|\n"
+        )
+
+        # Llamada directa al LLM
+        respuesta_raw = self.llm_client.generate(prompt, self.system_message)
+        
+        # Limpiamos solo los pensamientos (<think>) si el cliente lo requiere
+        resultado = self._clean_think(respuesta_raw)
+
+        return resultado
+    
+    def generate_fleet(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera la sección de flota (descripción y variantes IP).
+        
+        Args:
+            tit_seo: Título H2 que se mantiene estático.
+            template_data: Datos de la plantilla.
+            nuevo_tema: Nuevo tema para generar contenido.
+            ejemplos: Lista de ejemplos de referencia.
+            
+        Returns:
+            Texto generado con el formato |tit: ...| |desc: ...| |ip_usa: ...| |ip_bra: ...|
+        """
+        # Acceder al volumen h2 de los ejemplos
+        vol_h2 = ejemplos[0].get('vol_h2', '') if ejemplos else '60'
+                
+        # Crear ejemplos para el prompt para que el modelo entienda el estilo de las variantes IP
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ej.get('h2', '')}, desc: {ej.get('h2_desc', '')}, ip_usa: {ej.get('ip_usa', '')}, ip_bra: {ej.get('ip_bra', '')}" 
+            for i, ej in enumerate(ejemplos[:2])]
+        )
+
+        # Crear el prompt para fleet
+        # Mantenemos la estructura solicitada: <think>, |tit: |, |desc: |, |ip_usa: |, |ip_bra: |
+        prompt = (
+            f"--- EJEMPLOS DE ESTILO (NO COPIAR INFORMACIÓN) ---\n"
+            f"{ejemplos_texto}\n\n"
+            f"--- TAREA ACTUAL ---\n"
+            f"Nuevo tema: {nuevo_tema}\n"
+            f"Título Objetivo: {tit_seo}\n"
+            f"Reglas: Generar una redacción de aproximadamente {vol_h2} palabras para la descripción.\n"
+            f"Genera 3 variantes: 'desc' (general), 'ip_usa' (adaptada a público en USA) y 'ip_bra' (adaptada a público en Brasil).\n"
+            f"IMPORTANTE: Todas las versiones deben estar en ESPAÑOL. No mezclar marcas ni ciudades de los ejemplos.\n\n"
+            f"Estructura de salida:\n"
+            f"|tit: {tit_seo}|\n"
+            f"|desc: redacción general|\n"
+            f"|ip_usa: redacción adaptada|\n"
+            f"|ip_bra: redacción adaptada|"
+        )
+        
+        # 1. Llamada directa al LLM
+        respuesta_raw = self.llm_client.generate(prompt, self.system_message)
+        
+        # 2. Limpieza de pensamientos (<think>)
+        # Devolvemos el resultado directamente sin pasar por post_generate_uno/dos
+        resultado = self._clean_think(respuesta_raw)
+        
+        return resultado
+    
+
+    def generate_reviews(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        # Acceder directamente al reviews de la sección        
+        vol_h1 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+        print("----------------")
+        print(vol_h1)
+        
+        #Restricciones por bloque
+        #restric= "Esta es una lista de KW(key words) y expreciones que puedes utilizar: Di adiós a los gastos ocultos, ¡Reserva fácil y en poco tiempo!, ¡Haz el viaje, nosotros los descuentos!, Experimenta la excelencia en la renta de carros, Elige a los mejores, elige a Viajemos, Descuentos Relámpago, ¡Conquista la ciudad con Viajemos!, Encuentra al compañero ideal, Pequeño en precio, grande en aventuras, Excelencia sobre Ruedas, ¡A rodar!, Economía y Lujo en Uno, ¡Descubre el lujo sobre ruedas con Viajemos!, ¡En Viajemos tenemos la solución al alcance de un clic!, ¡Viaja con confianza, viaja con Viajemos!, la fórmula perfecta: calidad, atractivo y precios bajos, ¡Con Viajemos, comodidad y economía van de la mano!, ¡En precios bajos, somos imbatibles!, Nuestros precios bajos son una realidad, no una promesa, ¡Descuentos tan tentadores como tus ganas de viajar!, ¡Personaliza tu aventura sobre ruedas con Viajemos!, ¡Descubre más, gastando menos con Viajemos!, ¡Estamos seguros de que una parte de ti se quiere ir de viaje… y la otra también!, Un viaje se mide mejor en experiencias que en kilómetros, ¡así que Viajemos!, ¡Viajemos te ofrece un mundo de posibilidades mientras ahorras!, ¡En Viajemos tenemos lo que buscas!, ¡Activa tu superpoder al volante!, El auto y tú, ¡serán tal para cual!, ¡Alquila, conduce, impresiona!, Alquila un carro para que descubras (ciudad) en 3D: Dirección, Diversión, y Distinción, (Ciudad) te espera, y nuestros precios también, Ahorros inmediatos, Ahorra sin sacrificar la calidad, Alquila con confianza, ahorra con estilo, ¡Viajes llenos de ahorros!, Viajemos, te acompaña en tus mejores trayectos, ¡Sé un verdadero campeón del ahorro con Viajemos!, ¡Viaja tranquilo, viaja mejor!, Escoger te da ventajas y Viajemos te las ofrece, Tú bajas el techo y nosotros los precios , ¡Viaja más, paga menos!, Dale play a tus recorridos, Aterriza directamente en el ahorro, Tu cita más elegante es un coche de lujo, renta el tuyo en _______, Alquila, disfruta y vuelve pronto."
+
+        # crear ejemplos para el prompt
+        ejemplos_texto= "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('h2', '')}, desc_h2: {ejemplo.get('h2_desc', '')}\n" for i, ejemplo in enumerate(ejemplos)]
+        )
+
+        # Crear el prompt para quicksearch
+        prompt = (
+            #f"{restric}\n"
+            f"{ejemplos_texto}\n\n"
+            f"nuevo tema: {nuevo_tema}, tit:{tit_seo}\n"
+            f"reglas a tener en cuenta para desc_h2: cantidad de palabras{vol_h1} minimo a maximo.\n"
+            f"ahora genera tu la desc_h2, sigue esta estructura: <think> aqui pondras tus pensamientos </think>\n |tit: {tit_seo}|\n |desc_h2: redaccion|\n"
+        )
+        # Llamar al LLM y obtener respuesta
+        ini= self.llm_client.generate(prompt, self.system_message)
+        sec= self.llm_client.post_generate_uno(ini, regla= vol_h1)
+        sec= self.llm_client.post_generate_uno(self._clean_think(ini), regla= vol_h1)
+        ter= self.llm_client.post_generate_dos(sec, regla= vol_h1)
+        return ter
+        return self._parse_output(ter)
+    
+    def generate_agencies(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera la sección de agencias.
+        
+        Args:
+            template_data: Datos de la plantilla
+            nuevo_tema: Nuevo tema para generar contenido
+            
+        Returns:
+            Texto generado
+        """
+        # Acceder directamente al agencies de la sección        
+        vol_h2 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+        vol_h3 = ejemplos[0].get('vol_h3', '') if ejemplos else ''
+        
+        #restric= "Esta es una lista de KW(key words) y expreciones que puedes utilizar:Conducción sin preocupaciones, Tu viaje personalizado comienza con nuestro alquiler de autos, ¡En Viajemos tenemos la solución al alcance de tu mano!, ¡Viaja con confianza, viaja con Viajemos!, la fórmula perfecta: calidad, atractivo y precios bajos, ¡Para tus diversos viajes, tenemos múltiples agencias!, las agencias más power en el mercado, experiencia fuera de serie, ¡Confía tu viaje a los mejores!, ¡Con Viajemos, comodidad y economía van de la mano!, En Viajemos, somos aliados estratégicos de las agencias mejor ranqueadas del mundo, ¡Nuestro compromiso es brindarte movilidad eficiente a precios incomparables!, ¡En Viajemos, te conectamos con los mejores!, ¡Con Viajemos, la calidad está al alcance de tu bolsillo!, ¡Viajemos te ofrece un mundo de posibilidades mientras ahorras!, ¡Precios bajos, aventuras altas!, ¡En Viajemos, te enlazamos con los más grandes!, Escoger te da ventajas y Viajemos te las ofrece, ¡La calidad es nuestro sello!, ¡Deja la búsqueda en nuestras manos!, Alquila, disfruta y vuelve pronto"
+        # Crear ejemplos para el prompt
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('h2', '')}, desc: {ejemplo.get('desc_h2', '')}, desc_h3: {ejemplo.get('desc_h3', '')}\n" for i, ejemplo in enumerate(ejemplos)]
+        )
+
+        # Crear el prompt para agencies
+        prompt = (
+            f"--- EJEMPLOS DE ESTILO ---\n"
+            f"{ejemplos_texto}\n"
+            f"--- TAREA ACTUAL ---\n"
+            f"Nuevo tema: {nuevo_tema}\n"
+            f"Título: {tit_seo}\n"
+            f"Reglas: desc_h2 ({vol_h2} palabras), desc_h3 ({vol_h3} palabras). Usa solo el Nuevo Tema.\n"
+            f"Estructura: <think> ... </think>\n |tit: {tit_seo}|\n |desc_h2: redaccion_h2|\n |desc_h3: redaccion_h3|\n"
+        )
+        
+        # Llamar al LLM y obtener respuesta
+        ini= self.llm_client.generate(prompt, self.system_message)
+        sec= self.llm_client.post_generate_uno(ini, regla= f"desc_h2: {vol_h3}, desc_h3: {vol_h3}")
+        sec= self.llm_client.post_generate_uno(self._clean_think(ini), regla= f"desc_h2: {vol_h3}, desc_h3: {vol_h3}")
+        ter= self.llm_client.post_generate_dos(sec, regla= f"desc_h2: {vol_h3}, desc_h3: {vol_h3}")
+        return ter
+        return self._parse_output(ter)
+    
+    def generate_faq(self, tit_seo: str, nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        vol_h2 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+
+        prompt_header = (
+            f"Tema: {nuevo_tema}\n"
+            f"Título fijo: {tit_seo}\n"
+            f"Genera una descripción introductoria de {vol_h2} palabras para una sección de preguntas frecuentes.\n\n"
+            f"|tit: {tit_seo}|\n"
+            f"|desc: "
+        )
+
+        ini = self.llm_client.generate(prompt_header, self.system_message)
+        return self._clean_think(ini)
+
+
+    def generate_faq_respuesta(self, nuevo_tema: str, preguntas: List[str], ejemplos: List[Dict[str, Any]]) -> str:
+        vol_faq = ejemplos[0].get('vol_faq', '') if ejemplos else ''
+        
+        respuestas = []
+        for i, pregunta in enumerate(preguntas, start=1):
+            prompt_qa = (
+                f"Nuevo tema: {nuevo_tema}\n"
+                f"reglas a tener en cuenta para desc: cantidad de palabras {vol_faq} minimo a maximo.\n"
+                f"|tit: {pregunta}|\n"
+                f"|desc: "
+            )
+            raw = self.llm_client.generate(prompt_qa, self.system_message)
+            clean = self._clean_think(raw)
+            
+            import re
+            match = re.search(r'\|desc:\s*(.*?)\|', clean, re.DOTALL)
+            valor = match.group(1).strip() if match else clean.strip()
+            respuestas.append(f"|faq_{i}: {valor}|")
+        
+        return "\n".join(respuestas)
+
+    def generate_car_rental(self, num: int, tit_seo: str, nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        frases_fuerza = "Alquila un auto y ¡Viajemos!, ¡Haz el viaje, nosotros los descuentos!, Experimenta la excelencia, Descuentos Relámpago, Tu viaje, tu elección, Explora la ciudad con Viajemos."
+
+        prompt_header = f"""Redacta para: {nuevo_tema}
+    Inspiración de estilo: {frases_fuerza}
+    Título fijo: {tit_seo}
+
+    |tit: {tit_seo}|
+    |desc: """
+
+        respuesta_raw = self.llm_client.generate(prompt_header, self.system_message)
+        return self._clean_think(respuesta_raw)
+
+    def generate_car_type(self, titulos_autos: List[str], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+    
+        titulos_texto = "\n".join([f"Tipo {i+1}: {titulo}" for i, titulo in enumerate(titulos_autos)])
+        
+        # Construir el formato de salida esperado explícitamente
+        formato_salida = " ".join([f"|desc_{i+1}: |" for i, _ in enumerate(titulos_autos)])
+        
+        prompt_car = (
+            f"Tema: {nuevo_tema}\n"
+            f"Tipos de autos ({len(titulos_autos)} en total):\n"
+            f"{titulos_texto}\n\n"
+            f"Genera exactamente {len(titulos_autos)} descripciones, una por tipo, empezando desde desc_1 hasta desc_{len(titulos_autos)}.\n"
+            f"{formato_salida}"
+        )
+
+        respuesta_raw = self.llm_client.generate(prompt_car, self.system_message)
+        return self._clean_think(respuesta_raw)
+
+    def generate_fav_city(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera la sección de ciudad favorita.
+        
+        Args:
+            template_data: Datos de la plantilla
+            nuevo_tema: Nuevo tema para generar contenido
+            
+        Returns:
+            Texto generado
+        """
+        # Acceder directamente al fav_city de la sección        
+        vol_h2 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+        
+
+        # Crear ejemplos para el prompt
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('h2', '')}, desc: {ejemplo.get('h2_desc', '')}\n" for i, ejemplo in enumerate(ejemplos)]
+        )
+        
+        restric= "Esta es una lista de KW(key words) y expreciones que puedes utilizar: Ve a la fija, Alquila un auto y, ¡Viajemos!, Sello de calidad, ¡Reserva fácil y en poco tiempo!, Conducción sin complicaciones, ¡Alquila, viaja y repite con nuestros precios bajos!, ¡Personaliza tus aventuras con un carro de alquiler!, ¡Tu viaje, tu elección!, ¿Estás listo para conquistar la ciudad?, ¡Explora la ciudad con Viajemos!, Encuentra al compañero ideal, Pequeño en precio, grande en aventuras, Excelencia sobre Ruedas, Conducción sin preocupaciones, experiencia de viaje de primera clase, Alquila, Viaja, Repite. Con nuestros precios, podrás hacerlo una y otra vez, ¡A rodar!, Economía y Lujo en Uno, ¡Descubre el lujo sobre ruedas con Viajemos!, ¡Siente el poder en tus manos!, la fórmula perfecta: calidad, atractivo y precios bajos, experiencia fuera de serie, Ahorra en cada kilómetro con nuestra renta de carros baratos, Nuestros precios bajos son una REALIDAD, ¡Descubre más, gastando menos con Viajemos!, ¡Nuestro compromiso es brindarte movilidad eficiente a precios incomparables!, Un viaje se mide mejor en experiencias que en kilómetros, ¡así que Viajemos!, ¡Viajemos te ofrece un mundo de posibilidades mientras ahorras!, ¡Cambia de escenario, renta un auto y transforma tu perspectiva!, ¡En Viajemos tenemos lo que buscas!, ¡Alquila, conduce, impresiona!, ¡Precios bajos, aventuras altas!, [Ciudad] te espera, y nuestros precios también, ¡Reserva tu carro, reserva tus ahorros!, Elige tu compañero de cuatro ruedas, Cada milla cuenta una historia diferente, ¡Viaja en caraVANa con todos los tuyos!, ¡Viajes llenos de ahorros!, ¡Atrapa nuestras tarifas bajas en tu carro de alquiler!, La elegancia y el ahorro van de la mano, Viajemos, te acompaña en tus mejores trayectos, ¡Sé un verdadero campeón del ahorro con Viajemos!, Sueña, descubre y Viajemos juntos, ¡Conduce hacia un futuro más sostenible!, En Viajemos, el auto perfecto hará match con tu estilo, Escoger te da ventajas y Viajemos te las ofrece, ¡Miles de kilómetros, cero emisiones!, ¿Sientes eso? Es la tranquilidad de cuidar el planeta mientras conduces, No se trata solo de llegar, sino de cómo llegas, Tú bajas el techo y nosotros los precios, Baja el techo, no tus estándares, Dale play a tus recorridos, Elige la ruta del ahorro, ¡Miles de opciones, una elección!, Tu cita más elegante es un coche de lujo, renta el tuyo en [Ciudad], Alquila, disfruta y vuelve pronto"
+
+        # Crear el prompt para fav city
+        prompt = (
+            f"--- EJEMPLOS DE ESTILO ---\n"
+            f"{restric}\n"
+            f"{ejemplos_texto}\n\n"
+            f"--- TAREA ACTUAL ---\n"
+            f"Nuevo tema: {nuevo_tema}, tit: {tit_seo}\n"
+            f"Se centra principalmente en los beneficios y luego en road trip, y justificacion de la compra/alquiler.\n"
+            f"Reglas: Volumen {vol_h2}. No copies ciudades de los ejemplos. Si el tema es 'Orlando', habla de 'Orlando'.\n"
+            f"Estructura: <think> ... </think>\n |tit: titulo|\n |desc: redaccion|\n"
+        )
+        
+        # Llamar al LLM para la ciudad favorita
+        ini= self.llm_client.generate(prompt, self.system_message)
+        sec= self.llm_client.post_generate_uno(ini, regla= vol_h2)
+        sec= self.llm_client.post_generate_uno(self._clean_think(ini), regla= vol_h2)
+        ter= self.llm_client.post_generate_dos(sec, regla= vol_h2)
+        return ter
+        return self._parse_output(ter)
+
+    def generate_fav_city_respuesta(self, nuevo_tema: str, ciudades: List[str], ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera respuestas para ciudades favoritas, usando ejemplos previos.
+        """
+        # Construir ejemplos para el prompt
+        ejemplos_texto_city = "\n".join(
+            [
+                f"Ejemplo {i+1}:\n"
+                f"ciudad: {ejemplo.get('h3_city', {}).get(f'h3_city_{i+1}', '')}, "
+                f"descripción: {ejemplo.get('fav_city', {}).get(f'desc_{i+1}', '')}"
+                for i, ejemplo in enumerate(ejemplos)
+            ]
+        )
+        vol_city = ejemplos[0].get('vol_city', '') if ejemplos else ''
+    
+        # Crear el texto con todas las ciudades
+        ciudades_texto = "\n".join([f"Ciudad {i+1}: {ciudad}" for i, ciudad in enumerate(ciudades)])
+
+        prompt_city = (
+            f"--- EJEMPLOS DE ESTILO ---\n"
+            f"{ejemplos_texto_city}\n"
+            f"--- TAREA ACTUAL ---\n"
+            f"Nuevo tema: {nuevo_tema}\n"
+            f"Reglas: {vol_city} palabras. Genera descripciones para las siguientes {len(ciudades)} ciudades:\n"
+            f"{ciudades_texto}\n"
+            f"genera solo las descripciones para las ciudades anteriores.\n"
+            f"Se centra principalmente en los beneficios y luego en road trip, y justificacion de la compra/alquiler.\n"
+            f"Sigue esta estructura: <think>aquí pondrás tus pensamientos</think>\n |desc_1: tu descripción|\n |desc_2: tu descripción|\n ..."
+        )
+        return self.llm_client.generate(prompt_city, self.system_message) 
+        raw_response = self.llm_client.generate(prompt_city, self.system_message)
+        return self._parse_output(raw_response)
+
+    def generate_rentacar(self, tit_seo: str, template_data: Dict[str, Any], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera la sección de rentacar (título, desc, desc_h2, desc_h3).
+        
+        Args:
+            tit_seo: Título SEO
+            template_data: Datos de la plantilla
+            nuevo_tema: Nuevo tema para generar contenido
+            ejemplos: Lista de ejemplos
+            
+        Returns:
+            Texto generado
+        """
+        # Extraer volúmenes de palabras de los ejemplos
+        vol_desc = ejemplos[0].get('vol_desc', '') if ejemplos else ''
+        vol_h2 = ejemplos[0].get('vol_h2', '') if ejemplos else ''
+        vol_h3 = ejemplos[0].get('vol_h3', '') if ejemplos else ''
+        
+        # Crear ejemplos para el prompt
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('tit', '')}, desc: {ejemplo.get('desc', '')}, desc_h2: {ejemplo.get('desc_h2', '')}, desc_h3: {ejemplo.get('desc_h3', '')}\n" 
+            for i, ejemplo in enumerate(ejemplos)]
+        )
+        
+        # Crear el prompt para rentacar
+        prompt = (
+            f"--- EJEMPLOS DE ESTILO ---\n"
+            f"{ejemplos_texto}\n"
+            f"--- TAREA ACTUAL ---\n"
+            f"Nuevo tema: {nuevo_tema}, tit: {tit_seo}\n"
+            f"la intencion es Informativa o Turística, no de venta.\n"
+            f"Reglas: desc ({vol_desc}), desc_h2 ({vol_h2}), desc_h3 ({vol_h3}).\n"
+            f"Estructura: <think> ... </think>\n |tit: {tit_seo}|\n |desc: redaccion_principal|\n |desc_h2: redaccion_h2|\n |desc_h3: redaccion_h3|\n"
+        )
+        
+        # Llamar al LLM con tres pasadas
+        ini = self.llm_client.generate(prompt, self.system_message)
+        sec = self.llm_client.post_generate_uno(ini, regla=f"desc: {vol_desc}, desc_h2: {vol_h2}, desc_h3: {vol_h3}")
+        sec = self.llm_client.post_generate_uno(self._clean_think(ini), regla=f"desc: {vol_desc}, desc_h2: {vol_h2}, desc_h3: {vol_h3}")
+        ter = self.llm_client.post_generate_dos(sec, regla=f"desc: {vol_desc}, desc_h2: {vol_h2}, desc_h3: {vol_h3}")
+        return ter
+        return self._parse_output(ter)
+
+    def generate_advicestipocarrusel(self, titulo_limpio: str, nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera contenido principal para el bloque de consejos
+        """
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: tit: {ejemplo.get('tit', '')}, desc: {ejemplo.get('desc', '')}\n" 
+            for i, ejemplo in enumerate(ejemplos)]
+        )
+        
+        prompt = (
+            f"--- EJEMPLOS DE ESTILO ---\n"
+            f"{ejemplos_texto}\n"
+            f"--- TAREA ACTUAL ---\n"
+            f"Nuevo tema: {nuevo_tema}, tit: {titulo_limpio}\n"
+            f"Estructura: <think> ... </think>\n |tit: {titulo_limpio}|\n |desc: redaccion_desc|\n"
+        )
+        
+        return self.llm_client.generate(prompt, self.system_message)
+        raw_response = self.llm_client.generate(prompt, self.system_message)
+        return self._parse_output(raw_response)
+
+    def generate_advice_type(self, advice_types: List[str], nuevo_tema: str, ejemplos: List[Dict[str, Any]]) -> str:
+        """
+        Genera descripciones individuales para cada tipo de consejo
+        """
+        ejemplos_texto = "\n".join(
+            [f"Ejemplo {i+1}: {ejemplo}\n" for i, ejemplo in enumerate(ejemplos[:3])]
+        ) if ejemplos else ""
+        
+        consejos_texto = "\n".join([f"desc_{i+1}: {consejo}" for i, consejo in enumerate(advice_types)])
+        
+        prompt = (
+            f"--- EJEMPLOS ---\n"
+            f"{ejemplos_texto}\n"
+            f"--- TAREA ---\n"
+            f"Tema: {nuevo_tema}\n"
+            f"{consejos_texto}\n\n"
+            f"Formato: |desc_1: texto...| |desc_2: texto...| etc."
+        )
+        
+        return self.llm_client.generate(prompt, self.system_message)
+        raw_response = self.llm_client.generate(prompt, self.system_message)
+        return self._parse_output(raw_response)
+
+    def process_json(self, input_path: str, nuevo_tema: str, output_path: Optional[str] = None, secciones_ejemplos: Dict[str, List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+        """
+        Procesa un archivo JSON completo y genera nuevo contenido.
+        
+        Args:
+            input_path: Ruta del archivo JSON de entrada
+            nuevo_tema: Nuevo tema para generar contenido
+            output_path: Ruta donde guardar el resultado (opcional)
+            
+        Returns:
+            Datos generados
+        """
+        # Cargar datos de la plantilla
+        template_data = FileHandler.load_json(input_path)
+        
+        # Crear un nuevo JSON vacío para guardar solo las respuestas del LLM
+        nuevo_contenido = {
+            "metadata": {
+                "tema": nuevo_tema,
+                "entrenamiento": os.path.basename(os.path.dirname(input_path))
+            },
+            "respuestas": []
+        }
+        
+        # Generar secciones
+        
+        # 1. Quicksearch
+        ejemplos_quicksearch = secciones_ejemplos.get("quicksearch", [])
+        respuesta_quicksearch = self.generate_quicksearch(template_data, nuevo_tema, ejemplos_quicksearch)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_quicksearch": respuesta_quicksearch
+        })
+        
+        # 2. Fleet
+        ejemplos_fleet = secciones_ejemplos.get("fleet", [])
+        respuesta_fleet = self.generate_fleet(template_data, nuevo_tema, ejemplos_fleet)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_fleet": respuesta_fleet
+        })
+        
+        ejemplos_reviews = secciones_ejemplos.get("reviews", [])
+        respuesta_reviews = self.generate_reviews(template_data, nuevo_tema, ejemplos_reviews)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_reviews": respuesta_reviews
+        })
+        
+        # 3. Agencies
+        ejemplos_agencies = secciones_ejemplos.get("agencies", [])
+        respuesta_agencies = self.generate_agencies(template_data, nuevo_tema, ejemplos_agencies)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_agencies": respuesta_agencies
+        })
+        
+        # 4. FAQ_h2
+        ejemplos_faq = secciones_ejemplos.get("faqs", [])
+        respuesta_faq, respuesta_faq_h3 = self.generate_faq(nuevo_tema, ejemplos_faq)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_faq": respuesta_faq
+        })
+        
+        # 4.1 FAQ_h3
+        ejemplos_faq = secciones_ejemplos.get("faqs", [])
+        respuesta_faq_h3 = self.generate_faq_respuesta(nuevo_tema, ejemplos_faq)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_faq_h3": respuesta_faq_h3
+        })
+        
+        # 5. Car Rental
+        ejemplos_car_rental = secciones_ejemplos.get("car_rental", [])
+        respuesta_car_rental, respuesta_car_rental_h3 = self.generate_car_rental(template_data, nuevo_tema, ejemplos_car_rental)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_car_rental": respuesta_car_rental
+        })
+        
+        # 5.1 Car Rental H3
+        ejemplos_car_rental = secciones_ejemplos.get("car_rental", [])
+        respuesta_car_rental_h3 = self.generate_car_type(nuevo_tema, ejemplos_car_rental)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_car_rental_h3": respuesta_car_rental_h3
+        })
+        
+        # 6. Favorite City
+        ejemplos_fav_city = secciones_ejemplos.get("fav_city", [])
+        respuesta_fav_city = self.generate_fav_city(template_data, nuevo_tema, ejemplos_fav_city)
+        nuevo_contenido["respuestas"].append({
+            "respuesta_fav_city": respuesta_fav_city
+        })
+        
+        # Guardar resultados si se especificó una ruta de salida
+        if output_path:
+            FileHandler.save_json(output_path, nuevo_contenido)
+        
+        return nuevo_contenido
+    
+    def process_editor_directory(self, base_dir: str, editor: str) -> List[str]:
+        """
+        Procesa todos los archivos JSON de un editor.
+
+        Args:
+            base_dir: Directorio base
+            editor: Nombre del editor
+
+        Returns:
+            Lista de rutas de archivos generados
+        """
+        # Cambiar el directorio de entrada al que necesitas
+        editor_dir = os.path.join(base_dir, "input", "viajemos", "com", "ciudad", editor)
+        if not os.path.exists(editor_dir):
+            raise FileNotFoundError(f"La carpeta del editor no existe: {editor_dir}")
+
+        # Cambiar el directorio de salida al que necesitas
+        output_dir = os.path.join(base_dir, "output", "viajemos", "com", "ciudad", editor)
+        FileHandler.ensure_dir(output_dir)
+
+        # Cargar todos los archivos JSON del directorio del editor
+        json_files = [os.path.join(editor_dir, filename) for filename in os.listdir(editor_dir) if filename.endswith('.json')]
+
+        # Recolectar ejemplos de cada sección
+        secciones_ejemplos = {
+            "quicksearch": [],
+            "fleet": [],
+            "agencies": [],
+            "faqs": [],
+            "car_rental": [],
+            "fav_city": []
+        }
+        for json_file in json_files:
+            # Cargar el contenido del archivo JSON
+            template_data = FileHandler.load_json(json_file)
+            secciones = template_data.get("secciones", [{}])
+
+            # Extraer ejemplos de cada sección
+            if len(secciones) > 0:
+                secciones_ejemplos["quicksearch"].append(secciones[0].get("quicksearch", {}))
+            if len(secciones) > 1:
+                secciones_ejemplos["fleet"].append(secciones[1].get("fleet", {}))
+            if len(secciones) > 2:
+                secciones_ejemplos["agencies"].append(secciones[2].get("agencies", {}))
+            if len(secciones) > 3:
+                secciones_ejemplos["faqs"].append(secciones[3].get("faqs", {}))
+            if len(secciones) > 4:
+                secciones_ejemplos["car_rental"].append(secciones[4].get("car_rental", {}))
+            if len(secciones) > 5:
+                secciones_ejemplos["fav_city"].append(secciones[5].get("fav_city", {}))
+
+        return secciones_ejemplos

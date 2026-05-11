@@ -1,217 +1,174 @@
 import requests
-import json
+import logging
 import os
-from typing import Dict, Any, Optional
+import time
+from typing import Optional
+
+log = logging.getLogger("llm_client")
+
+LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://host.docker.internal:1234")
+LM_MODEL = os.getenv("LM_MODEL", "openai/gpt-oss-20b")
+
+# Temperaturas por tipo de tarea
+TEMP_CREATIVE = 0.75     # quicksearch, rentacar, fav_city — contenido expresivo
+TEMP_BALANCED = 0.55     # bloques estándar
+TEMP_PRECISE = 0.3       # fleet (beneficios exactos), faq answers, estructurado
+TEMP_SUPERVISOR = 0.2    # supervisores SEO (corrección consistente)
+TEMP_TRANSLATE = 0.2     # traducción
+
 
 class LLMClient:
-    """Cliente para comunicarse con modelos de lenguaje."""
-    
+    """Transporte HTTP hacia LM Studio. Solo sabe hacer llamadas al modelo."""
+
     def __init__(
-        self, 
-        model_url: str = None,
-        model_name: str = "openai/gpt-oss-20b",
-        temperature: float = 0.4
+        self,
+        base_url: str = LM_STUDIO_URL,
+        model: str = LM_MODEL,
+        temperature: float = TEMP_BALANCED,
     ):
-        """
-        Inicializa el cliente LLM.
-        
-        Args:
-            model_url: URL del endpoint del modelo
-            model_name: Nombre del modelo a utilizar
-            temperature: Temperatura para la generación (0.0-1.0)
-        """
-        if model_url is None:
-            base_url = 'http://192.168.1.36:1234'  # fallback para desarrollo local
-            model_url = f"{base_url}/v1/chat/completions"
-            
-        self.model_url = model_url
-        self.model_name = model_name
+        self.base_url = base_url.rstrip("/")
+        self.model = model
         self.temperature = temperature
-        self.headers = {"Content-Type": "application/json"}
-        
-    def generate(self, prompt: str, system_message: Optional[str] = None) -> str:
+        self.session = requests.Session()
+        self.session.headers.update({"Content-Type": "application/json"})
+        self.connect_timeout = float(os.getenv("LM_STUDIO_CONNECT_TIMEOUT", "3"))
+        self.read_timeout = float(os.getenv("LM_STUDIO_READ_TIMEOUT", "600"))
+        self.cooldown_sec = int(os.getenv("LM_STUDIO_DOWN_COOLDOWN_SEC", "20"))
+        self._down_until = 0.0
+        self.last_call_success = False
+        self.last_error = ""
+        self.last_success_url = ""
+        self.success_count = 0
+        self.failure_count = 0
+        raw_fallbacks = os.getenv("LM_STUDIO_FALLBACK_URLS", "").strip()
+        fallback_urls = [u.strip().rstrip("/") for u in raw_fallbacks.split(",") if u.strip()]
+        # Si LM_STUDIO_URL está configurado explícitamente, no agregamos fallbacks implícitos
+        # para evitar intentos a localhost que generan ruido y latencia innecesaria.
+        configured_base_url = os.getenv("LM_STUDIO_URL", "").strip()
+        defaults = []
+        if not configured_base_url:
+            # Defaults útiles para desarrollo local + Docker Desktop.
+            defaults = ["http://host.docker.internal:1234", "http://127.0.0.1:1234", "http://localhost:1234"]
+        self.base_urls = []
+        for url in [self.base_url, *fallback_urls, *defaults]:
+            if url and url not in self.base_urls:
+                self.base_urls.append(url)
+
+    def generate(
+        self,
+        prompt: str,
+        system_message: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: int = 6000,
+    ) -> str:
         """
-        Genera texto usando el modelo LLM.
-        
+        Llama al modelo y devuelve el texto generado.
+
         Args:
-            prompt: Texto de entrada para el modelo
-            system_message: Mensaje de sistema para establecer el contexto
-            
+            prompt: Mensaje del usuario.
+            system_message: Contexto del sistema.
+            temperature: Sobreescribe la temperatura por defecto si se pasa.
+            max_tokens: Límite de tokens en la respuesta.
+
         Returns:
-            Texto generado por el modelo
-            
-        Raises:
-            Exception: Si hay un error al llamar al modelo
+            Texto generado por el modelo, o cadena vacía si falla.
         """
-        # Si no se proporciona un mensaje de sistema, usar uno vacío
-        if system_message is None:
-            system_message = ""
-            
-        data = {
-            "model": self.model_name,
+        temp = temperature if temperature is not None else self.temperature
+        payload = {
+            "model": self.model,
             "messages": [
-                {
-                    "role": "system",
-                    "content": system_message
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "system", "content": system_message or ""},
+                {"role": "user", "content": prompt},
             ],
-            "temperature": self.temperature,
-            "max_tokens": -1,
-            "stream": False
+            "temperature": temp,
+            "max_tokens": max_tokens,
+            "stream": False,
         }
-
-        try:
-            response = requests.post(self.model_url, headers=self.headers, json=data)
-            response.raise_for_status()
-            raw_output = response.json()["choices"][0]["message"]["content"]
-            return raw_output  
-
-        except Exception as e:
-            print(f"Error al llamar al modelo: {e}")
-            return "[Error generando texto]"
-    
-    def load_system_message(self, message_path: str) -> str:
-        """
-        Carga un mensaje de sistema desde un archivo.
-        
-        Args:
-            message_path: Ruta al archivo con el mensaje
-            
-        Returns:
-            Contenido del mensaje
-        """
-        try:
-            with open(message_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        except Exception as e:
-            print(f"Error al cargar mensaje de sistema: {e}")
+        now = time.time()
+        if now < self._down_until:
+            remaining = int(self._down_until - now)
+            log.warning("LLM temporalmente no disponible. Reintentar en %ss", remaining)
+            self.last_call_success = False
+            self.last_error = f"cooldown_active:{remaining}s"
+            self.failure_count += 1
             return ""
-        
-    def post_generate_uno(self, prompt: str, regla: str,system_message: Optional[str] = None) -> str:
-        """
-        Procesamiento de la respuesta principal para genera texto usando el modelo LLM y corregir puntos mas especificos.
-        
-        Args:
-            prompt: Texto de entrada para el modelo
-            system_message: Mensaje de sistema para establecer el contexto
-            
-        Returns:
-            Texto generado por el modelo
-            
-        Raises:
-            Exception: Si hay un error al llamar al modelo
-        """
-        # Si no se proporciona un mensaje de sistema, usar uno vacío
-        if system_message is None:
-            system_message = """
-            vas a asumir el rol de un agente supervisor SEO en español, tu tarea sera revizar y si aplica corregir los textos que se te pasan, mantendras la regla de cantidad de palabras {regla}, solo responderas con la estructura actual, no agregaras informacion y pensamientos adicional.
-            en caso de encontrar alguna palabra restringida usa la tabla de homologacion para sustituirla,
-            Esta es una lista de amplitud semantica y homologaciones:
-            - Alquiler y Renta,
-            - Autos, Carros y Vehículos
-            esta es una lista de palabras restringidas, si encuentras alguna de estas palabras en el texto que se te pasa, debes sustituirla por otra que no este en la lista:
-            - Coche
-            - Automovil
-            - Flota
-            - Gastos, pagos, cargos 'ocultos o transparentse' (no usar estas frases, si sale esta palabra eliminala)
-            - Descuentos relampago 
-            - Seguro de viaje gratis 
-            esta es una tabla de beneficios, donde encontraras beneficios y sinonimos para que los utilices segun conveniencia (normalmente esta se usa en el bloque fleet)(beneficio -> sinonimo -> (ip/restriccion/contexto)):
-            - Seguro de Viaje Gratis -> Cobertura de Viaje Gratis -> Latam to USA - Brasil
-            - Kilómetros Ilimitados -> Millas Ilimitadas -> Todos
-            - Asistencia Básica en Carretera -> Soporte Básico en Carretera -> Todos
-            - Conductor Adicional -> Otro conductor sin costo extra -> Latam to USA - Brasil
-            - Modificaciones sin Cargos Administrativos -> Modificaciones Flexibles -> Todos
-            - Cobertura de Daños al Vehículo ->	Protección Contra Daños al Auto -> Latam to Usa
-            - Protección de Daños a Terceros ->	Cobertura de Responsabilidad Civil -> Latam to Usa
-            - Cobertura por Robo ->	Seguro Contra Hurto del Vehículo ->	Latam to Usa
-            - Sin Deducibles ->	Sin Responsabilidad Económica -> Latam to Usa
-            - Beneficio en Cobertura del IOF ->	No tiene ->	Brasil
-            - No repitas la palabra Descruber, si quieres usarla, solo usala una vez y luego usa sinonimos o frases que transmitan la misma idea, como 'conoce', 'explora', 'aprovecha' etc...
-            recuerda mantener su estructura
-            |tit: tit| |desc: desc|\n |desc2: desc2| etc... y mantener los bloques correspondientes si aplica, como los de ip_.
-            """
-            
-        data = {
-            "model": self.model_name,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_message
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": self.temperature,
-            "  ": -1,
-            "stream": False
+
+        last_error = None
+        for base_url in self.base_urls:
+            try:
+                response = self.session.post(
+                    f"{base_url}/v1/chat/completions",
+                    json=payload,
+                    timeout=(self.connect_timeout, self.read_timeout),
+                )
+                response.raise_for_status()
+                data = response.json()
+                choice = (data.get("choices") or [{}])[0]
+                message = choice.get("message") or {}
+                content = (message.get("content") or "").strip()
+                if content:
+                    self._down_until = 0.0
+                    self.last_call_success = True
+                    self.last_error = ""
+                    self.last_success_url = base_url
+                    self.success_count += 1
+                    if base_url != self.base_url:
+                        log.warning("LLMClient usó URL alternativa: %s", base_url)
+                    return content
+                finish_reason = choice.get("finish_reason")
+                last_error = RuntimeError(
+                    f"empty_content_from_llm(url={base_url}, finish_reason={finish_reason})"
+                )
+                log.warning(
+                    "Respuesta vacía del LLM en %s (finish_reason=%s)",
+                    base_url,
+                    finish_reason,
+                )
+            except Exception as e:
+                last_error = e
+                log.warning("Fallo LLM en %s: %s", base_url, e)
+
+        self._down_until = time.time() + self.cooldown_sec
+        self.last_call_success = False
+        self.last_error = str(last_error) if last_error else "unknown_error"
+        self.failure_count += 1
+        log.error("Error llamando al modelo en todas las URLs configuradas: %s", last_error)
+        return ""
+
+    def ping(self) -> list:
+        """Devuelve los modelos disponibles en el servidor."""
+        last_error = None
+        for base_url in self.base_urls:
+            try:
+                resp = self.session.get(f"{base_url}/v1/models", timeout=10)
+                resp.raise_for_status()
+                return [m["id"] for m in resp.json().get("data", [])]
+            except Exception as e:
+                last_error = e
+                log.warning("Ping LLM falló en %s: %s", base_url, e)
+        raise RuntimeError(f"No se pudo conectar a LM Studio: {last_error}")
+
+    def health(self) -> dict:
+        """Estado de conectividad del LLM para UI/monitoring."""
+        ok = False
+        reachable_url = ""
+        error = ""
+        for base_url in self.base_urls:
+            try:
+                resp = self.session.get(f"{base_url}/v1/models", timeout=(self.connect_timeout, 5))
+                resp.raise_for_status()
+                ok = True
+                reachable_url = base_url
+                break
+            except Exception as e:
+                error = str(e)
+        return {
+            "ok": ok,
+            "configured_urls": self.base_urls,
+            "reachable_url": reachable_url,
+            "last_success_url": self.last_success_url,
+            "last_call_success": self.last_call_success,
+            "last_error": self.last_error or error,
+            "success_count": self.success_count,
+            "failure_count": self.failure_count,
         }
-
-        try:
-            response = requests.post(self.model_url, headers=self.headers, json=data)
-            response.raise_for_status()
-            raw_output = response.json()["choices"][0]["message"]["content"]
-            return raw_output  
-
-        except Exception as e:
-            print(f"Error al llamar al modelo: {e}")
-            return "[Error generando texto]"
-        
-    def post_generate_dos(self, prompt: str, regla: str,system_message: Optional[str] = None) -> str:
-        """
-        Procesamiento de la respuesta para verificar y corregir errores en la estructura.
-        
-        Args:
-            prompt: Texto de entrada para el modelo
-            system_message: Mensaje de sistema para establecer el contexto
-            
-        Returns:
-            Texto generado por el modelo
-            
-        Raises:
-            Exception: Si hay un error al llamar al modelo
-        """
-        # Si no se proporciona un mensaje de sistema, usar uno vacío
-        if system_message is None:
-            system_message = """
-            vas a asumir el rol de un supervisor SEO en español, tu tarea sera revizar y si aplica modificar los textos que se te pasan, mantendras la regla de cantidad de palabras {regla}, solo responderas con la estructura deseada no hables de mas.
-            tu tarea principal es revisar los textos en busca de errores de estructura, corregirlos de la mejor manera, siguiendo la logica del texto y la estructura general, revisa que se abran y cierren las estructuras:
-            si encuentras mas palabras que la cantidad de palabras que se te indica, debes modificar sutilmente el texto para que se ajuste a la cantidad de palabras, sin perder el sentido del texto. no cuanta las etiquetas de marcado, solo el texto dentro de ellas.
-            estructura de output deseado:
-            de no ser un excepcion a la regla, el output deseado cuenta con 2 bloques, titulo, redaccion o descripcion y en ese orden.
-            |tit: tit| |desc: desc|\n |desc2: desc2| etc...   y mantener los bloques correspondientes si aplica, como los de ip_.
-            """
-            
-        data = {
-            "model": self.model_name,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_message
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": self.temperature,
-            "max_tokens": -1,
-            "stream": False
-        }
-
-        try:
-            response = requests.post(self.model_url, headers=self.headers, json=data)
-            response.raise_for_status()
-            raw_output = response.json()["choices"][0]["message"]["content"]
-            return raw_output  
-
-        except Exception as e:
-            print(f"Error al llamar al modelo: {e}")
-            return "[Error generando texto]"  
-

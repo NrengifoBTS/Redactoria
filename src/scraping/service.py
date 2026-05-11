@@ -487,8 +487,6 @@ def generar_documento_word(blog_id: UUID, db: Session) -> StreamingResponse:
     )
 
 
-
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # --- 1. CLASE AIService: Control y Generación de IA ---
 
@@ -498,13 +496,13 @@ class AIService:
     incluyendo resúmenes de bloques y análisis final.
     """
 
-    MODEL_URL = "http://192.168.1.36:1234/v1/chat/completions" #<-- Compu Alda
-    #MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
-    MODEL_NAME = "openai/gpt-oss-20b"
+    #MODEL_URL = "http://192.168.1.36:1234/v1/chat/completions" #<-- Compu Alda
+    MODEL_URL = "http://host.docker.internal:1234/v1/chat/completions" 
+    MODEL_NAME = "redactor_llama_v2"
     DEFAULT_SYSTEM_MESSAGE = (
-        "Eres un Redactor SEO, Copywriter y Editor Web de ÉLITE. "
-        "INSTRUCCIÓN CRÍTICA: NO USEA NINGUNA TIPOGRAFIA ESPECIAL ,NEGRITAS, CURSIVAS , SUBRRAYADO EN NINGUNA GENERACION"
-        
+        "Eres un Redactor SEO y Arquitecto de Datos de ÉLITE. "
+        "INSTRUCCIÓN CRÍTICA: Responde ÚNICAMENTE con el formato solicitado (ej. JSON). "
+        "No uses negritas, ni tipografías especiales. No incluyas introducciones ni despedidas."
     )
 
     def __init__(self):
@@ -513,34 +511,43 @@ class AIService:
     # LLAMADA A LM STUDIO
     def _llm_generate(self, 
                       prompt: str, 
-                      system_message: str = DEFAULT_SYSTEM_MESSAGE, 
-                      temperature: float = 0.4, 
+                      system_message: str = None, 
+                      temperature: float = 0.2, # Bajamos a 0.2 para mayor estabilidad
                       max_tokens: Optional[int] = None 
                       ) -> str:
+        
+        sys_msg = system_message if system_message else self.DEFAULT_SYSTEM_MESSAGE
         
         data = {
             "model": self.MODEL_NAME,
             "messages": [
-                {"role": "system", "content": system_message},
+                {"role": "system", "content": sys_msg},
                 {"role": "user", "content": prompt}
             ],
-            "temperature":temperature ,
-            "stream": False
+            "temperature": temperature,
+            "stream": False,
+            # Añadimos stop tokens para que Llama sepa cuándo callarse
+            "stop": ["<|eot_id|>", "<|end_of_text|>", "###", "```"]
         }
         
-        UNIVERSAL_MAX_TOKENS = 10000 
+        # OJO: 10,000 puede ser mucho para algunos modelos locales en LM Studio 
+        # y causar lentitud o loops. 4096 suele ser el punto dulce.
+        data["max_tokens"] = max_tokens if max_tokens else 4096 
 
-        data["max_tokens"] = UNIVERSAL_MAX_TOKENS
         try:
-            response = requests.post(self.MODEL_URL, headers={"Content-Type": "application/json"}, json=data)
+            response = requests.post(self.MODEL_URL, headers={"Content-Type": "application/json"}, json=data, timeout=120)
             response.raise_for_status() 
-            return response.json()["choices"][0]["message"]["content"].strip()
+            raw_content = response.json()["choices"][0]["message"]["content"].strip()
+            
+            # Limpiamos la respuesta antes de devolverla
+            return self._limpiar_json_llama(raw_content)
         
         except requests.exceptions.RequestException as e:
-            error_message = f"[FALLO LLM - {response.status_code if 'response' in locals() else 'Red'}: {type(e).__name__} - {str(e)}]"
-            return error_message 
+            return f"[FALLO LLM - Conexión]" 
         except Exception as e:
-            return f"[Error interno inesperado: {e}]"
+            return f"[Error interno: {e}]"
+
+
 
     # LIMPIEZA Y PARSEO DE JSON DEVUELTO POR EL LLM
     def limpieza_extraccion_json(self, json_string: str) -> Dict[str, Any]:

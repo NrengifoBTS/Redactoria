@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generación de Blog</title>
+    <link rel="stylesheet" href="css/styles_generacion.css" />
+  </head>
+  <style>
+    .generated-result {
+      margin-top: 20px;
+    }
+    .image-preview {
+      border: 2px dashed #ddd;
+      border-radius: 12px;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #818181;
+      margin-bottom: 15px;
+      background: #f9fafb;
+    }
+    .image-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .links-generator {
+      padding: 30px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+      margin-top: 40px;
+    }
+
+    .links-generator h2 {
+      color: #0583ff;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+
+    .links-generator h3 {
+      color: #0583ff;
+      font-size: 1rem;
+      margin-bottom: 15px;
+      margin-top: 15px;
+    }
+
+    .link-form {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .link-form input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .links-list {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    .progress-container {
+      margin-top: 20px;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, #0583ff, #00eba7);
+      transition: width 0.5s ease;
+    }
+
+    /* Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #e6e6e6; /* fondo gris no tan claro */
+      color: #000000;
+      line-height: 1.6;
+    }
+
+    /* Navbar */
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 30px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .navbar h1 {
+      color: #0583ff;
+    }
+    .navbar .btn {
+      background: #0583ff;
+      color: #fff;
+      padding: 8px 15px;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    .navbar .btn:hover {
+      background: #00eba7;
+    }
+
+    /* ------------------- Preconfig / Grid ------------------- */
+
+    .preconfig {
+      background: #fff;
+      padding: 25px 30px;
+      margin: 20px;
+      border-radius: 12px;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .preconfig h2 {
+      margin-bottom: 20px;
+      color: #0583ff;
+    }
+
+    /* Grid con espacio aireado */
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 25px 20px; /* más espacio entre filas y columnas */
+      align-items: start;
+    }
+
+    /* Inputs compactos pero elegantes */
+    .config-grid input[type="text"],
+    .config-grid input[type="number"],
+    .config-grid select {
+      min-width: 120px; /* ancho base */
+      max-width: 100%; /* nunca se sale del contenedor */
+      padding: 8px 32px 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* Sliders ocupan más espacio pero alineados */
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-container label {
+      font-weight: bold;
+      color: #555;
+      font-size: 0.9rem;
+      margin-bottom: 2px;
+    }
+
+    /* Checkboxes alineados y aireados */
+    .config-grid label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+      color: #555;
+      cursor: pointer;
+    }
+
+    .config-grid input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #0583ff;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .config-grid input[type="checkbox"]:checked {
+      background: #0583ff;
+      border-color: #0583ff;
+    }
+
+    .config-grid input[type="checkbox"]:checked::after {
+      content: "✔";
+      color: #fff;
+      font-size: 12px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Layout principal de los generadores */
+    .generadores-container {
+      display: flex;
+      gap: 20px; /* separación entre columnas */
+      align-items: flex-start;
+      justify-content: space-between; /* fuerza que ocupen todo el ancho */
+    }
+
+    /* Columna izquierda */
+    .generadores-izquierda {
+      flex: 0 0 48%; /* ocupa casi la mitad, dejando 4% de gap */
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    /* Columna derecha */
+    .visual-generator {
+      flex: 0 0 48%;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    /* Estilo para las cajas de las secciones */
+    .idea-generator,
+    .visual-generator,
+    .image-generator,
+    .links-generator {
+      padding: 60px 40px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+      box-sizing: border-box;
+    }
+
+    /* Idea Generator */
+    .idea-layout {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+    .idea-input {
+      flex: 1;
+      min-width: 300px;
+    }
+    .idea-input h2 {
+      color: #0583ff;
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
+    .idea-input p {
+      margin-bottom: 20px;
+      color: #555;
+    }
+    .idea-input textarea {
+      width: 100%;
+      height: 120px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 1rem;
+      margin-bottom: 20px;
+      resize: none;
+    }
+
+    /* ---------------- Botones Generar y Regenerar ---------------- */
+    .idea-buttons {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* Base común para todos los botones grandes */
+    .btn-generate,
+    #btn-regenerar,
+    #btn-download {
+      flex: 1;
+      height: 55px; /* misma altura */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+    }
+
+    /* Generar */
+    .btn-generate {
+      background: linear-gradient(135deg, #0583ff, #00eba7);
+      color: #fff;
+    }
+    .btn-generate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 235, 167, 0.3);
+    }
+
+    /* Regenerar */
+    #btn-regenerar {
+      background: linear-gradient(135deg, #ff6b6b, #ff9a9e);
+      color: #fff;
+    }
+    #btn-regenerar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 107, 107, 0.3);
+    }
+
+    /* Descargar */
+    #btn-download {
+      background: linear-gradient(135deg, #0583ff, #9900ff);
+      color: #fff;
+    }
+    #btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(57, 58, 148, 0.4);
+    }
+
+    /* Idea Output */
+    .idea-output {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      min-width: 300px;
+      overflow: hidden;
+      align-content: flex-start;
+    }
+    .idea-bubble {
+      background: #f9fafb;
+      padding: 15px 20px;
+      border-radius: 16px;
+      font-size: 0.95rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      transition: transform 0.3s;
+    }
+    .idea-bubble:nth-child(1) {
+      background: #e6f0ff;
+      color: #0583ff;
+    }
+    .idea-bubble:nth-child(2) {
+      background: #ffffff;
+      color: #66ad99;
+    }
+    .idea-bubble:nth-child(3) {
+      background: #f5e6ff;
+      color: #9900ff;
+    }
+    .idea-bubble:hover {
+      transform: scale(1.05);
+    }
+
+    /* Vista previa del blog */
+    .generation-preview {
+      display: flex;
+      flex-direction: column;
+    }
+    .generation-preview h2 {
+      margin-bottom: 10px;
+      color: #0583ff;
+    }
+    .preview-box {
+      background: #f9fafb;
+      padding: 20px;
+      border-radius: 12px;
+      min-height: 300px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      flex-grow: 1;
+    }
+
+    /* ---------------- Imagen Generator ---------------- */
+
+    .image-generator {
+      padding: 60px 40px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+      display: flex;
+      gap: 40px;
+    }
+
+    .image-controls {
+      flex: 1;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .image-controls h2 {
+      color: #0583ff;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .image-grid input[type="text"],
+    .image-grid select {
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #fff;
+      max-width: 180px;
+      width: 100%;
+    }
+
+    /* Botón principal generar imagen */
+    .btn-secondary,
+    .btn-generate-image {
+      width: 100%;
+      height: 55px; /* igual que el de ideas */
+      background: linear-gradient(135deg, #0583ff, #00eba7);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .btn-generate-image:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 235, 167, 0.3);
+    }
+
+    /* Botón extra: agregar otro tipo de imagen */
+    .btn-add-image {
+      width: 100%;
+      height: 55px;
+      background: linear-gradient(
+        135deg,
+        #ffb347,
+        #ffcc33
+      ); /* 🔥 color distinto */
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .btn-add-image:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 179, 71, 0.4);
+    }
+
+    /* Output con vista previa */
+    .image-output {
+      flex: 1;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .prompt-box {
+      background: #f9fafb;
+      border: 1px dashed #ddd;
+      border-radius: 12px;
+      padding: 20px;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #999;
+      flex-grow: 1;
+    }
+
+    /* Animaciones */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    @keyframes pulse {
+      0%,
+      100% {
+        box-shadow: 0 0 0px rgba(0, 235, 167, 0.4);
+      }
+      50% {
+        box-shadow: 0 0 15px rgba(0, 235, 167, 0.6);
+      }
+    }
+
+    /* Inputs y selects dinámicos */
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: #00eba7;
+      outline: none;
+      box-shadow: 0 0 8px rgba(0, 235, 167, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    /* Botones más vivos */
+    .btn-generate,
+    .btn-generate-image,
+    .navbar .btn {
+      background: linear-gradient(135deg, #0583ff, #00eba7);
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+    }
+    .btn-generate:hover,
+    .btn-generate-image:hover,
+    .navbar .btn:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 6px 16px rgba(0, 235, 167, 0.3);
+    }
+
+    /* Cards dinámicas */
+    .idea-generator,
+    .visual-generator,
+    .image-generator,
+    .links-generator {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .idea-generator:hover,
+    .visual-generator:hover,
+    .image-generator:hover,
+    .links-generator:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Burbujas animadas */
+    .idea-bubble {
+      opacity: 0;
+      animation: fadeIn 0.6s ease forwards;
+    }
+    .idea-bubble:nth-child(1) {
+      animation-delay: 0.2s;
+    }
+    .idea-bubble:nth-child(2) {
+      animation-delay: 0.4s;
+    }
+    .idea-bubble:nth-child(3) {
+      animation-delay: 0.6s;
+    }
+
+    /* Prompt actualizado */
+    .prompt-box.updated {
+      border: 2px solid #00eba7;
+      animation: pulse 1.5s ease;
+    }
+
+    /* Selects de sistema */
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background: #fff
+        url("data:image/svg+xml;utf8,<svg fill='black' height='12' viewBox='0 0 24 24' width='12' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")
+        no-repeat right 12px center;
+      padding: 10px 30px 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      transition: border 0.3s, box-shadow 0.3s;
+    }
+    select:focus {
+      border-color: #0583ff;
+      box-shadow: 0 0 6px rgba(5, 131, 255, 0.4);
+    }
+
+    /* Textareas que se ven como inputs */
+    .auto-expand {
+      width: 100%;
+      min-height: 40px;
+      max-height: 200px; /* límite para no romper el layout */
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      resize: none; /* el usuario no puede estirarlo manual */
+      box-sizing: border-box;
+    }
+
+    /* Para que luzcan igual que los inputs actuales */
+    .auto-expand:focus {
+      border-color: #00eba7;
+      box-shadow: 0 0 8px rgba(0, 235, 167, 0.3);
+      outline: none;
+    }
+
+    /* FAQ Generator */
+    .faq-generator {
+      padding: 40px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .faq-generator h2 {
+      color: #0583ff;
+      font-size: 1.8rem;
+      margin-bottom: 15px;
+    }
+
+    .faq-generator p {
+      color: #555;
+      margin-bottom: 20px;
+    }
+
+    .faq-config {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .faq-config label {
+      font-weight: bold;
+      font-size: 0.95rem;
+      color: #333;
+    }
+
+    .faq-config input,
+    .faq-config select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #fff;
+    }
+
+    .faq-preview {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9fafb;
+      border: 1px dashed #ddd;
+      border-radius: 12px;
+    }
+
+    .faq-preview h3 {
+      color: #0583ff;
+      margin-bottom: 10px;
+    }
+
+    .faq-preview ul {
+      padding-left: 20px;
+      color: #333;
+      font-size: 0.95rem;
+    }
+
+    .faq-preview li {
+      margin-bottom: 8px;
+    }
+
+    /* Botones Regenerar (globales) */
+    .btn-regenerar {
+      background: linear-gradient(135deg, #ff6b6b, #ff9a9e);
+      color: #fff;
+      height: 55px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+    }
+
+    .btn-regenerar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 107, 107, 0.3);
+    }
+
+    .preview-word {
+      background: #fff;
+      padding: 2rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      max-width: 800px;
+      margin: auto;
+      font-family: Georgia, "Times New Roman", serif;
+      line-height: 1.6;
+      color: #333;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .preview-word h2,
+    .preview-word h3 {
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      font-weight: bold;
+      color: #222;
+    }
+
+    .preview-word ul {
+      margin-left: 1.5em;
+      list-style-type: disc;
+    }
+
+    .preview-word .faq h3 {
+      margin-top: 1em;
+      font-size: 1.1em;
+      color: #0056b3;
+    }
+
+    .preview-word a {
+      color: #0056b3;
+      text-decoration: none;
+    }
+
+    .preview-word a:hover {
+      text-decoration: underline;
+    }
+    .preview-word img {
+      max-width: 100%;
+      border-radius: 6px;
+      margin: 1rem 0;
+      display: block;
+    }
+
+    .preview-word figure {
+      text-align: center;
+      margin: 1.5rem 0;
+    }
+
+    .preview-word figcaption {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 0.3rem;
+    }
+
+    .preview-word .links-block {
+      margin: 1.5rem 0;
+    }
+
+    .preview-word .links-block h3 {
+      margin-bottom: 0.5rem;
+      color: #444;
+    }
+
+    .preview-word .links-block ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    .preview-word .links-block li {
+      margin: 0.3rem 0;
+    }
+
+    .preview-word .links-block a {
+      color: #0056b3;
+      text-decoration: none;
+    }
+
+    .preview-word .links-block a:hover {
+      text-decoration: underline;
+    }
+  </style>
+  <body>
+    <header class="navbar">
+      <a href="dashboard_blog.html" class="btn">⬅ Volver al Dashboard</a>
+      <h1>Generación de Blog</h1>
+    </header>
+
+    <section class="preconfig">
+      <h2>Configuración del Prompt</h2>
+      <div class="config-grid">
+        <!-- Cambié a textarea -->
+        <textarea
+          placeholder="Tema principal (ej: IA en educación)"
+          class="auto-expand"
+        ></textarea>
+
+        <textarea
+          placeholder="Palabras clave (ej: inteligencia, innovación)"
+          class="auto-expand"
+        ></textarea>
+
+        <!-- Idioma -->
+        <select>
+          <option selected disabled>Idioma</option>
+          <option value="es">Español</option>
+          <option value="en">Inglés</option>
+          <option value="fr">Francés</option>
+        </select>
+
+        <!-- Tono -->
+        <select>
+          <option selected disabled>Tono de Escritura</option>
+          <option value="formal">Formal</option>
+          <option value="casual">Casual</option>
+          <option value="tecnico">Técnico</option>
+          <option value="inspirador">Inspirador</option>
+          <option value="jovial">Jovial</option>
+          <option value="informal">Informal</option>
+        </select>
+
+        <section>
+          <label><input type="checkbox" /> Incluir FAQ</label>
+          <label><input type="checkbox" /> Optimización SEO</label>
+        </section>
+      </div>
+    </section>
+    <main class="container generadores-container">
+      <div class="generadores-izquierda">
+        <section class="idea-generator">
+          <!--Slider Longitud-->
+          <div class="slider-container">
+            <label for="longitud-articulo">Longitud del Artículo:</label>
+            <input
+              type="range"
+              id="longitud-articulo"
+              name="longitud"
+              min="500"
+              max="3000"
+              step="100"
+              value="1000"
+            />
+            <span id="longitud-valor">1000 palabras</span>
+            <small class="preset-hint">
+              Corto: 500-800 | Medio: 800-1500 | Largo: 1500-2500
+            </small>
+          </div>
+          <select>
+            <option selected disabled>Tamaño</option>
+            <option value="texto-h1">H1</option>
+            <option value="texto-h2">H2</option>
+            <option value="texto-h3">H3</option>
+            <option value="texto-h4">H4</option>
+            <option value="texto-h5">H5</option>
+          </select>
+          <div class="idea-layout">
+            <div class="idea-input">
+              <h2>Generador de Ideas</h2>
+              <p>Escribe un tema y descubre nuevas perspectivas</p>
+              <textarea
+                class="auto-expand"
+                placeholder="Ej: tecnología educativa"
+              ></textarea>
+              <div class="idea-buttons">
+                <button class="btn-generate">Generar Ideas</button>
+                <button class="btn-secondary" id="btn-regenerar">
+                  Regenerar Ideas
+                </button>
+              </div>
+            </div>
+
+            <div class="idea-output" id="ideas-container">
+              <div class="idea-bubble">
+                Explora el uso de IA en la educación
+              </div>
+              <div class="idea-bubble">Tendencias en aulas virtuales</div>
+              <div class="idea-bubble">
+                Gamificación como método de aprendizaje
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="image-generator">
+          <div class="image-controls">
+            <h2>Generador de Imágenes</h2>
+            <div class="image-grid">
+              <textarea
+                class="auto-expand"
+                id="tema-imagen"
+                placeholder="Tema de la imagen"
+              ></textarea>
+
+              <select id="estilo-imagen">
+                <option selected disabled>Estilo</option>
+                <option value="realista">Fotorealista</option>
+                <option value="pintura-oleo">Pintura al Óleo</option>
+                <option value="cyberpunk">Cyberpunk</option>
+                <option value="anime">Anime</option>
+                <option value="fantasia">Fantasía</option>
+              </select>
+
+              <!-- Campos adicionales -->
+              <select id="fotografo">
+                <option selected disabled>Fotógrafo</option>
+                <option value="annie-leibovitz">Annie Leibovitz</option>
+                <option value="ansel-adams">Ansel Adams</option>
+                <option value="steve-mccurry">Steve McCurry</option>
+              </select>
+
+              <select id="artista">
+                <option selected disabled>Artista</option>
+                <option value="greg-rutkowski">Greg Rutkowski</option>
+                <option value="artgerm">Artgerm</option>
+                <option value="alphonse-mucha">Alphonse Mucha</option>
+              </select>
+
+              <select id="angulo">
+                <option selected disabled>Ángulo de cámara</option>
+                <option value="primer-plano">Primer plano</option>
+                <option value="plano-general">Plano general</option>
+                <option value="aereo">Vista aérea</option>
+                <option value="contrapicado">Contrapicado</option>
+              </select>
+
+              <select id="iluminacion">
+                <option selected disabled>Iluminación</option>
+                <option value="suave">Luz Suave</option>
+                <option value="dramatica">Iluminación Dramática</option>
+                <option value="neones">Luces de Neón</option>
+              </select>
+            </div>
+
+            <!-- Slider Aspect Ratio -->
+            <div class="aspect-ratio">
+              <label for="aspect-slider">Proporción de la imagen:</label>
+              <div class="aspect-preview" id="aspect-box">4:5</div>
+              <input
+                type="range"
+                id="aspect-slider"
+                min="0"
+                max="2"
+                value="1"
+              />
+              <div class="aspect-labels">
+                <span>1:1</span>
+                <span>4:5</span>
+                <span>16:9</span>
+              </div>
+            </div>
+            <button class="btn-add-image">+ Agregar otro tipo de imagen</button>
+            <button class="btn-generate-image">Generar Prompt de Imagen</button>
+          </div>
+
+          <!-- Output con vista previa -->
+          <div class="image-output">
+            <div class="prompt-box">
+              <p id="prompt-generado">Aquí aparecerá el prompt generado...</p>
+            </div>
+
+            <div class="generated-result">
+              <h3>Vista Previa:</h3>
+              <div class="image-preview" id="image-preview">
+                <p>La imagen generada aparecerá aquí...</p>
+              </div>
+              <div class="idea-buttons">
+                <button class="btn-third" id="btn-download">Descargar</button>
+                <button class="btn-secondary" id="btn-regenerar">
+                  Regenerar Ideas
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="links-generator">
+          <h2>Enlaces SEO</h2>
+
+          <!-- Enlaces internos -->
+          <div class="links-block">
+            <h3>Enlaces Internos</h3>
+            <div class="links-list internos">
+              <div class="link-form">
+                <textarea
+                  placeholder="URL interna (ej: /mi-articulo)"
+                  class="auto-expand"
+                ></textarea>
+                <textarea
+                  placeholder="Anchor Text"
+                  class="auto-expand"
+                ></textarea>
+              </div>
+              <div class="link-form">
+                <textarea
+                  placeholder="URL interna (ej: /ejemplo)"
+                  class="auto-expand"
+                ></textarea>
+                <textarea
+                  placeholder="Anchor Text"
+                  class="auto-expand"
+                ></textarea>
+              </div>
+            </div>
+            <button class="btn-secondary">Añadir Interno</button>
+          </div>
+
+          <!-- Enlaces externos -->
+          <div class="links-block">
+            <h3>Enlaces Externos</h3>
+            <div class="links-list externos">
+              <div class="link-form">
+                <textarea
+                  placeholder="URL externa (https://...)"
+                  class="auto-expand"
+                ></textarea>
+                <textarea
+                  placeholder="Anchor Text"
+                  class="auto-expand"
+                ></textarea>
+              </div>
+              <div class="link-form">
+                <textarea
+                  placeholder="URL externa (https://...)"
+                  class="auto-expand"
+                ></textarea>
+                <textarea
+                  placeholder="Anchor Text"
+                  class="auto-expand"
+                ></textarea>
+              </div>
+            </div>
+            <button class="btn-secondary">Añadir Externo</button>
+          </div>
+        </section>
+        <!-- Sección FAQ -->
+        <section class="faq-generator">
+          <h2>Generador de FAQ</h2>
+          <p>Configura cuántas preguntas quieres y de qué tipo.</p>
+
+          <div class="faq-config">
+            <label for="faq-num">Número de preguntas:</label>
+            <input type="number" id="faq-num" min="1" max="10" value="3" />
+
+            <label for="faq-tipo">Tipo de preguntas:</label>
+            <select id="faq-tipo">
+              <option value="general">Generales</option>
+              <option value="tecnicas">Técnicas</option>
+              <option value="beneficios">Beneficios</option>
+              <option value="riesgos">Riesgos</option>
+            </select>
+          </div>
+          <div class="idea-buttons">
+            <button class="btn-generate">Generar FAQ</button>
+            <button class="btn-secondary" id="btn-regenerar">
+              Regenerar Ideas
+            </button>
+          </div>
+          <!-- Vista previa -->
+          <div class="faq-preview">
+            <h3>Vista previa:</h3>
+            <ul>
+              <li>¿Qué es la inteligencia artificial en educación?</li>
+              <li>¿Cómo puede mejorar la enseñanza?</li>
+              <li>¿Cuáles son los principales retos?</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <section class="visual-generator">
+        <div class="generation-preview">
+          <h2>Vista previa del Blog</h2>
+          <div class="preview-box">
+            <h3>Título generado aquí...</h3>
+            <div class="preview-word">
+              <h1>El impacto de la Inteligencia Artificial en la Educación</h1>
+
+              <p>
+                La <strong>inteligencia artificial (IA)</strong> está
+                revolucionando la forma en que estudiantes y docentes se
+                relacionan con el conocimiento. Desde la personalización del
+                aprendizaje hasta la automatización de tareas, sus aplicaciones
+                son cada vez más amplias.
+              </p>
+
+              <!-- Imagen dentro del artículo -->
+              <figure>
+                <img
+                  src="https://imgs.search.brave.com/ZB56SO7Is6aFAOUZk73lAH7c0TG-sLNQ6lwM2s7ogAM/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9jZG4u/cGl4YWJheS5jb20v/cGhvdG8vMjAxOC8w/NS8wOC8wOC80NC9h/cnRpZmljaWFsLWlu/dGVsbGlnZW5jZS0z/MzgyNTA3XzY0MC5q/cGc"
+                  alt="IA en aulas virtuales"
+                />
+                <figcaption>
+                  Ejemplo de un aula virtual impulsada por IA
+                </figcaption>
+              </figure>
+
+              <h2>Beneficios principales</h2>
+              <ul>
+                <li>
+                  Personalización de rutas de aprendizaje según el ritmo del
+                  estudiante.
+                </li>
+                <li>Reducción de tareas administrativas para los docentes.</li>
+                <li>Acceso a recursos educativos en múltiples formatos.</li>
+              </ul>
+
+              <h2 class="wp-block-heading">Preguntas Frecuentes</h2>
+              <div class="faq">
+                <h3>¿La IA reemplazará a los maestros?</h3>
+                <p>
+                  No. La IA funciona como apoyo, pero la figura del docente
+                  sigue siendo insustituible.
+                </p>
+
+                <h3>¿Qué riesgos tiene usar IA en la educación?</h3>
+                <p>
+                  Puede haber dependencia tecnológica y sesgos en los algoritmos
+                  si no se regulan bien.
+                </p>
+
+                <h3>¿Es costoso implementar IA en las escuelas?</h3>
+                <p>
+                  Depende del tipo de solución. Existen desde herramientas
+                  gratuitas hasta plataformas premium.
+                </p>
+              </div>
+
+              <!-- Imagen adicional -->
+              <figure>
+                <img
+                  src="https://imgs.search.brave.com/wsMSUhLy7cXo7_-ejS2RLbFk3k_AR6mbtQltDI8BTMs/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly93d3cu/aW5mb2JhZS5jb20v/cmVzaXplci92Mi9Y/UFBYRkFKRlRaR1ZI/SVhWMkJPQ1lKVEtH/TS5qcGc_YXV0aD1j/NDgzZDBlNGVmMjdl/YzMyNDdjOTI3ZGQ5/YzhlNDFmZTM2Nzll/NzYwMjc0MzU0Yzlm/MTAzNDgwMzlhZjE3/ODM0JnNtYXJ0PXRy/dWUmd2lkdGg9MzUw/JmhlaWdodD0xOTYm/cXVhbGl0eT04NQ"
+                  alt="Estudiante usando IA"
+                />
+                <figcaption>
+                  Un estudiante interactuando con un tutor virtual
+                </figcaption>
+              </figure>
+
+              <h2>Recursos y Enlaces</h2>
+
+              <!-- Enlaces internos -->
+              <div class="links-block internos">
+                <h3>Enlaces Internos</h3>
+                <ul>
+                  <li>
+                    <a href="/blog/metodos-aprendizaje"
+                      >Métodos de aprendizaje innovadores</a
+                    >
+                  </li>
+                  <li>
+                    <a href="/blog/futuro-educacion"
+                      >El futuro de la educación online</a
+                    >
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Enlaces externos -->
+              <div class="links-block externos">
+                <h3>Enlaces Externos</h3>
+                <ul>
+                  <li>
+                    <a href="https://edtechmagazine.com">EdTech Magazine</a>
+                  </li>
+                  <li>
+                    <a href="https://unesco.org"
+                      >UNESCO: Educación y Tecnología</a
+                    >
+                  </li>
+                </ul>
+              </div>
+
+              <p>
+                La educación está entrando en una nueva era. Con el uso
+                responsable de la <strong>IA</strong>, se pueden reducir las
+                brechas de acceso, mejorar la calidad del aprendizaje y preparar
+                a los estudiantes para un futuro más competitivo.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="idea-buttons">
+          <button class="btn-third" id="btn-download">Descargar</button>
+          <button class="btn-download-codigo" id="btn-regenerar">
+            Descargar codigo
+          </button>
+          <button class="btn-secondary" id="btn-regenerar">Eliminar</button>
+          <button class="btn-generate" id="btn-generate">Regenerar</button>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      document.querySelectorAll(".auto-expand").forEach((el) => {
+        el.style.overflow = "hidden"; // sin scroll
+        el.addEventListener("input", () => {
+          el.style.height = "40px"; // altura base
+          el.style.height = el.scrollHeight + "px"; // ajusta al contenido
+        });
+      });
+    </script>
+    <script>
+      // Botón regenerar
+      document.getElementById("btn-regenerar").addEventListener("click", () => {
+        const container = document.getElementById("ideas-container");
+        container.innerHTML = ""; // Limpia las burbujas actuales
+
+        // Simulamos nuevas ideas (luego esto se conecta al backend/IA)
+        const nuevasIdeas = [
+          "La evolución de la enseñanza híbrida",
+          "Cómo la IA mejora la personalización del aprendizaje",
+          "El futuro de la educación sin barreras geográficas",
+        ];
+
+        nuevasIdeas.forEach((texto) => {
+          const div = document.createElement("div");
+          div.classList.add("idea-bubble");
+          div.textContent = texto;
+          container.appendChild(div);
+        });
+      });
+    </script>
+  </body>
+</html>

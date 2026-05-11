@@ -147,7 +147,7 @@ function Dashboard() {
         setLoadingTemplates(true);
         // Usar endpoint que devuelve todos los templates (activos e inactivos) para filtrar proyectos
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL ?? "http://192.168.1.129:8000"}/templates/public/all-for-analytics`,
+          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8080"}/templates/public/all-for-analytics`,
         );
         if (response.ok) {
           const templatesData = await response.json();
@@ -241,6 +241,13 @@ function Dashboard() {
     SEARCH_FIELDS,
   );
 
+  const sortByLastModifiedDesc = (list) =>
+    [...list].sort((a, b) => {
+      const dateA = a.lastModified ? new Date(a.lastModified) : new Date(0);
+      const dateB = b.lastModified ? new Date(b.lastModified) : new Date(0);
+      return dateB - dateA;
+    });
+
   // Proyectos visibles según permisos del usuario
   const visibleProyectos = useMemo(() => {
     if (!currentUser) {
@@ -248,26 +255,30 @@ function Dashboard() {
     }
 
     if (isAdminUser(currentUser.id)) {
-      return searchResults;
+      return sortByLastModifiedDesc(searchResults);
     }
 
     if (currentUser.role === "admin") {
-      return searchResults;
+      return sortByLastModifiedDesc(searchResults);
     }
 
     if (currentUser.role === "editor") {
-      return searchResults.filter(
-        (proyecto) =>
-          proyecto.assignedTo === currentUser.id ||
-          proyecto.assignedTo === null ||
-          proyecto.createdBy === currentUser.id,
+      return sortByLastModifiedDesc(
+        searchResults.filter(
+          (proyecto) =>
+            proyecto.assignedTo === currentUser.id ||
+            proyecto.assignedTo === null ||
+            proyecto.createdBy === currentUser.id,
+        ),
       );
     }
 
-    return searchResults.filter(
-      (proyecto) =>
-        proyecto.assignedTo === currentUser.id ||
-        proyecto.createdBy === currentUser.id,
+    return sortByLastModifiedDesc(
+      searchResults.filter(
+        (proyecto) =>
+          proyecto.assignedTo === currentUser.id ||
+          proyecto.createdBy === currentUser.id,
+      ),
     );
   }, [searchResults, currentUser]);
 
@@ -511,7 +522,7 @@ function Dashboard() {
               }
             >
               <Home size={18} />
-              Home
+              Home TEST
             </button>
 
             {/* Analytics Button - Only for Admin/Editor */}
@@ -666,6 +677,7 @@ function Dashboard() {
         {/* Tabla de Proyectos */}
         <ProjectsTable
           proyectos={visibleProyectos}
+          templates={templates}
           users={getAllUsers()}
           currentUser={currentUser}
           onEdit={canEdit}
@@ -692,6 +704,8 @@ function Dashboard() {
         <CreateProyectoModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateProyecto}
+          proyectoFilter={proyecto}
+          theme={currentTheme}
         />
       )}
 
@@ -1026,6 +1040,7 @@ function FilterPanel({
 // Componente de la tabla de proyectos
 function ProjectsTable({
   proyectos,
+  templates,
   users,
   currentUser,
   onEdit,
@@ -1050,6 +1065,20 @@ function ProjectsTable({
       console.error(" Error al verificar landing page:", error);
       alert("Error al acceder a la landing page: " + error.message);
     }
+  };
+
+  const formatUsageType = (categoria) => {
+    const raw = (categoria || "").toString().trim();
+    if (!raw) return "Sin tipo";
+
+    const normalized = raw.toLowerCase();
+    if (normalized.includes("auto")) return "Autos";
+    if (normalized.includes("agenc")) return "Agencias";
+    if (normalized.includes("ofert")) return "Ofertas";
+    if (normalized.includes("local")) return "Localidad";
+    if (normalized.includes("ciudad")) return "Ciudad";
+
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
   };
 
   return (
@@ -1078,6 +1107,19 @@ function ProjectsTable({
                 }}
               >
                 Nombre
+              </th>
+              <th
+                style={{
+                  padding: "0.75rem 1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#374151",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Template usado
               </th>
               <th
                 style={{
@@ -1129,6 +1171,19 @@ function ProjectsTable({
                   letterSpacing: "0.05em",
                 }}
               >
+                Fecha Asignada
+              </th>
+              <th
+                style={{
+                  padding: "0.75rem 1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#374151",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
                 Última Modificación
               </th>
               <th
@@ -1151,6 +1206,9 @@ function ProjectsTable({
               const assignedUser = users?.find(
                 (u) => u.id === proyecto.assignedTo,
               );
+              const templateUsed = templates?.find(
+                (t) => t.id === proyecto.templateId,
+              );
 
               return (
                 <tr
@@ -1171,6 +1229,81 @@ function ProjectsTable({
                         {proyecto.name}
                       </p>
                     </div>
+                  </td>
+
+                  <td style={{ padding: "1rem" }}>
+                    {templateUsed ? (
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.875rem",
+                            fontWeight: "600",
+                            color: "#1e293b",
+                          }}
+                        >
+                          {templateUsed.name}
+                        </p>
+                        <div
+                          style={{
+                            marginTop: "0.375rem",
+                            display: "flex",
+                            gap: "0.375rem",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "0.7rem",
+                              fontWeight: "600",
+                              color: "#1d4ed8",
+                              backgroundColor: "#dbeafe",
+                              padding: "0.15rem 0.45rem",
+                              borderRadius: "9999px",
+                            }}
+                          >
+                            {templateUsed.proyecto || "-"}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "0.7rem",
+                              fontWeight: "600",
+                              color: "#065f46",
+                              backgroundColor: "#d1fae5",
+                              padding: "0.15rem 0.45rem",
+                              borderRadius: "9999px",
+                            }}
+                          >
+                            {formatUsageType(templateUsed.categoria)}
+                          </span>
+                          {templateUsed.dominio && (
+                            <span
+                              style={{
+                                fontSize: "0.7rem",
+                                fontWeight: "600",
+                                color: "#6b21a8",
+                                backgroundColor: "#f3e8ff",
+                                padding: "0.15rem 0.45rem",
+                                borderRadius: "9999px",
+                              }}
+                            >
+                              {templateUsed.dominio}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <p style={{ margin: 0, fontSize: "0.8rem", color: "#9ca3af" }}>
+                          Template no disponible
+                        </p>
+                        {proyecto.templateId && (
+                          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", color: "#9ca3af" }}>
+                            ID: {proyecto.templateId}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </td>
 
                   <td style={{ padding: "1rem" }}>
@@ -1254,6 +1387,16 @@ function ProjectsTable({
                         : proyecto.priority === "medium"
                           ? "Media"
                           : "Baja"}
+                    </span>
+                  </td>
+
+                  <td style={{ padding: "1rem" }}>
+                    <span style={{ fontSize: "0.875rem", color: "#64748b" }}>
+                      {proyecto.assignedAt
+                        ? new Date(proyecto.assignedAt).toLocaleDateString(
+                            "es-ES",
+                          )
+                        : "-"}
                     </span>
                   </td>
 
@@ -1386,7 +1529,7 @@ function ProjectsTable({
 }
 
 // Modal para crear nuevo proyecto
-function CreateProyectoModal({ onClose, onSubmit }) {
+function CreateProyectoModal({ onClose, onSubmit, proyectoFilter, theme = { primary: "#3b82f6", primaryLight: "#dbeafe" } }) {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -1403,7 +1546,7 @@ function CreateProyectoModal({ onClose, onSubmit }) {
       try {
         setTemplatesLoading(true);
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL ?? "http://192.168.1.129:8000"}/templates/public/active`,
+          `${process.env.REACT_APP_API_URL || "http://192.168.1.129:8080"}/templates/public/active`,
         );
 
         if (response.ok) {
@@ -1463,44 +1606,34 @@ function CreateProyectoModal({ onClose, onSubmit }) {
     }
   };
 
-  const [expandedProjects, setExpandedProjects] = useState(new Set());
-
-  const toggleProject = (proyecto) => {
-    const newExpanded = new Set(expandedProjects);
-    if (newExpanded.has(proyecto)) {
-      newExpanded.delete(proyecto);
-    } else {
-      newExpanded.add(proyecto);
-    }
-    setExpandedProjects(newExpanded);
-  };
-
   const renderTemplateSelector = () => {
     if (templatesLoading) {
       return (
         <div
           style={{
-            padding: "2rem",
-            textAlign: "center",
+            padding: "0.75rem 1rem",
             border: "1px solid #e2e8f0",
             borderRadius: "0.375rem",
             backgroundColor: "#f8fafc",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            color: "#64748b",
+            fontSize: "0.875rem",
           }}
         >
           <div
             style={{
-              width: "20px",
-              height: "20px",
-              border: "2px solid #e2e8f0",
+              width: "14px",
+              height: "14px",
+              border: "2px solid #cbd5e1",
               borderTop: "2px solid #3b82f6",
               borderRadius: "50%",
               animation: "spin 1s linear infinite",
-              margin: "0 auto 0.5rem",
+              flexShrink: 0,
             }}
-          ></div>
-          <p style={{ margin: 0, color: "#64748b", fontSize: "0.875rem" }}>
-            Cargando templates...
-          </p>
+          />
+          Cargando templates...
         </div>
       );
     }
@@ -1509,201 +1642,103 @@ function CreateProyectoModal({ onClose, onSubmit }) {
       return (
         <div
           style={{
-            padding: "2rem",
-            textAlign: "center",
-            border: "1px solid #e2e8f0",
+            padding: "0.75rem 1rem",
+            border: "1px solid #fecaca",
             borderRadius: "0.375rem",
             backgroundColor: "#fef2f2",
             color: "#dc2626",
+            fontSize: "0.875rem",
           }}
         >
-          <p style={{ margin: 0, fontSize: "0.875rem" }}>
-            No hay templates disponibles
-          </p>
+          No hay templates disponibles
         </div>
       );
     }
 
+    const visibleGrouped = proyectoFilter
+      ? Object.fromEntries(
+          Object.entries(templatesGrouped).filter(([key]) => key === proyectoFilter)
+        )
+      : templatesGrouped;
+
     return (
       <div
         style={{
-          border: "1px solid #d1d5db",
-          borderRadius: "0.375rem",
-          maxHeight: "400px",
+          border: "1px solid #e2e8f0",
+          borderRadius: "0.5rem",
+          maxHeight: "420px",
           overflowY: "auto",
-          backgroundColor: "white",
+          backgroundColor: "#f8fafc",
+          padding: "1rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "1.25rem",
         }}
       >
-        {Object.entries(templatesGrouped).map(([proyecto, dominios]) => {
-          const isExpanded = expandedProjects.has(proyecto);
-
-          return (
-            <div key={proyecto} style={{ borderBottom: "1px solid #f3f4f6" }}>
-              {/* Header del proyecto - clickeable para expandir/colapsar */}
-              <div
-                style={{
-                  padding: "0.75rem",
-                  backgroundColor: "#f8fafc",
-                  fontWeight: "600",
-                  fontSize: "0.875rem",
-                  color: "#374151",
-                  borderBottom: isExpanded ? "1px solid #e5e7eb" : "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  transition: "background-color 0.2s",
-                  userSelect: "none",
-                }}
-                onClick={() => toggleProject(proyecto)}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#f1f5f9";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "#f8fafc";
-                }}
-              >
-                <span>📁 {proyecto.toUpperCase()}</span>
-                <span
-                  style={{
-                    transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-                    transition: "transform 0.2s",
-                    fontSize: "0.75rem",
-                    color: "#6b7280",
-                  }}
-                >
-                  ▶
-                </span>
-              </div>
-
-              {/* Contenido del proyecto - solo se muestra si está expandido */}
-              {isExpanded && (
+        {Object.entries(visibleGrouped).map(([proyecto, dominios]) =>
+          Object.entries(dominios).map(([dominio, categorias]) => {
+            const allTemplates = Object.values(categorias).flat();
+            return (
+              <div key={`${proyecto}-${dominio}`}>
                 <div
                   style={{
-                    backgroundColor: "white",
-                    animation: "slideDown 0.2s ease-out",
+                    fontSize: "0.7rem",
+                    fontWeight: "700",
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    marginBottom: "0.625rem",
                   }}
                 >
-                  {Object.entries(dominios).map(([dominio, categorias]) => (
-                    <div key={dominio} style={{ paddingLeft: "1rem" }}>
-                      <div
+                  {dominio}
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.5rem",
+                  }}
+                >
+                  {allTemplates.map((template) => {
+                    const isSelected = formData.template_id === template.id;
+                    return (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, template_id: template.id })}
                         style={{
-                          padding: "0.5rem 0.75rem",
-                          backgroundColor: "#fafafa",
-                          fontSize: "0.875rem",
-                          color: "#6b7280",
-                          fontWeight: "500",
+                          padding: "0.4rem 0.9rem",
+                          border: isSelected ? `2px solid ${theme.primary}` : "1px solid #d1d5db",
+                          borderRadius: "9999px",
+                          backgroundColor: isSelected ? theme.primaryLight : "white",
+                          color: isSelected ? theme.primary : "#4b5563",
+                          fontSize: "0.8rem",
+                          fontWeight: isSelected ? "600" : "400",
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          boxShadow: isSelected ? `0 0 0 3px ${theme.primary}33` : "none",
                         }}
                       >
-                        🌐 {dominio}
-                      </div>
-
-                      {Object.entries(categorias).map(
-                        ([categoria, templatesList]) => (
-                          <div key={categoria} style={{ paddingLeft: "1rem" }}>
-                            <div
-                              style={{
-                                padding: "0.25rem 0.75rem",
-                                fontSize: "0.75rem",
-                                color: "#9ca3af",
-                                fontWeight: "500",
-                              }}
-                            >
-                              🏷️ {categoria}
-                            </div>
-
-                            {templatesList.map((template) => (
-                              <label
-                                key={template.id}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  padding: "0.5rem 0.75rem 0.5rem 2rem",
-                                  cursor: "pointer",
-                                  backgroundColor:
-                                    formData.template_id === template.id
-                                      ? "#dbeafe"
-                                      : "transparent",
-                                  transition: "background-color 0.2s",
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (formData.template_id !== template.id) {
-                                    e.target.style.backgroundColor = "#f3f4f6";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (formData.template_id !== template.id) {
-                                    e.target.style.backgroundColor =
-                                      "transparent";
-                                  }
-                                }}
-                              >
-                                <input
-                                  type="radio"
-                                  name="template"
-                                  value={template.id}
-                                  checked={formData.template_id === template.id}
-                                  onChange={(e) =>
-                                    setFormData({
-                                      ...formData,
-                                      template_id: e.target.value,
-                                    })
-                                  }
-                                  style={{ marginRight: "0.5rem" }}
-                                />
-                                <div>
-                                  <div
-                                    style={{
-                                      fontSize: "0.875rem",
-                                      fontWeight: "500",
-                                      color: "#1f2937",
-                                    }}
-                                  >
-                                    {template.name}
-                                  </div>
-                                  {template.description && (
-                                    <div
-                                      style={{
-                                        fontSize: "0.75rem",
-                                        color: "#6b7280",
-                                        marginTop: "0.125rem",
-                                      }}
-                                    >
-                                      {template.description}
-                                    </div>
-                                  )}
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  ))}
+                        {template.name}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              </div>
+            );
+          })
+        )}
 
-        {/* Estilos CSS para la animación */}
         <style>{`
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            max-height: 0;
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
           }
-          to {
-            opacity: 1;
-            max-height: 1000px;
-          }
-        }
-        
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+        `}</style>
       </div>
     );
   };
@@ -1871,12 +1906,12 @@ function CreateProyectoModal({ onClose, onSubmit }) {
               style={{
                 marginBottom: "1.5rem",
                 padding: "0.75rem",
-                backgroundColor: "#f0f9ff",
-                border: "1px solid #0ea5e9",
+                backgroundColor: `${theme.primary}10`,
+                border: `1px solid ${theme.primary}50`,
                 borderRadius: "0.375rem",
               }}
             >
-              <div style={{ fontSize: "0.875rem", color: "#0c4a6e" }}>
+              <div style={{ fontSize: "0.875rem", color: theme.primary }}>
                 <strong>Template seleccionado:</strong>
                 {(() => {
                   const selectedTemplate = templates.find(
@@ -1929,7 +1964,7 @@ function CreateProyectoModal({ onClose, onSubmit }) {
                 backgroundColor:
                   loading || !formData.name.trim() || !formData.template_id
                     ? "#94a3b8"
-                    : "#3b82f6",
+                    : theme.primary,
                 color: "white",
                 cursor:
                   loading || !formData.name.trim() || !formData.template_id

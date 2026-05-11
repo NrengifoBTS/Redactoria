@@ -11,15 +11,13 @@ import enum
 
 class EstadoBlog(str, enum.Enum):
     """Estados posibles de un Blog en el sistema."""
-    DRAFT = "draft"         # Borrador, recién creado (por defecto)
-    GENERATED = "generated" # Estructura generada
-    REVIEW = "review"       # En revisión por un editor
-    APPROVED = "approved"   # Aprobado para publicación
-    PUBLISHED = "published" # Publicado
-    AJUSTED = "ajusted"     # Ajustes aplicados después de revisión
-    PENDING_REVIEW = "pending_review" # Pendiente de revisión
-    PENDING_ADJUSTMENT = "pending_adjustment" # Pendiente de ajuste
-
+    DRAFT = "draft"               # Borrador, recién creado (por defecto)
+    GENERATED = "generated"       # Estructura generada
+    REVIEW = "review"             # En revisión por un editor
+    REVIEWED_AI = "reviewed_ai"   # Revisado por IA (ortografía/SEO)
+    APPROVED = "approved"         # Aprobado para publicación
+    PUBLISHED = "published"       # Publicado
+    AJUSTED = "ajusted"           # Ajustes aplicados después de revisión
 
 class PrioridadBlog(str, enum.Enum):
     """Niveles de prioridad para un Blog."""
@@ -94,4 +92,22 @@ class BlogResponse(BlogBase, InitialParams):
     last_modified: datetime
 
     model_config = ConfigDict(from_attributes=True) # Habilitar compatibilidad con el ORM de SQLAlchemy
+
+
+# =======================================================================
+# 5. MODELOS DE REVISIÓN POR IA
+# =======================================================================
+
+class SpellingError(BaseModel):
+    """Error ortográfico individual reportado por la IA."""
+    wrong: str = Field(..., description="Palabra/expresión tal como aparece en el texto.")
+    correct: str = Field(..., description="Forma correcta sugerida.")
+    reason: Optional[str] = Field(None, description="Motivo: tilde, ortografía, concordancia.")
+
+
+class BlogReviewResponse(BaseModel):
+    """Respuesta del endpoint de revisión ortográfica IA."""
+    blog_id: UUID
+    errors: List[SpellingError]
+    checked_chars: int
 

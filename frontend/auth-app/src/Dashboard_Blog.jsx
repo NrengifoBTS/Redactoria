@@ -17,11 +17,10 @@ const getStatusText = (status) => {
     draft: "Borrador",
     generated: "Estructura Generada",
     review: "En Revisión",
+    reviewed_ai: "Revisado con IA",
     approved: "Aprobado",
     published: "Publicado",
     ajusted: "Ajustes Aplicados",
-    pending_review: "Pendiente Revisión",
-    pending_adjustment: "Pendiente Ajuste",
   };
   return texts[status] || status;
 };
@@ -137,10 +136,9 @@ function EditBlogModal({ blog, onClose, onSubmit }) {
                 <option value="generated">Estructura Generada</option>
                 <option value="published">Publicado</option>
                 <option value="review">En revision</option>
+                <option value="reviewed_ai">Revisado con IA</option>
                 <option value="approved">Aprobado</option>
                 <option value="ajusted">Ajustes aplicados</option>
-                <option value="pending_review">Pendiente Revision</option>
-                <option value="pending_adjustment">Pendiente de ajuste</option>
               </select>
             </div>
           </div>
@@ -519,11 +517,9 @@ const TableRow = ({
       draft: "uil-edit-alt",
       generated: "uil-layer-group",
       review: "uil-clock",
+      reviewed_ai: "uil-robot",
       approved: "uil-check-circle",
       published: "uil-rocket",
-      ajusted: "uil-redo",
-      pending_review: "uil-eye",
-      pending_adjustment: "uil-exclamation-triangle",
     };
     return icons[status] || "uil-info-circle";
   };
@@ -1086,12 +1082,8 @@ const BlogsTable = ({
               <option value="">Estado</option>
               <option value="draft">Borrador</option>
               <option value="review">En Revisión</option>
+              <option value="reviewed_ai">Revisado con IA</option>
               <option value="published">Publicado</option>
-              <option value="generated">Generado</option>
-              <option value="approved">Aprobado</option>
-              <option value="ajusted">Ajustes aplicados</option>
-              <option value="pending_review">Pendiente Revision</option>
-              <option value="pending_adjustment">Pendiente de ajuste</option>
             </select>
 
             <select

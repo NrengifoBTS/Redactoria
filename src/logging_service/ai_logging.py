@@ -66,7 +66,7 @@ class AILoggingService:
                 block_type=block_type,
                 cell_position=cell_position,
                 generation_type=generation_context.get('generation_type', 'initial'),
-                model_name=generation_context.get('model_name', 'openai/gpt-oss-20b'),
+                model_name=generation_context.get('model_name', 'redactoria-v3-gold'),
                 model_url=generation_context.get('model_url'),
                 temperature=generation_context.get('temperature', 0.4),
                 max_tokens=generation_context.get('max_tokens', -1),

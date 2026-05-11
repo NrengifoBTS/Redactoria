@@ -1,3 +1,4 @@
+#redactoria/src/secciones_lp/controller.py
 from fastapi import APIRouter, status
 from typing import List
 from uuid import UUID

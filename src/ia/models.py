@@ -13,12 +13,10 @@ class IAContentRequest(BaseModel):
     blockType: Optional[str] = None
     tema: str
     lpId: UUID
+    brand: Optional[str] = "mcr"
     faq_questions: Optional[List[str]] = None
     car_types: Optional[List[str]] = None
-    template_proyecto: Optional[str] = None
-    template_dominio: Optional[str] = None
-    template_categoria: Optional[str] = None
-    fav_city_questions: Optional[List[str]] = None  
+    fav_city_questions: Optional[List[str]] = None
 
 class StructuredContent(BaseModel):
     """Contenido estructurado específico por bloque"""

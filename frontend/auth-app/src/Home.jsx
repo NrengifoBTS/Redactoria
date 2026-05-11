@@ -4,6 +4,7 @@ import { useApp } from "./context/AppContext";
 import LoginModal from "./Loginmodal";
 import ProyectoModal from "./ProyectoModal";
 import "./Home.css";
+import milesLogo from "./img/Miles-car-rental.png";
 
 const Home = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -47,7 +48,7 @@ const Home = () => {
       titulo: "Redactoria MCR",
       descripcion:
         "Sistema de redacción y gestión de contenido con IA integrada para generación automática de landings pages",
-      imagen: "https://milescdnver.azureedge.net/build/images/logo/logo.svg",
+      imagen: milesLogo,
       links: [
         {
           nombre: "Dashboard Landings Pages",
@@ -161,7 +162,7 @@ const Home = () => {
       links: [
         {
           nombre: "ComfyUI Local",
-          url: process.env.REACT_APP_COMFYUI_URL || "http://127.0.0.1:8188",
+          url: process.env.REACT_APP_COMFYUI_URL || "http://127.0.0.1:8080",
           descripcion: "Generador de imágenes local",
         },
         {
@@ -179,7 +180,7 @@ const Home = () => {
       descripcion:
         "Respuesta automatizadas con agentes IA en las diferentes redes sociales.",
       imagen: "https://cdn-icons-png.flaticon.com/512/3178/3178158.png",
-      link: "https://www.youtube.com/shorts/Ay8lynMZ4mE",
+      link: "",
       estado: "Próximamente",
       tecnologias: [""],
     },
@@ -189,7 +190,7 @@ const Home = () => {
   const empresasClientes = [
     {
       nombre: "MCR",
-      logo: "https://milescdnver.azureedge.net/build/images/logo/logo.svg",
+      logo: milesLogo,
       url: "https://www.milescarrental.com",
       redes: [
         {
@@ -311,7 +312,7 @@ const Home = () => {
                 alt="Logo BTS"
                 className="logo-image"
               />
-              <span className="logo-text">Presents Omina </span>
+              <span className="logo-text">Presents Omina test </span>
             </div>
           </Link>
           <nav className="header-nav">

@@ -2,9 +2,10 @@
 from fastapi import APIRouter, status, Query, HTTPException
 from typing import List, Optional
 from uuid import UUID
-from src.database.core import DbSession 
+from src.database.core import DbSession
 from . import models
 from . import service
+from .review_service import review_blog_spelling
 from ..auth.service import CurrentUser # Asegúrate de que esta importación sea correcta
 
 router = APIRouter(
@@ -73,6 +74,7 @@ def delete_blog(db: DbSession, blog_id: UUID, current_user: CurrentUser):
 # 2. ENDPOINTS DE GESTIÓN (Asignación)
 # =======================================================================
 
+
 @router.post("/{blog_id}/assign", response_model=models.BlogResponse)
 def assign_blog(db: DbSession, blog_id: UUID, assign_request: models.AssignBlogRequest, current_user: CurrentUser):
     """
@@ -119,3 +121,20 @@ def get_blogs_by_user(db: DbSession, user_id: UUID, current_user: CurrentUser):
     Obtener blogs asignados a un usuario específico (Solo Admin/Editor puede usar este endpoint).
     """
     return service.get_blogs_by_user(current_user, db, user_id)
+
+
+# =======================================================================
+# 4. ENDPOINTS DE REVISIÓN POR IA (Revisión ortográfica)
+# =======================================================================
+
+@router.post("/{blog_id}/review-ia", response_model=models.BlogReviewResponse)
+def review_blog_with_ai(db: DbSession, blog_id: UUID, current_user: CurrentUser):
+    """
+    Ejecuta una revisión ortográfica del contenido del blog usando OpenAI.
+    Devuelve la lista de errores detectados sin modificar el contenido y teniendo en cuenta el contexto.
+    El frontend se encarga de resaltarlos y, una vez aplicados, marcar el
+    blog con estado 'reviewed_ai' vía PUT /blogs/{id}.
+    """
+    # El get_blog valida su existencia (lanza 404 si no existe :D)
+    service.get_blog(current_user, db, blog_id)
+    return review_blog_spelling(db, blog_id)
