@@ -160,7 +160,9 @@ def get_metrics(
     proyecto_general: Optional[str] = None,
     user_id: Optional[UUID] = None,
     days: Optional[int] = 30,
-    exclude_admins: bool = False
+    exclude_admins: bool = False,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
 ):
     """
     Get analytics metrics for AI generations and user edits.
@@ -171,6 +173,8 @@ def get_metrics(
     - proyecto_general: Filter by general project name like "viajemos", "mcr" (optional)
     - user_id: Filter by specific user (optional)
     - days: Time range in days (default: 30, None for all time)
+    - date_from: Explicit start date — overrides days when provided (optional)
+    - date_to: Explicit end date — filters records before this date (optional)
 
     Returns:
     - Total generations and edits
@@ -184,8 +188,13 @@ def get_metrics(
     from src.entities.landing_page import LandingPage
     from src.entities.template import Template
 
-    # Calculate cutoff date (None means all time)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days) if days is not None else None
+    # date_from/date_to take priority over days
+    if date_from is not None or date_to is not None:
+        cutoff = date_from.replace(tzinfo=timezone.utc) if date_from and date_from.tzinfo is None else date_from
+        cutoff_end = date_to.replace(tzinfo=timezone.utc) if date_to and date_to.tzinfo is None else date_to
+    else:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days) if days is not None else None
+        cutoff_end = None
 
     # If proyecto_general is provided, get all landing_page_ids that belong to that general project
     landing_page_ids_filter = None
@@ -202,6 +211,8 @@ def get_metrics(
     gen_query = db.query(AIGeneration)
     if cutoff is not None:
         gen_query = gen_query.filter(AIGeneration.created_at >= cutoff)
+    if cutoff_end is not None:
+        gen_query = gen_query.filter(AIGeneration.created_at < cutoff_end)
     if proyecto_id:
         gen_query = gen_query.filter(AIGeneration.proyecto_id == proyecto_id)
     if landing_page_id:
@@ -226,6 +237,8 @@ def get_metrics(
     edit_query = db.query(UserEdit)
     if cutoff is not None:
         edit_query = edit_query.filter(UserEdit.created_at >= cutoff)
+    if cutoff_end is not None:
+        edit_query = edit_query.filter(UserEdit.created_at < cutoff_end)
     if proyecto_id:
         edit_query = edit_query.filter(UserEdit.proyecto_id == proyecto_id)
     if landing_page_id:

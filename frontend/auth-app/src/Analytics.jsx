@@ -30,10 +30,13 @@ function Analytics() {
   const navigate = useNavigate();
   const { currentUser: user, landingPages, loading: userLoading } = useApp();
 
+  const RIA_V2_DATE = "2026-05-11";
+
   const [selectedLP, setSelectedLP] = useState(null);
-  const [selectedProyectoGeneral, setSelectedProyectoGeneral] = useState(null); // "viajemos", "mcr", etc.
+  const [selectedProyectoGeneral, setSelectedProyectoGeneral] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [timeRange, setTimeRange] = useState(30);
+  const [riaVersion, setRiaVersion] = useState(null); // null = todas, "v1" = anterior, "v2" = nueva
   const [includeAdmins, setIncludeAdmins] = useState(true);
   const [metrics, setMetrics] = useState(null);
   const [users, setUsers] = useState([]);
@@ -122,6 +125,7 @@ function Analytics() {
     selectedProyectoGeneral,
     selectedUser,
     timeRange,
+    riaVersion,
     includeAdmins,
     user,
   ]);
@@ -136,8 +140,15 @@ function Analytics() {
         params.append("proyecto_general", selectedProyectoGeneral);
       if (selectedLP) params.append("landing_page_id", selectedLP);
       if (selectedUser) params.append("user_id", selectedUser);
-      if (timeRange !== null) params.append("days", timeRange);
       if (!includeAdmins) params.append("exclude_admins", "true");
+
+      if (riaVersion === "v1") {
+        params.append("date_to", RIA_V2_DATE);
+      } else if (riaVersion === "v2") {
+        params.append("date_from", RIA_V2_DATE);
+      } else if (timeRange !== null) {
+        params.append("days", timeRange);
+      }
 
       const response = await apiService.get(
         `/logs/metrics?${params.toString()}`,
@@ -459,6 +470,55 @@ function Analytics() {
             </select>
           </div>
 
+          {/* Versión RIA */}
+          <div style={{ flex: "1", minWidth: "220px" }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: "12px",
+                fontWeight: "600",
+                color: "#6b7280",
+                marginBottom: "4px",
+              }}
+            >
+              Versión RIA
+            </label>
+            <div style={{ display: "flex", gap: "4px" }}>
+              {[
+                { value: null, label: "Todas" },
+                { value: "v1", label: "Anterior" },
+                { value: "v2", label: "Nueva (v2)" },
+              ].map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => setRiaVersion(opt.value)}
+                  title={
+                    opt.value === "v1"
+                      ? `Antes del ${RIA_V2_DATE}`
+                      : opt.value === "v2"
+                      ? `Desde el ${RIA_V2_DATE}`
+                      : "Todo el historial"
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "8px 4px",
+                    fontSize: "12px",
+                    fontWeight: riaVersion === opt.value ? "700" : "400",
+                    border: "1px solid",
+                    borderColor: riaVersion === opt.value ? "#6366f1" : "#e5e7eb",
+                    borderRadius: "8px",
+                    backgroundColor: riaVersion === opt.value ? "#6366f1" : "white",
+                    color: riaVersion === opt.value ? "white" : "#374151",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Time Range Filter */}
           <div style={{ flex: "1", minWidth: "200px" }}>
             <label
@@ -466,7 +526,7 @@ function Analytics() {
                 display: "block",
                 fontSize: "12px",
                 fontWeight: "600",
-                color: "#6b7280",
+                color: riaVersion !== null ? "#d1d5db" : "#6b7280",
                 marginBottom: "4px",
               }}
             >
@@ -479,13 +539,16 @@ function Analytics() {
                   e.target.value === "" ? null : Number(e.target.value),
                 )
               }
+              disabled={riaVersion !== null}
               style={{
                 width: "100%",
                 padding: "8px 12px",
                 border: "1px solid #e5e7eb",
                 borderRadius: "8px",
                 fontSize: "14px",
-                backgroundColor: "white",
+                backgroundColor: riaVersion !== null ? "#f9fafb" : "white",
+                color: riaVersion !== null ? "#9ca3af" : "inherit",
+                cursor: riaVersion !== null ? "not-allowed" : "pointer",
               }}
             >
               <option value="">Todo el tiempo</option>
