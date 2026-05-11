@@ -304,6 +304,22 @@ body {
   background: #fef3c7;
   color: #92400e;
 }
+.status-approved {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+.status-ajusted {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+.status-pending_review {
+  background: #ffedd5;
+  color: #c2410c;
+}
+.status-pending_adjustment {
+  background: #fce7f3;
+  color: #be185d;
+}
 
 .priority-Alta {
   color: #ef4444;

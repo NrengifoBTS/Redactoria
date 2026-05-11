@@ -17,6 +17,9 @@ class EstadoBlog(str, enum.Enum):
     APPROVED = "approved"   # Aprobado para publicación
     PUBLISHED = "published" # Publicado
     AJUSTED = "ajusted"     # Ajustes aplicados después de revisión
+    PENDING_REVIEW = "pending_review" # Pendiente de revisión
+    PENDING_ADJUSTMENT = "pending_adjustment" # Pendiente de ajuste
+
 
 class PrioridadBlog(str, enum.Enum):
     """Niveles de prioridad para un Blog."""

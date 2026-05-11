@@ -20,6 +20,8 @@ const getStatusText = (status) => {
     approved: "Aprobado",
     published: "Publicado",
     ajusted: "Ajustes Aplicados",
+    pending_review: "Pendiente Revisión",
+    pending_adjustment: "Pendiente Ajuste",
   };
   return texts[status] || status;
 };
@@ -137,6 +139,8 @@ function EditBlogModal({ blog, onClose, onSubmit }) {
                 <option value="review">En revision</option>
                 <option value="approved">Aprobado</option>
                 <option value="ajusted">Ajustes aplicados</option>
+                <option value="pending_review">Pendiente Revision</option>
+                <option value="pending_adjustment">Pendiente de ajuste</option>
               </select>
             </div>
           </div>
@@ -517,6 +521,9 @@ const TableRow = ({
       review: "uil-clock",
       approved: "uil-check-circle",
       published: "uil-rocket",
+      ajusted: "uil-redo",
+      pending_review: "uil-eye",
+      pending_adjustment: "uil-exclamation-triangle",
     };
     return icons[status] || "uil-info-circle";
   };
@@ -1083,6 +1090,8 @@ const BlogsTable = ({
               <option value="generated">Generado</option>
               <option value="approved">Aprobado</option>
               <option value="ajusted">Ajustes aplicados</option>
+              <option value="pending_review">Pendiente Revision</option>
+              <option value="pending_adjustment">Pendiente de ajuste</option>
             </select>
 
             <select
